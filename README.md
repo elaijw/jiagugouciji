@@ -707,6 +707,28 @@ App.modes.register({
 > 选材原则：**不用来路不明的仿造字形**。数据集里没有的字（例如合体字的整字甲骨形）
 > 就如实说明，改用构件组合示意并标注「组合」，不画一个假的冒充真字形。
 
+### 声音：`assets/bgm-guzheng.mp3` + `assets/bone-clack.wav`
+
+两段都是 Freesound 上的 **CC0** 素材（出处已核对到声音页本身的
+creativecommons.org 链接，不是靠搜索条件推断）。
+
+| 用途 | 文件 | 出处 | 授权 | 处理 |
+|---|---|---|---|---|
+| 背景音乐 | `bgm-guzheng.mp3`（85s，1.9MB，约 190kbps） | Freesound `472707`「guzheng solo」 | CC0 1.0 | 未改，整段循环 |
+| 骨板拨动 | `bone-clack.wav`（0.22s，21KB，48kHz 16bit 单声道） | Freesound `702293`「Bones Clacking Against Floor」 | CC0 1.0 | 从 14.5s 原录音里切出**单次击打**，归一化到 -1.5dBFS，尾部 55ms 淡出 |
+
+**为什么只能走 `<audio>`、不能进 Web Audio**：站是 `file://` 双击可跑的，
+实测 `createMediaElementSource` 在 `file://` 下输出恒为 0（opaque origin →
+媒体被判跨源、tainted → 静音）。所以音量只能用 `el.volume`，
+也没有办法做滤波/压缩。相关验证脚本：`dev/_probe_filemedia.js`。
+
+**降级**：两个文件任一加载失败就退回振荡器实时合成（`js/core/audio.js` 里的
+`startSynthMusic` / `synthPluck`），不会整站无声。
+
+**换素材**：把新文件放 `assets/`，改 `js/core/audio.js` 顶部的
+`BGM_SRC` / `SFX_SRC`（记得同时改 `?v=` 后面的版本号）。
+`dev/_cut_clack.js` 可以从任意一段敲击录音里切出干净的一击。
+
 ### 构件字形：`js/core/glyph-parts.json`
 
 **61 个甲骨字形**，供拼字/拆字/配对三个玩法使用，同样出自上面这份数据集，

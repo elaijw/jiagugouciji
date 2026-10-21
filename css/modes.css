@@ -1,5 +1,5 @@
 /* ============================================================================
-   字趣 · 玩法层样式
+   字有骨气 · 玩法层样式
    对局界面：比分板、字卡、放置槽、构件台、质问台、卜问、复盘
    这些类名来自原单文件原型（app.css 中已有部分），此处按新主题补齐与统一。
    ============================================================================ */
@@ -566,6 +566,38 @@
 .bb-question-label,
 .bb-question-sub { color: rgba(243, 230, 207, .54); font-size: 10px; }
 .bb-question-char { color: #f0d7ac; font-size: clamp(40px, 7vw, 68px); font-weight: 500; }
+
+/* 题面同时给两种字形：左边甲骨（真构件拼合示意），右边今字。
+   .has-ob 时卡片改竖排——上一行并置两种字形，下一行小字说任务。
+   甲骨一侧要让出"更重"的位置给今字：构件各 52px，
+   上下相叠的（屋盖类）再收一档，否则整片比今字还抢。 */
+.bb-question-card.has-ob {
+  flex-direction: column;
+  gap: 9px;
+  padding: 16px 18px 12px;
+}
+.bb-qpair-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+.bb-qface { display: grid; justify-items: center; gap: 6px; }
+.bb-qface .bb-question-label { line-height: 1; }
+.bb-qface-glyph { color: #f0d7ac; }
+.bb-qface-glyph .obcomp-g { width: 52px; height: 52px; }
+.bb-qface-glyph .obcomp.stack .obcomp-g { width: 46px; height: 46px; }
+/* 竖线分隔：两端淡出，不要变成一根硬杠 */
+.bb-qface-sep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 56px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(230, 199, 151, .30) 20%,
+    rgba(230, 199, 151, .30) 80%,
+    transparent 100%);
+}
 .bb-choice-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .bb-choice-head h3 { margin: 0 0 9px; color: #e9d6b6; font-size: 14px; font-weight: 500; }
 .bb-choice-head span { color: rgba(243, 230, 207, .5); font-size: 10px; }
@@ -824,10 +856,16 @@
 .wy2-guide-copy { display: grid; gap: 3px; }
 .wy2-guide-copy b { color: var(--ink); font-size: 12px; font-weight: 500; }
 .wy2-guide-copy span { color: var(--ink-2); font-size: 11px; line-height: 1.6; }
-.wy2-reset { margin-left: auto; padding: 6px 10px; color: var(--ink-soft);
+.wy2-acts { margin-left: auto; display: flex; align-items: center;
+  gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.wy2-reset { margin-left: 0; padding: 6px 10px; color: var(--ink-soft);
   font: inherit; font-size: 10px; background: none; border: 1px solid var(--edge);
   cursor: pointer; }
 .wy2-reset:hover { color: var(--cinnabar-tint); border-color: var(--cinnabar-tint); }
+/* 演示点亮：默认与"重置"同样克制，开着时用朱砂点一下，
+   让人一眼看出「现在是演示态，不是你真实进度」 */
+.wy2-lite.on { color: var(--cinnabar); border-color: var(--cinnabar);
+  background: color-mix(in srgb, var(--cinnabar) 8%, transparent); }
 .wy2-credit { margin: 14px 0 0; color: var(--ink-soft); font-size: 9.5px;
   line-height: 1.7; }
 
@@ -866,6 +904,146 @@
 .wy2-region.on { color: #fff3dc; background: var(--cinnabar);
   border-color: var(--cinnabar); }
 
+/* ----------------------------------------------------------------------------
+   小地图上的活气层：雨、火、水光、浮尘（节点由 wangyi-map.js 的 buildMotion 拼）
+   ----------------------------------------------------------------------------
+   和小地图共用同一套用户坐标（2624×1472），缩放 / 拖动 / 切区域都贴着实物；
+   一律不接收指针事件（热点在它上面那一层）。
+   ⚠ 所有缩放都写 transform-box: fill-box —— SVG 元素默认的变换原点是
+     「用户坐标原点」，不写的话 scale 会把元素甩出画面。
+   ---------------------------------------------------------------------------- */
+.wy2-motion { position: absolute; inset: 0; display: block;
+  pointer-events: none; }
+
+.wy2-motion .m-glow { transform-box: fill-box; transform-origin: center;
+  opacity: var(--a0, .1);
+  animation: wy2mGlow var(--dur, 9s) ease-in-out infinite alternate; }
+@keyframes wy2mGlow {
+  from { opacity: var(--a0, .1); transform: scale(.94); }
+  to   { opacity: var(--a1, .24); transform: scale(1.06); }
+}
+
+/* 雨 / 瀑布：落完就淡掉，负延迟让开场时"雨已经在下" */
+.wy2-motion .m-drop { stroke: #7d6650; stroke-width: 3; stroke-linecap: round;
+  stroke-opacity: var(--o, .28); opacity: 0;
+  animation: wy2mDrop 2.4s linear infinite; }
+@keyframes wy2mDrop {
+  0%   { transform: translateY(0); opacity: 0; }
+  14%  { opacity: 1; }
+  74%  { opacity: 1; }
+  100% { transform: translateY(var(--fall, 220px)); opacity: 0; }
+}
+
+/* 火星：升、飘、缩、灭 */
+.wy2-motion .m-ember { fill: #f2a850; opacity: 0;
+  animation: wy2mEmber 2.8s ease-out infinite; }
+@keyframes wy2mEmber {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0; }
+  12%  { opacity: var(--o, .8); }
+  70%  { opacity: .42; }
+  100% { transform: translate(var(--dx, 0px), var(--rise, -240px)) scale(.2);
+         opacity: 0; }
+}
+
+/* 光晕与水光：一层 div，光斑 / 水光都用 CSS radial-gradient。
+   放在图之上、热点之下；只有极淡的加光，没有任何边界。 */
+.wy2-atmos { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  overflow: hidden; }
+.wy2-atmos .m-glowblob { position: absolute; opacity: var(--a0, .12);
+  animation: wy2mGlowBlob 9s ease-in-out infinite alternate; }
+@keyframes wy2mGlowBlob {
+  from { opacity: var(--a0, .12); transform: scale(.94); }
+  to   { opacity: var(--a1, .24); transform: scale(1.05); }
+}
+.wy2-atmos .m-wetblob { position: absolute; will-change: transform, opacity;
+  background: radial-gradient(ellipse at center,
+    rgba(255, 255, 255, .5) 0%, rgba(255, 255, 255, .26) 38%,
+    rgba(255, 255, 255, .07) 62%, rgba(255, 255, 255, 0) 78%);
+  animation: wy2mWet 18s ease-in-out infinite alternate; }
+@keyframes wy2mWet {
+  from { opacity: .34; transform: translateX(-16px) scale(.98); }
+  to   { opacity: .78; transform: translateX(16px) scale(1.03); }
+}
+
+/* 水面微光：一条短横光错落明灭，同时极缓地横向挪一点。
+   ⚠ 这里**只能**用 translate，不能用 scaleX：水平线的 fill-box 高度是 0，
+     transform-box: fill-box 拿到的是一个退化的盒子 —— 缩放在它上面算不出来，
+     整条线直接不画（第一版就是这样，8 条水光一条都没出现，查了半天）。 */
+.wy2-motion .m-shimmer { stroke: #fffbef; stroke-width: 7; stroke-linecap: round;
+  stroke-opacity: var(--o, .45); opacity: 0;
+  animation: wy2mShimmer 6.4s ease-in-out infinite; }
+@keyframes wy2mShimmer {
+  /* 谷底留 .08 而不是 0：水面上总有几处亮着，才不会"一阵一亮、一阵全无" */
+  0%, 100% { opacity: .08; transform: translateX(0); }
+  42%      { opacity: 1; transform: translateX(var(--dx, 8px)); }
+  68%      { opacity: .26; transform: translateX(var(--dx, 8px)); }
+}
+
+/* 涟漪：一圈扩散出去，别用 100% 收尾，否则会看到"环"突然中断 */
+.wy2-motion .m-ripple { fill: none; stroke: #fffbef; stroke-width: 5;
+  stroke-opacity: var(--o, .5); opacity: 0;
+  transform-box: fill-box; transform-origin: center;
+  animation: wy2mRipple 6.8s ease-out infinite; }
+@keyframes wy2mRipple {
+  0%   { opacity: 0; transform: scale(.4); }
+  18%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.32); }
+}
+
+/* 浮尘 / 谷屑：慢到几乎看不出，但一直在挪 */
+.wy2-motion .m-mote { fill: var(--tone, #b1936a); opacity: 0;
+  animation: wy2mMote 16s linear infinite; }
+@keyframes wy2mMote {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  18%  { opacity: var(--o, .35); }
+  72%  { opacity: var(--o, .35); }
+  100% { transform: translate(var(--dx, 60px), var(--dy, -90px)); opacity: 0; }
+}
+
+/* 全景时画面极缓地推一下（44s 一个来回，只放大 3.2%）。
+   「活」的第一层其实不是雨和火，是**这幅画自己在呼吸** —— 静帧最大的问题
+   是它一眼就能被认成图片；哪怕只挪动 1%，眼睛也会把它归到"现场"。
+   ⚠ 只在 .is-fit（全景）下挂：放大后要拖动，overflow 必须留在 auto，
+     而推镜本身要求把溢出的部分裁掉。全景时图正好铺满视口，
+     裁掉的 1.4% 是插画自己的留白，不伤任何实物。
+     transform 挂在 stage 上，热点是 stage 的子节点，所以永远跟着图走。 */
+.wy2-viewport.is-fit { overflow: hidden; }
+.wy2-viewport.is-fit .wy2-stage {
+  transform-origin: 50% 56%;
+  animation: wy2mPan 34s ease-in-out infinite alternate; }
+@keyframes wy2mPan {
+  from { transform: scale(1) translate3d(0, 0, 0); }
+  to   { transform: scale(1.032) translate3d(-.5%, .35%, 0); }
+}
+
+/* 裱边自身的深浅：靠外一圈略微收暗，读成"绫面往画框里转下去"。
+   第一版这里是"同一张图放大了糊满整层"当环境光 —— 试到模糊 42 仍然能看出
+   那道竖直的接缝（画面清楚、两侧雾化，分界线比原来的硬边还明显）。
+   糊是补不掉接缝的，只有换语言：把留边做成**真的裱边**。 */
+.wy2-veil { position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 74% 82% at 50% 46%,
+      rgba(255, 252, 244, 0) 58%, rgba(122, 96, 62, .11) 100%); }
+/* 视口自身一圈内影：把画心与两侧环境光收进同一个画框里。
+   120px 是有意的 —— 比信箱边（约 200px）窄一档，够把两侧压成"暗",
+   又不至于糊到画心上（80 以内基本看不出）。 */
+.wy2-viewport::after { content: ''; position: absolute; inset: 0; z-index: 5;
+  pointer-events: none;
+  box-shadow: inset 0 0 120px rgba(104, 80, 48, .17); }
+
+/* 减少动效：只留静止的几团柔光（呼吸光），雨火星水光浮尘全收掉 ——
+   定格在半空的雨丝看着像画面上的脏点 */
+@media (prefers-reduced-motion: reduce) {
+  .wy2-motion .m-glow { animation: none; }
+  .wy2-motion .m-drop,
+  .wy2-motion .m-ember,
+  .wy2-motion .m-shimmer,
+  .wy2-motion .m-ripple,
+  .wy2-motion .m-mote,
+  .wy2-atmos .m-wetblob { display: none; }
+  .wy2-viewport.is-fit .wy2-stage { animation: none; }
+}
+
 /* 手势提示：一次性，交互后就收起 */
 .wy2-gesture { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
   margin: 9px 0 0; padding: 8px 12px; color: var(--ink-2); font-size: 11px;
@@ -886,13 +1064,33 @@
   display: flex;                 /* 全景比视口小时居中，不留一块空白在左上角 */
   height: clamp(300px, calc(100vh - 268px), 700px);
   max-height: calc(100vh - 76px);
-  background: var(--bone1); border: 1px solid var(--edge);
+  /* 视口不再是"一块纯色纸"，而是**装裱的绫面**：
+     画面按 contain 铺进来，两侧必然留边 —— 那是装裱本来就有的边，
+     不是 bug。所以这里给出真实的绫（纤维 + 骨纹），让留边读成"裱边"。
+     纯色 #f3e9d6 的问题是它比页面底色更白、边界又硬，
+     于是整幅画读成"一张明信片贴在卡纸上"。 */
+  /* 比画心深半档：装裱的绫通常是比画心深一档的色，画心才"浮"在上面。
+     深得太多会变成"画放在一块褐色板上"；这半档是能读出来又不抢的界。 */
+  background-color: #e2cfac;
+  background-image: var(--fiber), url("../assets/bone-surface.png");
+  background-size: 84px 84px, 360px 360px;
+  background-repeat: repeat, repeat;
+  background-blend-mode: multiply, normal;
+  border: 1px solid var(--edge);
   touch-action: pan-x pan-y; overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scroll-margin-top: 76px; }
 .wy2-stage { position: relative; flex: 0 0 auto; margin: auto; }
 .wy2-art { position: absolute; inset: 0; display: block; width: 100%; height: 100%;
-  user-select: none; -webkit-user-drag: none; }
+  user-select: none; -webkit-user-drag: none;
+  /* 界格 + 两道影：画面是**压在**绫面上的，所以边上有 1px 的接线，
+     以及一层贴身的暗和一层散开的影。没有这两样，画心与裱边是同一张纸上
+     印了两块颜色，谁压着谁读不出来。 */
+  box-shadow:
+    0 0 0 1px rgba(118, 92, 56, .42),          /* 画心自己的硬边 */
+    0 0 0 4px rgba(255, 252, 241, .62),        /* 距条：画心与绫之间那条窄的浅绢 */
+    0 3px 6px -2px rgba(92, 68, 36, .18),      /* 压在绫上的贴身影 */
+    0 16px 30px -18px rgba(92, 68, 36, .45); } /* 坐下来的散影 */
 .wy2-hotspots { position: absolute; inset: 0; display: block; }
 
 .wy2-hit { fill: rgba(255, 255, 255, .001); cursor: pointer; }
@@ -1100,6 +1298,9 @@
   .bb-question-note { font-size: 10px; line-height: 1.6; }
   .bb-question-card { min-height: 92px; gap: 8px; }
   .bb-question-char { font-size: 48px; }
+  .bb-qpair-row { gap: 12px; }
+  .bb-qface-glyph .obcomp-g { width: 42px; height: 42px; }
+  .bb-qface-glyph .obcomp.stack .obcomp-g { width: 38px; height: 38px; }
   .bb-intro-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
   .bb-intro-choice { min-height: 83px; }
   .bb-choice-glyph { width: 44px; height: 44px; }
@@ -2009,15 +2210,7 @@ h3.sec { font-size: 14px; margin: 14px 0 6px; letter-spacing: .5px; }
 .bo-tier-img {
   display: block; width: 100%; height: clamp(84px, 9.4vw, 136px);
   object-fit: contain;
-  /* 这三只是线稿代用图，本身是冷灰；套一层暖调让它跟全站的骨色手绘同一色温。
-     换成正式立绘后可以去掉 sepia。 */
-  filter: sepia(.34) saturate(1.06) contrast(1.02);
-  /* 立绘是「米色纸上画的水墨兽」，纸底与卡片同为米色，
-     用 multiply 混合让纸底直接融进卡片，不留一圈方形底色。 */
-  /* 立绘底是比卡片更亮的米白纸；用 darken 让「更亮的那层」被卡片顶替，
-     纸底自然消失，只留下比卡片深的墨与色块。 */
-
-    drop-shadow(0 7px 11px rgba(62, 45, 28, .16));
+  filter: drop-shadow(0 7px 11px rgba(62, 45, 28, .16));
 }
 .bo-tier-artname {
   font-size: var(--fs-sm); letter-spacing: 2px; color: var(--bronze-tint);
@@ -2753,8 +2946,7 @@ h3.sec { font-size: 14px; margin: 14px 0 6px; letter-spacing: .5px; }
   .modes-scene .lv-intro-copy { order: 1; }
   .modes-scene .lv-guide { order: 2; }
 
-  .modes-scene .lv-title { font-size: clamp(28px, 6.6vw, 38px);
-  text-wrap: balance; max-width: 20em; }
+  .modes-scene .lv-title { font-size: clamp(30px, 8vw, 40px); }
   .modes-scene .lv-row { gap: 0; padding: 10px 0 4px; }
   .modes-scene .lv-row::before { display: none; }
   .modes-scene .lv,
@@ -3501,72 +3693,3 @@ h3.sec { font-size: 14px; margin: 14px 0 6px; letter-spacing: .5px; }
   /* 呼吸环去掉；按钮仍是朱砂实底，位置本身已经够醒目了 */
   .scene.boss-raid .bd-guide-btn { animation: none; }
 }
-
-/* 首页/开始游戏页大标题：不许把最后一个字挤到第二行。
-   实测：多条 .lv-title 的字号规则互相覆盖，前面改的会被后面的盖掉，
-   所以这里用「高特异性 + 放在文件末尾 + balance」一次性定死。 */
-.scene.modes-scene .lv-title {
-  font-size: clamp(24px, 2.4vw, 34px);
-  max-width: 22em;
-  text-wrap: balance;
-  overflow-wrap: normal;
-  word-break: keep-all;
-}
-
-/* 第三关三档徽记：甲骨字形拼成，不用图片。高度沿用原来那张立绘，左右两栏不跳。 */
-.bo-tier-emblem { display:block; width:100%; height:clamp(84px,9.4vw,136px);
-  color:var(--ink); filter: drop-shadow(0 7px 11px rgba(62,45,28,.10)); }
-.bo-tier-emblem path { stroke-width: 1.9px; }
-
-/* ============================================================
-   第三关三档：改成「开始游戏」页那种三栏卡片并排。
-   原来是三张横向长条（左图右字）竖着堆，占满整屏高度、
-   一屏只看得到一阶；改成三列后，三阶一屏看全，像选关页一样。
-   ============================================================ */
-.bo-board {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s-4);
-  align-items: stretch;
-}
-/* 卡片内部改竖排：徽记在上、阶名与关卡在下 */
-.bo-tier {
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
-  align-items: start;
-  gap: var(--s-3);
-  padding: var(--s-4);
-}
-.bo-tier.current { border-left: 1px solid var(--edge); }
-.bo-tier.current::before {
-  content: ''; position: absolute; left: -1px; top: 10px; bottom: 10px;
-  width: 3px; border-radius: 2px; background: var(--cinnabar);
-}
-.bo-tier-art { align-items: center; }
-.bo-tier-emblem { height: clamp(116px, 9.6vw, 148px); }
-.bo-tier-head { flex-wrap: wrap; }
-/* 六到九颗珠子在一张窄卡里必须能换行，否则挤出卡片 */
-.bo-tier-beads { flex-wrap: wrap; row-gap: var(--s-2); }
-@media (max-width: 1080px) {
-  .bo-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 720px) {
-  .bo-board { grid-template-columns: minmax(0, 1fr); }
-  .bo-tier-emblem { height: 108px; }
-}
-
-/* 徽记底衬：一块浅色「骨版」，让字形像拓在骨面上而不是飘在卡片里。
-   用径向渐变模拟骨面的凹凸，不引入任何图片。 */
-.bo-tier-art {
-  position: relative;
-  padding: 8px 10px 4px;
-  border-radius: 14px;
-  background:
-    radial-gradient(ellipse at 38% 30%, #fffdf8 0%, #f6ecda 46%, #eadfc6 100%);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--edge) 62%, transparent),
-              inset 0 2px 10px rgba(120, 96, 60, .10);
-}
-.bo-tier-done-mark { position: absolute; right: 10px; top: 8px; }
-
-/* 悬停换出来的专属形象：叠在徽记之上，等高居中 */
-.bo-tier-hover { position: relative; }

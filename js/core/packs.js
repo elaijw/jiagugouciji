@@ -1,5 +1,5 @@
 /* ============================================================
-   字趣 · 通用内容包
+   字有骨气 · 通用内容包
    —— 平台不只服务"字包"这一种数据。这里把内容包抽象成带 type 的通用结构：
       cards  字包（构件 + 字卡）
       quiz   题库（题目 + 选项 + 答案）
@@ -211,10 +211,10 @@
   }
   /* 导出／导入（单个或全部） */
   function exportOne(pack) {
-    return JSON.stringify({ app: '字趣', v: 1, kind: 'pack', pack: pack }, null, 1);
+    return JSON.stringify({ app: '字有骨气', v: 1, kind: 'pack', pack: pack }, null, 1);
   }
   function exportAll() {
-    return JSON.stringify({ app: '字趣', v: 1, kind: 'packs', packs: loadUser() }, null, 1);
+    return JSON.stringify({ app: '字有骨气', v: 1, kind: 'packs', packs: loadUser() }, null, 1);
   }
   function importText(text) {
     var o = JSON.parse(text);

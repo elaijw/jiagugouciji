@@ -1,5 +1,5 @@
 /* ============================================================
-   字趣 · 玩法模块：殷商王邑（大地图 → 主题小地图 → 点实物学字）
+   字有骨气 · 玩法模块：殷商王邑（大地图 → 主题小地图 → 点实物学字）
 
    结构（对应需求「一、二、三」）：
 
@@ -88,6 +88,10 @@
   var S = {
     view: 'map', zone: null, sel: null, lens: null, showHot: false,
     scroll: { left: 0, top: 0 }, zoom: 1,
+    /* lite：演示点亮。说明页写了「演示或展示时，可以一次点亮全部 61 处」，
+       落地成一个显式开关——打开时**只在画面上**把所有实物当作已学，
+       存档一个字都不写；关掉就回到玩家自己的进度。 */
+    lite: false,
     /* manual：玩家自己放大过（按钮 / 双指 / 滚轮）。
        自己放大之后，再点一次就直接开卡，不必「先点放大、再点开卡」两步。 */
     manual: false,
@@ -144,13 +148,26 @@
     return { zones: zones.length, total: total, done: done, clear: clear };
   }
 
+  /* 演示点亮用的「假进度」：每个分区的每个实物都算已学。
+     只在读画面时用，绝不交给 markDone——否则一次演示就会把 61 个字
+     真写进存档，把玩家的真实进度冲掉。 */
+  function liteProgress() {
+    var seen = {};
+    ((MAP && MAP.zones) || []).forEach(function (z) {
+      seen[z.id] = (z.objects || []).map(function (o) { return o.char; });
+    });
+    return { done: seen };
+  }
+  /* 画面上的进度：演示中读假进度，平时读真实存档 */
+  function readProgress() { return S.lite ? liteProgress() : progress(); }
+
   /* ============================================================
      挂载
      ============================================================ */
   function mount(host) {
     S.view = 'map'; S.zone = null; S.sel = null; S.lens = null;
     S.showHot = false; S.scroll = { left: 0, top: 0 }; S.zoom = 1;
-    S.manual = false; S.hint = false; S.region = null;
+    S.manual = false; S.hint = false; S.region = null; S.lite = false;
     S.flow = null; S.drag = null;
 
     var root = App.el('div', 'scene wangyi');
@@ -186,7 +203,7 @@
        ① 大地图：唯一选图入口
        ---------------------------------------------------------- */
     function renderWorld(el) {
-      var p = progress();
+      var p = readProgress();
       var st = worldStat(p);
 
       var head = App.el('header', 'wy2-head');
@@ -194,13 +211,13 @@
       copy.appendChild(App.el('p', 'wy2-kicker', '第二关 · 殷商王邑'));
       copy.appendChild(App.el('h2', 'wy2-title', '五片王邑，点一处进去'));
       copy.appendChild(App.el('p', 'wy2-lead',
-        '这是一座三千年前的王邑。五片区域任意顺序进入：点图中的实物认甲骨文，认得的字就记在这一片名下。一片学完，这一片的进度就记满了。'));
+        '这是一座三千年前的王邑。五片区域任意顺序进入：点图中的实物认甲骨文，认得的字就记在这一片名下。一片学完，这一片就亮起来。'));
       head.appendChild(copy);
 
       var meter = App.el('div', 'wy2-head-meter');
       var mline = App.el('p', 'wy2-meter-line');
       mline.appendChild(App.el('strong', null, st.clear + ' / ' + st.zones));
-      mline.appendChild(App.el('span', null, ' 片已学完'));
+      mline.appendChild(App.el('span', null, ' 片已点亮'));
       meter.appendChild(mline);
       var bar = App.el('span', 'wy2-meter');
       var fill = App.el('i', 'wy2-meter-fill');
@@ -246,7 +263,7 @@
         var txt = App.el('span', 'wy2-pin-txt');
         txt.appendChild(App.el('b', null, z.name));
         txt.appendChild(App.el('span', null,
-          s.clear ? '已学完' : (s.done ? s.done + ' / ' + s.total : s.total + ' 个字')));
+          s.clear ? '已点亮' : (s.done ? s.done + ' / ' + s.total : s.total + ' 个字')));
         pin.appendChild(txt);
         pin.setAttribute('aria-label',
           '进入' + z.name + '（' + s.done + ' / ' + s.total + ' 个字已学）');
@@ -267,24 +284,43 @@
       var gcopy = App.el('div', 'wy2-guide-copy');
       if (st.clear >= st.zones && st.zones) {
         gcopy.appendChild(App.el('b', null, '五片都亮了'));
-        gcopy.appendChild(App.el('span', null, '五片都学完了。想再看一遍，随时点回去。'));
+        gcopy.appendChild(App.el('span', null, '王邑全图复明。想再看一遍，随时点回去。'));
       } else if (st.done === 0) {
         gcopy.appendChild(App.el('b', null, '龟宝：先挑一片顺眼的'));
         gcopy.appendChild(App.el('span', null, '五个区域都能进。进去后点图上看得见的东西。'));
       } else {
         gcopy.appendChild(App.el('b', null, '龟宝：还差 ' + (st.total - st.done) + ' 个字'));
         gcopy.appendChild(App.el('span', null,
-          '已学完 ' + st.clear + ' 片。点地图上别的区域，继续认。'));
+          '已点亮 ' + st.clear + ' 片。点地图上还暗着的地方，继续认。'));
       }
       guide.appendChild(gcopy);
+      /* 演示开关与重置：两个都往右下角靠，所以先包一层带 auto 外边距的行 */
+      var acts = App.el('div', 'wy2-acts');
+
+      var lite = App.el('button', 'wy2-reset wy2-lite' + (S.lite ? ' on' : ''),
+        S.lite ? '演示中 · 回真实进度' : '演示：点亮全图');
+      lite.type = 'button';
+      lite.setAttribute('aria-pressed', S.lite ? 'true' : 'false');
+      lite.title = '给评委演示时，一次点亮全部 ' + st.total + ' 处；只在屏幕上亮，不改存档';
+      lite.onclick = function () {
+        S.lite = !S.lite;
+        App.toast(S.lite
+          ? '演示点亮：' + st.total + ' 处全亮，存档没动'
+          : '已回到你的真实进度');
+        render();
+      };
+      acts.appendChild(lite);
+
       var reset = App.el('button', 'wy2-reset', '重置本关进度');
       reset.type = 'button';
       reset.onclick = function () {
         if (!window.confirm('重置第二关的学习记录？其它两关的进度不受影响。')) { return; }
         App.store.del(STORE_KEY);
+        S.lite = false;
         render();
       };
-      guide.appendChild(reset);
+      acts.appendChild(reset);
+      guide.appendChild(acts);
       el.appendChild(guide);
 
       var credit = App.el('p', 'wy2-credit',
@@ -311,10 +347,269 @@
     }
 
     /* ----------------------------------------------------------
+       小地图上的一层「活气」
+       ----------------------------------------------------------
+       五张主题小地图是静态插画（assets/level2-0*.jpg）。它们画的都是会动的
+       事情 —— 天在下雨、火在烧、水在流、谷屑在飘 —— 画面上却一动不动，
+       整屏读起来就是一页印刷品：说明你看的是图，不是地方。
+       这一层在同一套用户坐标（2624×1472）里铺极少量的动效：
+         glow    日月晕、火塘暖光、雪顶反光（缓慢呼吸）
+         rain    雨丝 / 瀑布（下落，负延迟铺满整个画面，不会"等雨来"）
+         ember   火星（上升 + 横向飘）
+         shimmer 水面微光（短亮线错落明灭）
+         ripple  水面涟漪（一圈扩散）
+         mote    浮尘 / 谷屑
+       数量克制（每片 25~40 个节点），全部 pointer-events:none，
+       prefers-reduced-motion 下只剩静止的几团柔光。
+       坐标全部照 assets 里那五张图量的（见 dev 里的网格图），
+       所以缩放、滚动、切区域时永远贴着实物。
+       ---------------------------------------------------------- */
+    var MOTION = {
+      sky: {
+        glows: [
+          { x: 335, y: 245, rx: 300, ry: 285, color: '#f7dfa8', a0: .10, a1: .26, dur: 8.4 },
+          { x: 2210, y: 195, rx: 180, ry: 175, color: '#f4e8c4', a0: .05, a1: .14, dur: 11.5 },
+          /* 火塘：快一倍的心跳，才有"烧"的意思 */
+          { x: 1330, y: 1180, rx: 235, ry: 190, color: '#efa04a', a0: .10, a1: .26, dur: 1.9 }
+        ],
+        rain: [
+          { x0: 185, x1: 700, y0: 590, y1: 990, n: 7 },
+          { x0: 900, x1: 1265, y0: 470, y1: 990, n: 5 },
+          { x0: 1600, x1: 2265, y0: 600, y1: 990, n: 7 }
+        ],
+        embers: { x: 1330, y: 1250, spread: 78, n: 7 },
+        motes: { x0: 220, x1: 2400, y0: 880, y1: 1330, n: 5, tone: '#a98a5f' }
+      },
+      land: {
+        wet: [{ x: 1500, y: 1190, rx: 520, ry: 120 }],
+        glows: [
+          { x: 690, y: 125, rx: 165, ry: 100, color: '#fffdf2', a0: .05, a1: .16, dur: 9.6 },
+          { x: 960, y: 160, rx: 130, ry: 80, color: '#fffdf2', a0: .04, a1: .13, dur: 12.4 },
+          /* 泉脚的水汽 */
+          { x: 240, y: 860, rx: 100, ry: 76, color: '#fffaf0', a0: .08, a1: .2, dur: 5.2 }
+        ],
+        /* 瀑布：落差短、速度快，和雨区分开 */
+        rain: [
+          { x0: 205, x1: 278, y0: 700, y1: 810, n: 5, len: [26, 46], fall: [80, 130], dur: [.85, 1.25] }
+        ],
+        motes: { x0: 200, x1: 2500, y0: 850, y1: 1330, n: 5, tone: '#b1936a' }
+      },
+      plant: {
+        wet: [{ x: 1850, y: 540, rx: 430, ry: 110 }],
+        shimmer: [
+          { x: 1420, y: 520, len: 130, tilt: -4 },
+          { x: 1665, y: 556, len: 162, tilt: -3 },
+          { x: 1905, y: 505, len: 119, tilt: -5 },
+          { x: 2150, y: 540, len: 148, tilt: -3 },
+          { x: 2320, y: 470, len: 103, tilt: -6 },
+          { x: 1540, y: 470, len: 112, tilt: -4 }
+        ],
+        ripples: [
+          { x: 1700, y: 545, r: 82 },
+          { x: 2120, y: 500, r: 70 }
+        ],
+        motes: { x0: 120, x1: 2500, y0: 260, y1: 1150, n: 8, tone: '#c9a874' }
+      },
+      beast: {
+        wet: [{ x: 1300, y: 950, rx: 500, ry: 130 }],
+        shimmer: [
+          { x: 800, y: 860, len: 140, tilt: -3 },
+          { x: 1055, y: 940, len: 175, tilt: -2 },
+          { x: 1355, y: 1000, len: 130, tilt: -3 },
+          { x: 1650, y: 1055, len: 159, tilt: -2 },
+          { x: 1900, y: 1000, len: 113, tilt: -4 },
+          { x: 1460, y: 820, len: 124, tilt: -3 },
+          { x: 1180, y: 1020, len: 150, tilt: -2 },
+          { x: 1790, y: 900, len: 108, tilt: -5 }
+        ],
+        ripples: [
+          { x: 820, y: 880, r: 88 },
+          { x: 1520, y: 960, r: 100 },
+          { x: 1880, y: 1080, r: 72 }
+        ],
+        motes: { x0: 160, x1: 2500, y0: 500, y1: 1300, n: 5, tone: '#b09368' }
+      },
+      life: {
+        wet: [{ x: 2390, y: 900, rx: 270, ry: 165 }],
+        shimmer: [
+          { x: 2280, y: 700, len: 119, tilt: -8 },
+          { x: 2405, y: 825, len: 100, tilt: -7 },
+          { x: 2330, y: 985, len: 130, tilt: -9 },
+          { x: 2500, y: 1085, len: 94, tilt: -6 }
+        ],
+        ripples: [
+          { x: 2320, y: 775, r: 66 },
+          { x: 2465, y: 1020, r: 78 }
+        ],
+        motes: { x0: 260, x1: 2050, y0: 620, y1: 1320, n: 6, tone: '#b3966b' }
+      }
+    };
+
+    /* 固定的伪随机：每次重画（点一下字卡就重画一次）雨丝和水光不能换位置，
+       否则一眨眼整片雨就"跳"一下。 */
+    function motionRnd(seedStr) {
+      var h = 2166136261;
+      for (var i = 0; i < seedStr.length; i++) {
+        h ^= seedStr.charCodeAt(i);
+        h = (h * 16777619) >>> 0;
+      }
+      var s = h || 1;
+      return function (a, b) {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        return a + (b - a) * (s / 4294967296);
+      };
+    }
+
+    /* 光晕与水光：一律走 CSS radial-gradient 的 div。
+       为什么不用 SVG 的 <radialGradient>：在同一条 <svg> 里，元素自己用
+       fill="url(#id)" 取渐变，实测只画得出很淡的一小片（同样位置换 solid
+       立刻正常），排查成本高于收益。CSS 渐变这条路本项目已经走通（.wy2-glow）。
+       div 用百分比定位在 stage 上，缩放 / 拖动时跟着画面一起走。 */
+    function buildAtmos(z) {
+      var cfg = MOTION[z.id];
+      if (!cfg || (!cfg.wet && !cfg.glows)) { return null; }
+      var wrap = App.el('div', 'wy2-atmos');
+      function place(cls, x, y, rx, ry, dur, delay, bg) {
+        var d = App.el('div', cls);
+        d.style.left = ((x - rx) / 2624 * 100) + '%';
+        d.style.top = ((y - ry) / 1472 * 100) + '%';
+        d.style.width = (rx * 2 / 2624 * 100) + '%';
+        d.style.height = (ry * 2 / 1472 * 100) + '%';
+        d.style.background = bg;
+        d.style.animationDuration = dur + 's';
+        d.style.animationDelay = delay + 's';
+        wrap.appendChild(d);
+      }
+      (cfg.glows || []).forEach(function (g, i) {
+        var rgb = hexToRgb(g.color);
+        place('m-glowblob', g.x, g.y, g.rx, g.ry, g.dur, -(i * 2.3),
+          'radial-gradient(ellipse at center, rgba(' + rgb + ',.62) 0%,'
+          + ' rgba(' + rgb + ',.3) 42%, rgba(' + rgb + ',.08) 64%,'
+          + ' rgba(' + rgb + ',0) 78%)');
+        /* 强弱由 CSS 变量给：每团光的呼吸幅度不一样 */
+        var el = wrap.lastChild;
+        el.style.setProperty('--a0', String(g.a0));
+        el.style.setProperty('--a1', String(g.a1));
+      });
+      (cfg.wet || []).forEach(function (w, i) {
+        place('m-wetblob', w.x, w.y, w.rx, w.ry, 15 + i * 3.5, -(i * 4.5), '');
+      });
+      return wrap;
+    }
+
+    function hexToRgb(hex) {
+      var h = String(hex).replace('#', '');
+      if (h.length === 3) { h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; }
+      var n = parseInt(h, 16);
+      return ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255);
+    }
+
+    function buildMotion(z) {
+      var cfg = MOTION[z.id];
+      if (!cfg) { return null; }
+      var rnd = motionRnd('wy2m-' + z.id);
+      var AX2 = 2624, AY2 = 1472;
+      var m = svgEl('svg');
+      m.setAttribute('class', 'wy2-motion');
+      m.setAttribute('viewBox', '0 0 ' + AX2 + ' ' + AY2);
+      m.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      m.setAttribute('aria-hidden', 'true');
+      m.setAttribute('focusable', 'false');
+      function num(v) { return String(Math.round(v * 100) / 100); }
+
+      (cfg.rain || []).forEach(function (band) {
+        var lo = band.len || [26, 44];
+        var fa = band.fall || [180, 300];
+        var du = band.dur || [1.9, 2.9];
+        for (var i = 0; i < band.n; i++) {
+          var x = rnd(band.x0, band.x1);
+          var y = rnd(band.y0, band.y1);
+          var ln = svgEl('line');
+          ln.setAttribute('class', 'm-drop');
+          ln.setAttribute('x1', num(x));
+          ln.setAttribute('y1', num(y));
+          ln.setAttribute('x2', num(x - rnd(4, 9)));
+          ln.setAttribute('y2', num(y + rnd(lo[0], lo[1])));
+          ln.style.setProperty('--o', num(rnd(.2, .42)));
+          ln.style.setProperty('--fall', num(rnd(fa[0], fa[1])) + 'px');
+          ln.style.animationDuration = num(rnd(du[0], du[1])) + 's';
+          ln.style.animationDelay = num(-rnd(0, du[1])) + 's';
+          m.appendChild(ln);
+        }
+      });
+
+      if (cfg.embers) {
+        var em = cfg.embers;
+        for (var k = 0; k < em.n; k++) {
+          var c = svgEl('circle');
+          c.setAttribute('class', 'm-ember');
+          c.setAttribute('cx', num(em.x + rnd(-em.spread, em.spread)));
+          c.setAttribute('cy', num(em.y + rnd(-6, 34)));
+          c.setAttribute('r', num(rnd(3.5, 7)));
+          c.style.setProperty('--o', num(rnd(.5, .95)));
+          c.style.setProperty('--dx', num(rnd(-48, 48)) + 'px');
+          c.style.setProperty('--rise', num(-rnd(160, 300)) + 'px');
+          c.style.animationDuration = num(rnd(2.2, 3.6)) + 's';
+          c.style.animationDelay = num(-rnd(0, 3.6)) + 's';
+          m.appendChild(c);
+        }
+      }
+
+      (cfg.shimmer || []).forEach(function (s) {
+        var half = s.len / 2;
+        var rad = (s.tilt || 0) * Math.PI / 180;
+        var ln = svgEl('line');
+        ln.setAttribute('class', 'm-shimmer');
+        ln.setAttribute('x1', num(s.x - Math.cos(rad) * half));
+        ln.setAttribute('y1', num(s.y - Math.sin(rad) * half));
+        ln.setAttribute('x2', num(s.x + Math.cos(rad) * half));
+        ln.setAttribute('y2', num(s.y + Math.sin(rad) * half));
+        ln.style.setProperty('--o', num(rnd(.5, .8)));
+        ln.style.setProperty('--dx', num(rnd(-14, 14)) + 'px');
+        ln.style.animationDuration = num(rnd(5.2, 8.4)) + 's';
+        ln.style.animationDelay = num(-rnd(0, 8)) + 's';
+        m.appendChild(ln);
+      });
+
+      (cfg.ripples || []).forEach(function (r) {
+        var e = svgEl('ellipse');
+        e.setAttribute('class', 'm-ripple');
+        e.setAttribute('cx', num(r.x));
+        e.setAttribute('cy', num(r.y));
+        e.setAttribute('rx', num(r.r));
+        e.setAttribute('ry', num(r.r * .3));
+        e.style.setProperty('--o', num(rnd(.5, .75)));
+        e.style.animationDuration = num(rnd(5.6, 8.2)) + 's';
+        e.style.animationDelay = num(-rnd(0, 8)) + 's';
+        m.appendChild(e);
+      });
+
+      if (cfg.motes) {
+        var mo = cfg.motes;
+        for (var j = 0; j < mo.n; j++) {
+          var d = svgEl('circle');
+          d.setAttribute('class', 'm-mote');
+          d.setAttribute('cx', num(rnd(mo.x0, mo.x1)));
+          d.setAttribute('cy', num(rnd(mo.y0, mo.y1)));
+          d.setAttribute('r', num(rnd(2.4, 4.4)));
+          d.style.setProperty('--tone', mo.tone);
+          d.style.setProperty('--o', num(rnd(.22, .42)));
+          d.style.setProperty('--dx', num(rnd(-90, 130)) + 'px');
+          d.style.setProperty('--dy', num(-rnd(50, 140)) + 'px');
+          d.style.animationDuration = num(rnd(13, 22)) + 's';
+          d.style.animationDelay = num(-rnd(0, 20)) + 's';
+          m.appendChild(d);
+        }
+      }
+
+      return m;
+    }
+
+    /* ----------------------------------------------------------
        ② 小地图：点实物学字
        ---------------------------------------------------------- */
     function renderZone(el) {
-      var p = progress();
+      var p = readProgress();
       var z = S.zone;
       var s = zoneStat(p, z);
       var AX = 2624, AY = 1472;
@@ -329,7 +624,7 @@
       var zhead = App.el('div', 'wy2-zone-head');
       zhead.appendChild(App.el('b', null, z.name));
       zhead.appendChild(App.el('span', null,
-        s.clear ? '这一片已学完'
+        s.clear ? '这一片已学完 · 大地图已点亮'
                 : '已学 ' + s.done + ' / ' + s.total
                   + ' · 点图上看得见的实物'));
       top.appendChild(zhead);
@@ -393,13 +688,32 @@
       }
 
       /* 学习卡会盖在地图上方，所以先建地图，卡片挂到 el 最后 */
-      var viewport = App.el('div', 'wy2-viewport' + (S.showHot ? ' show-hots' : ''));
+      /* is-fit：全景下视口不需要滚动，可以 overflow:hidden —— 于是能给画面
+         挂一个极缓的推镜（见 modes.css 的 wy2mPan），而不会长出滚动条。 */
+      var viewport = App.el('div', 'wy2-viewport' + (S.showHot ? ' show-hots' : '')
+        + (S.zoom <= 1.02 ? ' is-fit' : ''));
       var stage = App.el('div', 'wy2-stage');
       var img = App.el('img', 'wy2-art');
-      img.src = z.art || MAP.worldImage || MAP.bgImage;
+      var artSrc = z.art || MAP.worldImage || MAP.bgImage;
+      img.src = artSrc;
       img.alt = z.name + '：' + (z.note || '主题小地图') + '（点图上的实物可以认甲骨文）';
       img.draggable = false;
       stage.appendChild(img);
+
+      /* 全景时图按 contain 铺进视口，两侧必然留边。那不是 bug，是**装裱**：
+         画心压在一片绫（视口的纤维底）上，中间一道界格，边上一点影。
+         这一层只负责"裱边靠外收一点暗"，不画任何内容
+         （曾经想用"同一张图放大糊满"当环境光，糊到 42 仍有竖直接缝，已弃）。 */
+      if (S.zoom <= 1.02) {
+        var veil = App.el('div', 'wy2-veil');
+        veil.setAttribute('aria-hidden', 'true');
+        viewport.appendChild(veil);
+      }
+
+      var atmos = buildAtmos(z);
+      if (atmos) { stage.appendChild(atmos); }
+      var motion = buildMotion(z);
+      if (motion) { stage.appendChild(motion); }
 
       var svg = svgEl('svg');
       svg.setAttribute('class', 'wy2-hotspots');
@@ -495,14 +809,11 @@
         var ih = window.innerHeight || 800;
         var avail = ih - head - vpOff - 16;
         avail = Math.max(190, Math.min(avail, ih - head - 50));
-        /* 桌面全景态让视口贴着图高，别在图上下一人留一大片空白；
-           一旦放大就用满剩余空间（不然放大后没有可拖动的余量）。
-           窄屏例外：图按宽度铺开只有约 200px 高，贴图高会把视口压成一条缝，
-           所以窄屏一律用满剩余高度（配合 fitScale 的按高度铺满）。 */
+        /* 全景态让视口贴着图高，别在图上下一人留一大片空白；
+           一旦放大就用满剩余空间（不然放大后没有可拖动的余量）。 */
         var vw = vp.clientWidth || 360;
         var hug = Math.round(vw * AY / AX);
-        var narrow = window.innerWidth <= 620;
-        var want = (!narrow && S.zoom <= 1.02 && hug < avail) ? hug : avail;
+        var want = (S.zoom <= 1.02 && hug < avail) ? hug : avail;
         vp.style.height = Math.max(150, want) + 'px';
       }
 
@@ -511,18 +822,12 @@
          svg 也显式给同样的像素宽高 + meet，于是两者永远严丝合缝。
          这样「放大后热点还在实物上」不需要任何额外换算。
 
-         基准：桌面用 **contain**（zoom=1 时整幅图完整铺进视口，需求「一、5」）。
-         窄屏例外：图是 16:9、手机是竖屏，按宽度 contain 只有约 200px 高，
-         整张地图会被压成一条细缝（实测 390x844 只有 204px）。所以窄屏
-         全景态改成**按高度铺满**（cover），图撑满视口、横向可拖动。 */
+         基准是 **contain**：zoom=1 时整幅图完整铺进视口（需求「一、5」：
+         进地图先给完整全景）。之前用的是 fill-height，会把图横向裁掉。 */
       function fitScale(vp) {
         var vw = vp.clientWidth || 900;
         var vh = vp.clientHeight || 500;
-        var contain = Math.min(vw / AX, vh / AY);
-        if (window.innerWidth <= 620 && S.zoom <= 1.02) {
-          return Math.max(contain, vh / AY);
-        }
-        return contain;
+        return Math.min(vw / AX, vh / AY);
       }
       function sizeFor(vp, zf) {
         var bs = fitScale(vp);
@@ -922,10 +1227,10 @@
 
       if (s.clear) {
         var done = App.el('aside', 'wy2-zone-clear');
-        done.appendChild(App.el('span', 'wy2-clear-seal', '已学完'));
+        done.appendChild(App.el('span', 'wy2-clear-seal', '已点亮'));
         done.appendChild(App.el('span', null,
           '「' + z.name + '」' + s.total + ' 个字都认过了，大地图上这一片亮了。'));
-        var nxt = App.el('button', 'btn sm', '回大地图 →');
+        var nxt = App.el('button', 'btn sm', '回大地图看点亮 →');
         nxt.type = 'button';
         nxt.onclick = backToWorld;
         done.appendChild(nxt);
@@ -1093,7 +1398,7 @@
         var s = zoneStat(p, flow.zone);
         verdict.className = 'wy2-flow-verdict ok';
         verdict.textContent = '✔ 拼成了「' + ch + '」，已记进「' + flow.zone.name + '」。'
-          + (s.clear ? '这一片学完了。'
+          + (s.clear ? '这一片学完了，大地图上已经点亮。'
                      : '这一片还差 ' + (s.total - s.done) + ' 个字。');
         /* 记录落下后，重画小地图（印记与进度条跟着变） */
         setTimeout(function () { S.flow = null; redrawZone(); }, 1400);
@@ -1132,10 +1437,10 @@
     id: 'wangyi-map',
     name: '殷商王邑',
     tagline: '在大地图上挑一片，点实物认甲骨文',
-    desc: '五片主题区域任意顺序进入：在分区插画上点实物认甲骨文，认得的字就记下来。每片进度独立记录，学完一片会给完成标记。',
+    desc: '五片主题区域任意顺序进入：在分区插画上点实物认甲骨文，认得的字就记下来。一片学完，大地图上对应的那一片便亮起，最终点亮整座王邑。',
     icon: '邑',
     accent: 'var(--bronze)',
-    tags: ['五片任意进入', '61 个学习点', '进度独立记录'],
+    tags: ['五片任意进入', '61 个学习点', '点亮大地图'],
     layout: 'wide',
     minPlayers: 1, maxPlayers: 1,
     status: 'ready',

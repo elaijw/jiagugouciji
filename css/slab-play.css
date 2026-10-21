@@ -1,0 +1,656 @@
+/* ============================================================================
+   字有骨气 · 第一关：案上摊开的那块工作骨版
+   ----------------------------------------------------------------------------
+   第一关原来是整块近黑面板（#171411 + 两束打光），是全站最后一处没跟上骨纸
+   调子的地方 —— 前四屏都在骨白纸面上，一点「开始游戏」当场关灯。
+   这一版把它换成骨版，用的是和选关页三片骨头同一套形状语言（圆角骨板 − 磕口圆，
+   见 js/core/slab-work-shape.js），只是横过来放。
+
+   层次只有三层，和整站一致：
+       案面（页面底）—— 纸
+       骨版（四块，各有磕口）—— 暖一档，是物
+       骨版上刻的 / 压的 —— 墨与朱砂
+   只有骨版这一层有投影，所以读起来是「物压在纸上」，而不是「几个色块叠着」。
+
+   clip-path 会连元素自己的投影一起裁掉，但又不能给四块面板加 wrapper
+   （它们是 grid 子项，插一层会打断 modes.css 里的 grid-area）。
+   所以：**形状与材质挂在 ::before 上，投影挂在父级 filter 上** ——
+   父级没有 clip-path，filter 看到的已经是裁好的形状，影子就跟着缺口走。
+   伪元素同时把 modes.css 里 `::before` 那道内嵌细框接管掉了（骨头上不该有画框线）。
+
+   本文件必须排在 atmos.css / slab-home.css 之后。
+   要回退：删掉 index.html 里 slab-play.css 那一行（外加 slab-work-shape.js 一行，
+   留着也无害，它只往 body 里塞三条不占位的 clipPath）。
+
+   另一件事一起放在这里（第 2 / 4 / 8 节）：**甲骨字形是主角**。
+   第一关的题面、构件台、讲字页，以及第二关拼字的笔画块 —— 展示的全是
+   glyph-parts.json 里的真字形。它们此前一律按"小图示"尺寸给（43~54px），
+   今字的字号反而更大，于是读起来像"汉字配了一张装饰线描"。
+   这一版把字形提到主角位（54→78 / 76→90），今字名字退成 10px 的注音。
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   1. 四块骨版：形状 + 材质 + 投影
+   ----------------------------------------------------------------------------
+   四块分别是：
+     slabWork1  上课面板（题面 / 选项 / 小课堂）
+     slabWork2  开课封面（龟宝那张）
+     slabWork3  讲字面板 / 结课面板
+   ---------------------------------------------------------------------------- */
+.bb-intro-cover,
+.bb-course-finish,
+.bb-lesson-panel,
+.bb-teach-panel {
+  position: relative;
+  /* 暗场时期的 border / 圆角 / 内高光全部撤掉 —— 形状交给 clip-path，
+     再留一个 1px 描边就会在磕口处露出一道直线。 */
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+  color: var(--ink-carve);
+  /* 两层：长影负责"离开案面"，贴身短影负责"压住案面"（缺了短影，大面板会飘） */
+  filter:
+    drop-shadow(0 22px 30px rgba(92, 68, 36, .26))
+    drop-shadow(0 2px 3px rgba(92, 68, 36, .32));
+}
+
+/* 骨面本体。纹理用 assets/bone-surface.png（不是首屏那张真照片：
+   照片里的刻辞与展柜反光会跟面板上的字打架），再叠一层纸纤维。 */
+.bb-intro-cover::before,
+.bb-course-finish::before,
+.bb-lesson-panel::before,
+.bb-teach-panel::before {
+  position: absolute;
+  z-index: 0;
+  /* modes.css 用它画过 inset:11px 的内嵌细框，这里整组重写：改成铺满、无描边 */
+  inset: 0;
+  border: 0;
+  content: '';
+  background-color: #f7efdb;
+  /* 顺序是"上层在前"：纤维在上、走 multiply，骨纹在下、走 normal。
+     反过来的话骨纹是不透明的，会把纤维整个盖掉（选关页那张卡上其实就是这样，
+     纤维一直没生效，只是没人发现）。纤维在上才真的补上一层细颗粒。 */
+  background-image: var(--fiber), url("../assets/bone-surface.png");
+  /* 骨纹**不铺小尺寸**（选关页卡片上是 232px 平铺）。
+     那张贴图是 512×512，边缘只有"大致"接得上：在 300px 的卡上最多露一道缝，
+     看不出来；铺到 1040×720 的面板上就是一道网格，比纹理本身显眼得多。
+     大面上一张铺满（cover），纹理尺度放大成"斑驳"，反而更像一整块骨。 */
+  background-size: 220px 220px, cover;
+  background-position: 0 0, center;
+  background-repeat: repeat, no-repeat;
+  background-blend-mode: multiply, normal;
+  pointer-events: none;
+}
+
+.bb-lesson-panel::before { clip-path: url(#slabWork1); }
+.bb-intro-cover::before,
+.bb-course-finish::before { clip-path: url(#slabWork2); }
+.bb-teach-panel::before { clip-path: url(#slabWork3); }
+
+/* 骨面本身的光：光从右上落到案上（和首屏、和选关页同一个方向），
+   左下角沉一点。只做明暗，不再叠纹理。 */
+.bb-intro-cover::after,
+.bb-course-finish::after,
+.bb-lesson-panel::after,
+.bb-teach-panel::after {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background:
+    /* 边缘一圈暖暗：clip-path 描不了边，轮廓只能靠这层暗角"收"出来 */
+    radial-gradient(ellipse 76% 78% at 50% 48%, transparent 54%, rgba(146, 116, 70, .155) 100%),
+    radial-gradient(ellipse 108% 62% at 88% -10%, rgba(255, 255, 252, .72), transparent 60%),
+    radial-gradient(ellipse 92% 52% at 2% 108%, rgba(146, 116, 70, .15), transparent 64%),
+    linear-gradient(172deg, rgba(255, 251, 240, .20) 0%, rgba(214, 190, 152, .14) 100%);
+  content: '';
+  pointer-events: none;
+}
+.bb-teach-panel::after { clip-path: url(#slabWork3); }
+.bb-lesson-panel::after { clip-path: url(#slabWork1); }
+.bb-intro-cover::after,
+.bb-course-finish::after { clip-path: url(#slabWork2); }
+
+/* 内容抬到骨面纹理之上 */
+.bb-intro-cover > *,
+.bb-course-finish > *,
+.bb-lesson-panel > *,
+.bb-teach-panel > * { position: relative; z-index: 1; }
+
+/* 内边距要吃掉磕口：最深的缺口在角上吃进 ~26px，正文必须退到 32px 以外。
+   原来上课面板是 18~34px，封面是 26~62px。 */
+.bb-lesson-panel,
+.bb-teach-panel { padding: clamp(24px, 3.6vw, 44px); }
+
+/* ----------------------------------------------------------------------------
+   2. 骨面上的字
+   ----------------------------------------------------------------------------
+   刻字与印字的区别全在两行 text-shadow：槽的下沿受光、上沿背光。
+   方向写反就成了凸字（贴上去的），跟全站其它骨片不一致。
+   ---------------------------------------------------------------------------- */
+.bone-intro-course { color: var(--ink); }
+
+.bb-eyebrow,
+.bb-fact-kicker {
+  color: var(--cinnabar-tint);
+  font-size: 10.5px;
+  letter-spacing: 2.4px;
+}
+.bb-cover-title {
+  color: var(--ink-carve);
+  text-shadow:
+    0 1px 0 rgba(255, 252, 243, .92),
+    0 -1px 0 rgba(48, 32, 16, .12);
+}
+.bb-cover-lead { color: var(--ink-2); }
+
+/* 三条承诺：从"深色面上的一点微光"改成"贴在骨上的三张小签" */
+.bb-promise-item {
+  color: var(--ink-2);
+  background: rgba(255, 253, 247, .62);
+  border: 1px solid var(--edge-in);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .5) inset;
+}
+.bb-promise-item b { color: var(--cinnabar); }
+
+.bb-question-title,
+.bb-teach-title {
+  color: var(--ink-carve);
+  text-shadow:
+    0 1px 0 rgba(255, 252, 243, .92),
+    0 -1px 0 rgba(48, 32, 16, .12);
+}
+.bb-question-note { color: var(--ink-soft); }
+.bb-question-label,
+.bb-question-sub { color: var(--ink-soft); }
+.bb-question-char {
+  color: var(--ink-carve);
+  text-shadow: 0 1px 0 rgba(255, 252, 243, .9);
+}
+.bb-qface-glyph {
+  color: var(--ink-carve);
+  filter: drop-shadow(0 .5px 0 rgba(255, 252, 243, .85));
+}
+/* 题面里那两片甲骨构件（modes.css 给的 52/46）跟着构件格一起放大一档 */
+/* 这一页真正要"读"的是甲骨那边 —— 今字谁都认得，甲骨才需要看。
+   深色版里两片并置时 52px 就够（亮字压在黑底上很抓眼），骨面上不行：
+   细线压浅底，同样的尺寸会显得比今字小一圈。所以给到 90。
+   90 是"比今字（clamp 上限 68）再高一档"的位置：甲骨是题，今字只是对照，
+   两者等高时视线会先落在笔画更粗的今字上，这一页就白上了。
+   上下相叠的（屋盖一类，如「宫」）再收一档，否则整片比今字高出一头。 */
+.bb-qface-glyph .obcomp-g { width: 90px; height: 90px; }
+.bb-qface-glyph .obcomp.stack .obcomp-g { width: 78px; height: 78px; }
+/* 甲骨 / 今字之间那道分隔：原来是个金线，现在退回罫线的灰 */
+.bb-qface-sep {
+  background: linear-gradient(180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--edge) 78%, transparent) 22%,
+    color-mix(in srgb, var(--edge) 78%, transparent) 78%,
+    transparent 100%);
+}
+
+.bb-choice-head h3 { color: var(--ink); }
+.bb-choice-head span { color: var(--ink-soft); }
+
+/* ----------------------------------------------------------------------------
+   3. 题面卡：从"打了一束光的黑展台"改成"骨面上刻出的一个凹槽"
+   ----------------------------------------------------------------------------
+   这一块是整关的焦点。在暗场里靠打光把它从黑底里"举起来"；
+   在骨面上要反过来 —— 靠**凹下去**。凹槽给内投影（上沿暗、下沿受反光），
+   字就坐在槽里，比浮在骨面上更"刻进去"。
+   原来卡是全宽的，中间两片字、两边各留一块死黑；收窄到 660 之后
+   光、字、槽三者才是一件事 —— 这个判断沿用。
+   ---------------------------------------------------------------------------- */
+.bb-question-card {
+  position: relative;
+  /* 原来收窄到 660 是因为"光打中间、两边各留一块死黑"。骨面上两边是骨，不是死黑，
+     所以可以摊开一点 —— 但不给满宽，满宽就成一条横杠了。 */
+  max-width: 820px;
+  border: 0;
+  /* 第一版是个实边圆角块 + 上沿内投影，结果读起来像"禁用的输入框"（有边就有"控件"的语义）。
+     骨头上没有控件，只有**磨平的一块**：填充到边沿就淡出去，只在上沿留一点暗，
+     像被手指反复摩挲过。 */
+  background-image:
+    /* radial-gradient 里那两个百分比是**半径**，不是直径（踩过两次）：
+       写 62% 等于半径 0.62 个宽，比半个盒子还大，于是填充在元素边界处还有 30% 的
+       浓度，rect 的四条边就显出一道硬台阶 —— 看起来像输入框。
+       36% / 46% 才是"在边之前淡完"：0.36 个宽 = 半宽的 72%。
+       上沿那一点暗同样不能给整条 linear-gradient（左右两端会在元素边上切口），
+       改成顶部的一个小椭圆。 */
+    radial-gradient(ellipse 40% 54% at 50% 50%,
+      rgba(146, 116, 70, .12) 0%,
+      rgba(146, 116, 70, .085) 58%,
+      rgba(146, 116, 70, 0) 100%),
+    radial-gradient(ellipse 46% 30% at 50% 4%,
+      rgba(92, 68, 36, .05) 0%,
+      rgba(92, 68, 36, 0) 100%);
+  box-shadow: none;
+}
+/* 讲字面板里的「构件组合示意」用同一个槽，保持"这两处都是嵌进去的" */
+/* 讲字面板里的「构件组合示意」用同一块"磨平区"，但不必像题面那么空，
+   所以保留一道极淡的罫线 —— 它是"一排构件"，需要一个边界 */
+.bb-teach-composition {
+  position: relative;
+  isolation: isolate;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+/* 和构件台同一套做法（模糊的圆角矩形），但方向相反：
+   这里是"读"的一处 → 比骨面略深一点，像被手指摩挲下去的一片；
+   构件台是"拿"的六处 → 比骨面略亮，像刚被刮净。
+   原来这里有一道罫线（"一排构件需要边界"），但构件台去掉边之后，
+   同一课里一边有框一边没框就出了两套规矩；而且那道罫线是**直线**，
+   压在这块到处是磕口的骨板上像贴了一条胶带。 */
+.bb-teach-composition::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 4px 8px;
+  border-radius: 10px;
+  background: rgba(146, 116, 70, .11);
+  filter: blur(7px);
+  pointer-events: none;
+}
+
+.bb-compose-label { color: var(--ink-soft); letter-spacing: 1.4px; }
+/* 43 → 54 → 70：构件格与题面都放大了，这里跟着放大。
+   讲字页上的"构件组合示意"是这一课唯一的"复习画面"，它得和题面一样清楚，
+   否则玩家记住的是文字释义，不是字形。 */
+/* 讲字页的每个构件也各占一片骨 —— 构件台是"从案上拾起六片"，
+   这里是"两片摆在一起给你看它们怎么合"。两处如果一边有片一边没有，
+   同一课里就成了两套语言。尺寸小一档，因为它只是复述，不是题目。 */
+.bb-compose-part {
+  position: relative;
+  isolation: isolate;
+  min-width: 96px;
+  padding: 12px 10px 9px;
+  gap: 1px;
+  filter:
+    drop-shadow(0 0 .7px rgba(92, 68, 36, .45))
+    drop-shadow(0 2px 3px rgba(92, 68, 36, .18));
+}
+.bb-compose-part::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-color: #f9f2e0;
+  background-image: var(--fiber), url("../assets/bone-surface.png");
+  background-size: 76px 76px, 380px 380px;
+  background-position: 0 0, -190px -128px;
+  background-repeat: repeat, repeat;
+  background-blend-mode: multiply, normal;
+  clip-path: url(#slabChip2);
+  filter: contrast(1.06) saturate(1.04);
+}
+/* 三个构件同屏时各用一片、各取一段纹理 —— 三片一模一样的形状太假。
+   （.bb-compose-part 是 .bb-teach-composition 里的 span，
+     label 占第 1 个，所以构件落在 2 / 4 / 6） */
+.bb-compose-part:nth-of-type(4)::before {
+  clip-path: url(#slabChip1);
+  background-position: 0 0, -262px -24px;
+}
+.bb-compose-part:nth-of-type(6)::before {
+  clip-path: url(#slabChip5);
+  background-position: 0 0, -318px -92px;
+}
+.bb-compose-glyph {
+  position: relative;
+  z-index: 1;
+  width: 70px;
+  height: 70px;
+  color: var(--ink-carve);
+  filter: drop-shadow(0 .5px 0 rgba(255, 252, 243, .85));
+}
+/* 同一个原因（见 .bb-choice-glyph path）：数据线宽落到 70px 只有 0.84px */
+.bb-compose-glyph path { stroke-width: 1.5; }
+/* 今字名字退成"注音"：甲骨字形才是主角，名字只是帮人对上号。
+   11px 的衬线正字放在字形下面，字号和字重都比字形抢，读起来像"这张卡片叫日"。
+   改成小一号、加开字距、降一档墨，它才回到注解的位置。 */
+.bb-compose-name {
+  position: relative;
+  z-index: 1;
+  color: rgba(110, 96, 78, .78);
+  font-size: 10px;
+  letter-spacing: 1.6px;
+}
+.bb-compose-plus { color: var(--cinnabar-tint); }
+
+.bb-teach-meaning { color: var(--ink-2); }
+
+/* ----------------------------------------------------------------------------
+   4. 构件台：一个构件一片骨，字契在片上
+   ----------------------------------------------------------------------------
+   两条都试过、都被否掉的错路（记在这，别再走）：
+     ① 六个带边带影的白色小卡 —— 那是 UI 卡片的语言。整屏读成
+        "一块骨纸面板上贴了六张卡片"，字退化成卡片里的图标。
+     ② 同一块骨上刮平六处（无边界、无投影的浅池）—— 边界确实没了，
+        但"这一处能拿"的信息也一起没了：六个字形像直接浮在板上，
+        没有"片"这个物件，抬不起来。
+   甲骨文的常识是：字是契在**一片**材料上的。所以"构件"要立得住，
+   必须是片 —— 有自己的边（还缺了一角）、有厚度（投影）、字压在自己片上。
+   六片各磕各的口（dev/_slab_chippath.py 生成，别手改 js），
+   并排才不像同一片复制六遍。
+
+   三层：
+     ::before  骨片本体：材质 + 不规则轮廓
+     ::after   光与朱：中心受光、四边收暗；选中时的朱砂洗也在这层
+     元素自身  filter 投影 —— clip-path 会把元素自己的投影一起裁掉，
+               所以影只能挂在没有 clip-path 的那层（首屏踩过这个坑）。
+   drop-shadow 按 alpha 求轮廓，骨片的磕口会原样投出来。
+   ---------------------------------------------------------------------------- */
+.bb-intro-choices { gap: 12px; }
+.bb-intro-choice {
+  position: relative;
+  isolation: isolate;   /* 让两个 z-index:-1 的伪元素留在这格自己的层里，压在字形下 */
+  color: var(--ink-carve);
+  min-height: 122px;
+  padding: 8px 6px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  /* 三层：①0 偏移的窄暗影 —— 沿骨片的 alpha 轮廓描一圈，就是断口那道棱；
+     ②贴身短影 —— 片压在案上；③长影 —— 片离开案面。
+     ①不能省：没有它，边缘只有一团羽化的影，读起来像贴在纸上的白贴纸，
+     而不像一块有厚度的骨片。 */
+  filter:
+    drop-shadow(0 0 .8px rgba(92, 68, 36, .52))
+    drop-shadow(0 1px 1px rgba(92, 68, 36, .24))
+    drop-shadow(0 3px 3px rgba(92, 68, 36, .20));
+  transition: filter .18s ease;
+}
+
+/* 骨片本体。底色比骨版亮一档（#f9f2e0 vs 面板 #f7efdb）——
+   浅底上"更亮的一片"才读得出是拿起来的东西，暗一档就成凹槽了。
+   顺序仍然是"上层在前"：纤维在上走 multiply，骨纹在下走 normal。
+   反过来的话骨纹（不透明）会把纤维整个盖掉 —— 这个坑踩过两次。 */
+.bb-intro-choice::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-color: #f9f2e0;
+  /* 骨纹用 380px 一格平铺，不是 cover：cover 在 151px 宽的片上等于把 512 的图
+     缩到 0.3 倍，斑驳全成了细噪点，片就成了一张纯色纸。
+     每片的 background-position 各不相同（见下面 nth-child），
+     六片才不会露出同一块纹理。 */
+  background-image: var(--fiber), url("../assets/bone-surface.png");
+  background-size: 76px 76px, 380px 380px;
+  background-position: 0 0, -40px -30px;
+  background-repeat: repeat, repeat;
+  background-blend-mode: multiply, normal;
+  clip-path: url(#slabChip1);
+  /* contrast 1.06 是把骨纹从"白纸上的一层灰"提成"骨面"的关键：
+     底色刻意只比面板亮一档，靠影和棱分辨，所以纹理必须看得见。
+     直接提亮底色会摸掉纹理（试过 #fdf7ea，六片全成了白纸片）。 */
+  filter: contrast(1.06) saturate(1.04);
+  transition: filter .18s ease;
+}
+
+/* 光：**只在最外一圈收暗**，面本身必须平。
+   第一版在这里放了一个"中心受光"的大椭圆（56% 就开始淡出），
+   结果六片全是中间亮、四周虚的团，像六团发光的云 —— 骨片是一块平板，
+   平的东西不会有中心聚光。所以亮的那层整个删掉，只留：
+     · 一道极窄的暖暗（82% 之后才起），把轮廓从底板上"收"出来；
+     · 上沿一线白，是片的厚度（光从上方来，断口的上沿比下沿亮）。 */
+.bb-intro-choice::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  clip-path: url(#slabChip1);
+  background-color: transparent;
+  /* 只剩一道上沿受光（片有厚度，上边比下边亮）。
+     这里试过三版"边缘暗角"，全删了：径向渐变在矩形上天生是椭圆，
+     哪怕收到 93% 起，片心仍会浮出一个"中间亮、四周暗"的圆，
+     远看像每片骨上盖了一枚圆章。骨片的边靠元素层那道 0 偏移暗影
+     （沿 alpha 轮廓走，连磕口一起描）来定，不需要渐变帮忙。 */
+  background-image:
+    linear-gradient(179deg,
+      rgba(255, 255, 250, .34) 0%, rgba(255, 255, 252, 0) 18%);
+  transition: background-color .18s ease;
+}
+
+/* 六片各磕各的口：右上大缺 / 左下大缺 / 右腰崩 / 下沿中段断 /
+   右腰崩+上沿小口 / 下沿两角都断 */
+.bb-intro-choice:nth-child(1)::before,
+.bb-intro-choice:nth-child(1)::after { clip-path: url(#slabChip1); }
+.bb-intro-choice:nth-child(2)::before,
+.bb-intro-choice:nth-child(2)::after { clip-path: url(#slabChip2); }
+.bb-intro-choice:nth-child(3)::before,
+.bb-intro-choice:nth-child(3)::after { clip-path: url(#slabChip3); }
+.bb-intro-choice:nth-child(4)::before,
+.bb-intro-choice:nth-child(4)::after { clip-path: url(#slabChip4); }
+.bb-intro-choice:nth-child(5)::before,
+.bb-intro-choice:nth-child(5)::after { clip-path: url(#slabChip5); }
+.bb-intro-choice:nth-child(6)::before,
+.bb-intro-choice:nth-child(6)::after { clip-path: url(#slabChip6); }
+/* 六片各自有一点点歪（±.7deg）：摊在案上的东西不会摆得像印刷品。
+   角度小到不影响点击区域（151px 宽，.7deg 只让角位移 1.5px），
+   但一排看过去"手摆的"味道立刻出来。 */
+.bb-intro-choice:nth-child(1) { transform: rotate(-.7deg); }
+.bb-intro-choice:nth-child(2) { transform: rotate(.5deg); }
+.bb-intro-choice:nth-child(3) { transform: rotate(-.35deg); }
+.bb-intro-choice:nth-child(4) { transform: rotate(.65deg); }
+.bb-intro-choice:nth-child(5) { transform: rotate(-.55deg); }
+.bb-intro-choice:nth-child(6) { transform: rotate(.4deg); }
+
+/* 同一块骨纹图，六片取不同的一块，否则六片的花纹一模一样 */
+.bb-intro-choice:nth-child(1)::before { background-position: 0 0, -40px -30px; }
+.bb-intro-choice:nth-child(2)::before { background-position: 0 0, -190px -128px; }
+.bb-intro-choice:nth-child(3)::before { background-position: 0 0, -262px -24px; }
+.bb-intro-choice:nth-child(4)::before { background-position: 0 0, -96px -184px; }
+.bb-intro-choice:nth-child(5)::before { background-position: 0 0, -318px -92px; }
+.bb-intro-choice:nth-child(6)::before { background-position: 0 0, -158px -244px; }
+
+/* 78 → 74：片上要同时容下字形与注音，而骨片的磕口会咬进四角，
+   78 会让字的角贴到缺口上。74 仍然比下面的名字大六倍，主角位没丢。
+   白色投影收到 .5px —— 字形描边本身只有 1.2px 上下，
+   1px 的错位高光能吃掉近一半，字就发灰。 */
+.bb-choice-glyph {
+  position: relative;
+  z-index: 1;
+  width: 74px;
+  height: 74px;
+  color: var(--ink-carve);
+  filter: drop-shadow(0 .5px 0 rgba(255, 252, 243, .85));
+}
+/* 数据里的线宽是按 100 单位画布给的（1.2 上下），落到 76px 上只有 0.9px，
+   再经抗锯齿就成了灰线 —— 明明是 #241d14 的墨，看着却是浅褐。
+   stroke-width 是表现属性，CSS 盖得住，所以在这里统一补到 1.5（≈1.14px 实际）。
+   不补的话，"字刻在片上"读不出来，只觉得片上印了一道淡纹。 */
+.bb-choice-glyph path { stroke-width: 1.5; }
+/* 今字名字退成"注音"：字形才是主角。11px 正字压在字形下面，
+   字号和字重都比字形抢，读起来像"这张卡片叫日"。 */
+.bb-choice-name {
+  position: relative;
+  z-index: 1;
+  color: rgba(110, 96, 78, .78);
+  font-size: 10px;
+  letter-spacing: 1.6px;
+}
+
+/* 悬停 = 这片被拿起来了：整片亮一档、影拉长一点。
+   不加任何描边 —— 描边是"框"的语言，一加就退回卡片。
+   同时必须显式写 background:none / border:0：modes.css 里的 :hover
+   有一层褐色底边，伪类让它的权重高于这里的 .bb-intro-choice。 */
+.bb-intro-choice:hover,
+.bb-intro-choice:focus-visible {
+  background: none;
+  border-color: transparent;
+  filter:
+    drop-shadow(0 0 .8px rgba(92, 68, 36, .6))
+    drop-shadow(0 1px 1px rgba(92, 68, 36, .22))
+    drop-shadow(0 7px 8px rgba(92, 68, 36, .22));
+}
+.bb-intro-choice:hover::before,
+.bb-intro-choice:focus-visible::before { filter: brightness(1.055) contrast(1.06) saturate(1.04); }
+.bb-intro-choice:hover .bb-choice-name { color: rgba(86, 74, 58, .9); }
+
+/* 选中 = 朱砂填字。甲骨上被确认下来的字是拿朱砂填的，
+   所以"选中"是这一片被朱笔点过 —— 洗一层淡朱（::after 的底色，
+   不会盖掉材质与光），再把字形本身转朱。
+   原来 modes.css 的 .selected 还压着一条 `inset 0 -2px` 红底边，
+   那是硬线，横在不规则骨片底下立刻露馅，这里显式清掉。 */
+.bb-intro-choice.selected {
+  color: var(--ink-carve);
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+.bb-intro-choice.selected::after { background-color: rgba(166, 62, 47, .11); }
+.bb-intro-choice.selected .bb-choice-glyph { color: var(--cinnabar); }
+.bb-intro-choice.selected .bb-choice-name { color: var(--cinnabar-tint); }
+.bb-intro-choice:focus-visible {
+  outline: 2px solid var(--cinnabar);
+  outline-offset: 2px;
+}
+
+/* ----------------------------------------------------------------------------
+   5. 小课堂 / 材料签：压在骨上的一张纸签
+   ----------------------------------------------------------------------------
+   暗场时期是"绿色微光的条"（rgba(112,119,75,.13) + 橄榄色左线）。
+   那个橄榄色压到骨白上会变成一块脏黄，所以换回全站一直在用的签：
+   近白纸面 + 一道朱砂左线。龟宝说的话，全站都是这个记号（见选关页 .lv-guide）。
+   ---------------------------------------------------------------------------- */
+.bb-live-fact,
+.bb-teach-fact,
+.bb-cover-fact {
+  background: linear-gradient(104deg, rgba(255, 253, 247, .94), rgba(248, 240, 222, .82));
+  border: 1px solid var(--edge-in);
+  border-left: 2px solid var(--cinnabar);
+  box-shadow: 0 2px 6px rgba(92, 68, 36, .07);
+}
+.bb-fact-copy b { color: var(--ink); }
+.bb-fact-copy .bb-fact-kicker { color: var(--cinnabar-tint); }
+.bb-fact-copy p { color: var(--ink-2); }
+.bb-cover-fact p { color: var(--ink-2); }
+.bb-teach-fact b { color: var(--ink); }
+.bb-teach-fact p { color: var(--ink-2); }
+
+/* ----------------------------------------------------------------------------
+   6. 判语与次级按钮
+   ---------------------------------------------------------------------------- */
+.bb-intro-verdict { color: var(--ink-2); }
+.bb-intro-verdict.no { color: var(--cinnabar); }
+.bb-intro-verdict.note { color: var(--bronze-tint); }
+.bb-teach-count { color: var(--ink-soft); }
+.bb-finish-summary { color: var(--cinnabar-tint); }
+
+.bb-lesson-progress { color: var(--ink-soft); letter-spacing: 1.4px; }
+.bb-course-back {
+  color: var(--ink-2);
+  background: var(--bone-hi);
+  border-color: var(--edge);
+}
+.bb-course-back:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--bone-hi) 88%, var(--bronze));
+  border-color: color-mix(in srgb, var(--bronze) 50%, var(--edge));
+}
+.bb-hint-btn {
+  color: var(--ink-2);
+  background: rgba(255, 253, 247, .7);
+  border-color: var(--edge);
+}
+.bb-hint-btn:hover {
+  color: var(--ink);
+  background: var(--bone-hi);
+  border-color: color-mix(in srgb, var(--bronze) 50%, var(--edge));
+}
+.bb-replay {
+  color: var(--ink-2);
+  background: rgba(255, 253, 247, .7);
+  border-color: var(--edge);
+}
+.bb-replay:hover {
+  color: var(--ink);
+  background: var(--bone-hi);
+}
+
+/* 龟宝的影子：黑底上是黑的，纸上要改成褐的（纯黑影子压在骨白上等于一块灰斑） */
+.bb-guibao-cover { filter: drop-shadow(0 18px 20px rgba(92, 68, 36, .24)); }
+
+/* 朱砂小印保持原样（深浅两套面上都读得出来），只把内描边调淡一点，
+   免得在骨白上像贴了一张白边贴纸 */
+.bb-portrait-seal { border-color: rgba(247, 226, 199, .34); }
+
+/* ----------------------------------------------------------------------------
+   7. 窄屏：clip-path 的磕口会被纵横比拉成椭圆
+   ----------------------------------------------------------------------------
+   clipPathUnits="objectBoundingBox" 是**按比例**贴合元素的：
+   面板在手机上会被拉成 340×1100，那个圆磕口在竖直方向就变成 56px 的长椭圆，
+   正好咬到正文。所以窄屏放弃外轮廓，改用四角不等的圆角 + 材质，
+   仍然读得出"这是一片骨"，但不会切到字。
+   ---------------------------------------------------------------------------- */
+@media (max-width: 760px) {
+  .bb-intro-cover,
+  .bb-course-finish,
+  .bb-lesson-panel,
+  .bb-teach-panel {
+    filter: drop-shadow(0 10px 14px rgba(92, 68, 36, .18));
+  }
+  .bb-intro-cover::before,
+  .bb-course-finish::before,
+  .bb-lesson-panel::before,
+  .bb-teach-panel::before {
+    clip-path: none;
+    border-radius: 16px 11px 15px 12px;
+  }
+  .bb-intro-cover::after,
+  .bb-course-finish::after,
+  .bb-lesson-panel::after,
+  .bb-teach-panel::after { clip-path: none; border-radius: 16px 11px 15px 12px; }
+  .bb-intro-choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* 三列之后格子只剩 ~100px 宽，78 的字形会顶到边；
+     手机上让字形退一档，仍然比今字大 —— 主角位是靠"比名字大"立起来的。 */
+  /* 三列之后片宽只有 ~108，片高也给到 108 才不会让 62px 的字顶到断口上。
+     字形退到 58 —— 它还是名字的六倍，主角位没丢。 */
+  .bb-intro-choice { min-height: 110px; }
+  .bb-choice-glyph { width: 58px; height: 58px; }
+  .bb-compose-glyph { width: 58px; height: 58px; }
+  .bb-qface-glyph .obcomp-g { width: 68px; height: 68px; }
+  .bb-qface-glyph .obcomp.stack .obcomp-g { width: 58px; height: 58px; }
+}
+
+/* ----------------------------------------------------------------------------
+   8. 后面的笔画：第二关「拼字」的笔画块、第三关终局的纯笔画体
+   ----------------------------------------------------------------------------
+   第一关是"认构件"，第二关是"摆笔画"，第三关是"斩笔画"—— 三处展示的是
+   同一样东西：字形数据里那些**真笔画**。既然第一关把甲骨字形提到了主角位，
+   后面这两处就不能还停在"小图示"的尺寸上，否则一路点下去，越往后越看不清字。
+
+   注意这两处的 DOM 在别的模块里（wangyi-map.js / boss-raid.js），
+   所以只调尺寸与墨色，不动结构。第三关的笔画本来就在深色战场里以 currentColor
+   描出、悬停转朱，那套是对的，这里只管第二关的笔画块与参考字形。
+   ---------------------------------------------------------------------------- */
+.wy2-flow-refglyph {
+  width: 92px;
+  height: 92px;
+  color: var(--ink-carve);
+}
+/* 46 → 58：一块笔画要能被指头捏住，也要能看出"这一笔是弯的还是直的"。
+   这个托盘是这一关唯一的操作面，块太小就退化成"点一下试试"。
+   等比放大不会挤爆托盘 —— 托盘本身是 flex 换行。 */
+.wy2-piece-svg {
+  width: 58px;
+  height: 58px;
+  color: var(--ink-carve);
+}
+/* 手机上托盘会横向溢出（58 的块一行放不下三块），退一档 ——
+   这一条必须排在上面那条之后：媒体查询不加权重，靠的是源码顺序。 */
+@media (max-width: 760px) {
+  .wy2-flow-refglyph { width: 74px; height: 74px; }
+  .wy2-piece-svg { width: 46px; height: 46px; }
+}
+
+/* ----------------------------------------------------------------------------
+   9. 减少动效
+   ---------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  /* 只关过渡；六片的 ±.7deg 歪角是静态外观，不是动效，不能掰正
+     —— 掰正了那一排就变回"六个摆得整整齐齐的方块" */
+  .bb-intro-choice { transition: none; }
+}

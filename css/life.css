@@ -1,0 +1,101 @@
+/* ============================================================================
+   字有骨气 · 灵动层（life.css）
+   ----------------------------------------------------------------------------
+   配合 js/core/life.js 使用。只做两件事：
+     1 给 life.js 动态插入的 .life-glow 定样式
+     2 给卡片补一点"被碰到的反馈"——不改变任何现有布局与配色
+
+   加载位置：必须排在 modes.css 之后（index.html 里已经是最后一条 link），
+   否则同权重选择器会被 modes.css 覆盖。
+   ============================================================================ */
+
+/* ---------- 首屏骨片上的指针微光 ----------
+   一团 260px 的暖光，跟着指针缓动。强度压到 0.10——
+   是"骨面被照亮了一小块"，不是"有个光斑在飘"。
+   只在有指针的设备上出现（life.js 已判断，这里再兜一层）。 */
+.life-glow {
+  position: absolute;
+  inset: 0;
+  /* z-index 必须低于 .hero-in（它是 1）：
+     这团光是"照在骨面上"，不是"盖在字上面"。 */
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .45s ease;
+  background:
+    radial-gradient(260px 260px at var(--gx, 50%) var(--gy, 50%),
+      rgba(255, 233, 190, .13) 0%,
+      rgba(255, 226, 176, .06) 38%,
+      transparent 72%);
+  mix-blend-mode: screen;
+}
+.hero:hover .life-glow { opacity: 1; }
+@media (hover: none) {
+  .life-glow { display: none; }
+}
+
+/* ---------- 首屏不跳：清空 #sceneRoot 的那一帧要占住高度 ----------
+   实测：启动时 #sceneRoot 会先被清空、再渲染一次。清空那一帧它高 0，
+   于是页脚从 y=501 一下提到 y=0（高度也归零），再落回去。
+   PerformanceObserver 记到的就是一次 0.35 的布局位移 —— 页脚"抖一下"，
+   肉眼可见，而且和本层动效无关（三个新层全关掉照样复现）。
+   给它一个空态最小高度就够：空的时候按一屏算，页脚落在折线以下，
+   不进视口就不算位移；有内容时 :empty 不成立，完全不影响现有版式。 */
+#sceneRoot:empty {
+  min-height: 100vh;
+}
+
+/* ---------- 数字滚动时的宽度稳定 ----------
+   等宽数字 + life.js 量出终态宽度钉成 min-width（写在 JS 里，因为要实测）；
+   这里只负责把字形宽度统一，避免 1 和 8 一样宽的情况下还在跳。 */
+.stat-cell b {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 卡片被碰到时的抬升 ----------
+   theme.css / ui.css 里 .mode-card 已经有 -2px，这里统一到 -3px 并补阴影，
+   让"可点"这件事在指针移上去的瞬间就成立。 */
+.atlas-card,
+.ach-card,
+.daily-card,
+.play-card {
+  transition:
+    transform .26s cubic-bezier(.22, .61, .36, 1),
+    box-shadow .26s cubic-bezier(.22, .61, .36, 1),
+    border-color .26s ease;
+}
+.atlas-card:hover,
+.ach-card:hover,
+.daily-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 22px -14px rgba(41, 35, 30, .55);
+}
+.play-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px -18px rgba(41, 35, 30, .6);
+}
+
+/* 焦点态与悬停态一致：键盘用户也应该看到"这里被选中了" */
+.atlas-card:focus-visible,
+.ach-card:focus-visible,
+.daily-card:focus-visible,
+.play-card:focus-visible {
+  transform: translateY(-3px);
+}
+
+/* 系统要求减少动态时，全部退回静态 */
+@media (prefers-reduced-motion: reduce) {
+  .life-glow { display: none; }
+  .atlas-card,
+  .ach-card,
+  .daily-card,
+  .play-card {
+    transition: none;
+  }
+  .atlas-card:hover,
+  .ach-card:hover,
+  .daily-card:hover,
+  .play-card:hover {
+    transform: none;
+  }
+}

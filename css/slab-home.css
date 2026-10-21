@@ -1,0 +1,327 @@
+/* ============================================================================
+   字有骨气 · 首页「三步，开启甲骨探索」：案上摊开的三片卜骨
+   ----------------------------------------------------------------------------
+   这三张卡是"去黑暗"剩下的最后一处大头。原来它们与选关页是同一套东西：
+   深褐渐变底 + 3px 金顶边 + 发光圆托盘，跟首屏那张关灯照片是同一个语汇。
+
+   现在跟选关页对齐成同一件事：**同一批玩法，就是同一批骨片**。
+   首页三片、选关页三片，形状来自同一个 js/core/slab-card-shape.js。
+   在第一页看到的那块骨头，点进去还是那块 —— 这是"骨片贯穿"的实际意思。
+
+   三处不能照抄选关页：
+     1. 首页的卡是**直接**排在 .play-grid 里的（选关页外面还有 .lv-slot）。
+        骨片用 clip-path 切，会把自身 box-shadow 一起裁掉，所以要包一层 .pc-slot
+        让影子有地方挂（壳层的改动见 js/core/shell.js 那段注释）。
+     2. 中间那片是"主玩法"，带王邑图卷。图卷本身就是骨纸色的线描，
+        压在骨面上会糊成一张纸 —— 上面必须铺一层骨白洗淡，让它读成"刻痕"。
+     3. 首页三片的高度/宽度本来就不等（410 / 470），这是内容差：
+        中间那片多一张地图、多一条进度条。选关页那三片是平级，所以拉平了；
+        这里保留"中间大一块"，但把 1.35fr 收到 1.2fr，别大得像模板错位。
+
+   本文件必须排在 atmos.css / life.css / ui.css / slab-modes.css 之后。
+   要回退：删掉 index.html 里 slab-home.css 那一行（壳层的 .pc-slot 留着无害）。
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   1. 外面那层：影子、角度、抬起
+   ---------------------------------------------------------------------------- */
+.home-scene .play-grid {
+  /* 12px 太窄：骨片是有缺口的，两片的缺口会对到一起，
+     看起来像同一块骨头裂成两半。留出 20px 才看得出是三块。 */
+  gap: clamp(16px, 2vw, 26px);
+  grid-template-columns: minmax(0, .92fr) minmax(0, 1.2fr) minmax(0, .92fr);
+  align-items: stretch;
+}
+/* 暗板时期卡与卡之间有一条贯穿的细线（.play-grid::before）。
+   骨片是不透明地压在案上的，这条线只在缺口处露出来，像沾了根头发。 */
+.home-scene .play-grid::before { display: none; }
+
+.home-scene .pc-slot {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  transition: transform .34s var(--ease), filter .34s var(--ease);
+  filter:
+    drop-shadow(0 15px 19px rgba(92, 68, 36, .26))
+    drop-shadow(0 3px 4px rgba(92, 68, 36, .17));
+}
+/* 三片各偏一个角度。并排一模一样就不是"摊在案上"，是"贴了一排"。 */
+.home-scene .pc-slot:nth-child(1) { transform: rotate(-.6deg) translateY(3px); }
+.home-scene .pc-slot:nth-child(2) { transform: rotate(.35deg) translateY(-3px); }
+.home-scene .pc-slot:nth-child(3) { transform: rotate(-.45deg) translateY(4px); }
+
+.home-scene .pc-slot:hover,
+.home-scene .pc-slot:focus-within {
+  z-index: 3;
+  transform: rotate(0deg) translateY(-8px);
+  filter:
+    drop-shadow(0 24px 28px rgba(92, 68, 36, .28))
+    drop-shadow(0 5px 7px rgba(92, 68, 36, .18));
+}
+.home-scene .pc-slot > .play-card {
+  width: 100%;
+  height: 100%;
+}
+
+/* ----------------------------------------------------------------------------
+   2. 骨片本体
+   ---------------------------------------------------------------------------- */
+.home-scene .play-card {
+  position: relative;
+  overflow: hidden;
+  /* 缺口最深能吃掉 30px（见 dev/_slab_cardpath.py 的 BITES），正文不能压上去 */
+  padding: 32px clamp(24px, 2.6vw, 32px) 26px;
+
+  color: var(--ink-carve);
+  background-color: #f8f0dd;
+  background-image: url("../assets/bone-surface.png"), var(--fiber);
+  background-size: 232px 232px, 220px 220px;
+  background-position: var(--bx, 0) var(--by, 0), 0 0;
+  background-repeat: repeat, repeat;
+  background-blend-mode: normal, multiply;
+
+  /* 描边、圆角、投影全部让位：轮廓由 clip-path 给，影在 .pc-slot 上 */
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transition: background-color .28s var(--ease);
+  clip-path: url(#slabCard1);
+}
+.home-scene .pc-slot:nth-child(1) > .play-card { clip-path: url(#slabCard1); --bx: -18px; --by: -24px; }
+.home-scene .pc-slot:nth-child(2) > .play-card { clip-path: url(#slabCard2); --bx: -96px; --by: -128px; }
+.home-scene .pc-slot:nth-child(3) > .play-card { clip-path: url(#slabCard3); --bx: -58px; --by: -186px; }
+
+/* 骨面明暗：光从右上落到案上（和首屏、选关页同方向），左下压一点沉影。
+   只做明暗，纹理已经在 background-image 里。 */
+.home-scene .play-card::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 118% 66% at 86% -8%, rgba(255, 255, 252, .78), transparent 58%),
+    radial-gradient(ellipse 96% 52% at 4% 106%, rgba(146, 116, 70, .17), transparent 64%),
+    linear-gradient(172deg, rgba(255, 251, 240, .22) 0%, rgba(214, 190, 152, .16) 100%);
+  content: '';
+  pointer-events: none;
+}
+.home-scene .play-card > * { position: relative; z-index: 1; }
+
+/* ----------------------------------------------------------------------------
+   3. 中间那片：王邑图卷洗淡成刻痕
+   ----------------------------------------------------------------------------
+   图卷 SVG 自己有一层骨纸渐变 + 一圈画框描边，原样当背景贴上来会有两个问题：
+     1. 它比骨面"白得有边框"，骨上像又贴了一张羊皮纸；
+     2. SVG 是 16:9，卡片是竖的，cover 之后上下会各露出一条画框线，
+        横贯整片骨，像一道锯痕。
+   所以改成单独一层（::after），只让它以 multiply 压上来：
+   底色仍是同一张骨面纹理，画框用放大裁掉，线条读成"这片大骨上刻着城邑"。
+   ---------------------------------------------------------------------------- */
+.home-scene .play-card.pc-main {
+  background-color: #f8f0dd;
+  background-image: url("../assets/bone-surface.png"), var(--fiber);
+  background-size: 232px 232px, 220px 220px;
+  background-position: var(--bx, 0) var(--by, 0), 0 0;
+  background-repeat: repeat, repeat;
+  background-blend-mode: normal, multiply;
+}
+.home-scene .play-card.pc-main::after {
+  position: absolute;
+  z-index: 0;
+  /* 放大到 118%：SVG 的画框在 3.4% 处，裁掉就干净了 */
+  inset: -8%;
+  background: url("../assets/wangyi-atlas.svg") 58% 12% / auto 116% no-repeat;
+  content: '';
+  opacity: .15;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  /* 上密下疏：地图只留在字形那一带，往下渐变到没有。
+     不这么做，图卷的房址轮廓会横穿"殷商王邑"这四个字和下面两行说明 ——
+     刻痕压刻辞，两边都读不清。硬切会在 multiply 层上留一道横缝，所以用渐变。 */
+  -webkit-mask-image: linear-gradient(180deg, #000 0 40%, rgba(0, 0, 0, .5) 56%, transparent 72%);
+  mask-image: linear-gradient(180deg, #000 0 40%, rgba(0, 0, 0, .5) 56%, transparent 72%);
+}
+
+/* ----------------------------------------------------------------------------
+   4. 骨面上的字与线
+   ----------------------------------------------------------------------------
+   刻字与印字的区别全在两行 text-shadow：槽的下沿受光、上沿背光。方向不能颠。
+   ---------------------------------------------------------------------------- */
+.home-scene .play-card:hover { transform: none; }
+.home-scene .play-card.pc-main { min-height: 0; }
+
+.home-scene .pc-step { color: var(--ink-soft); font-size: 11px; letter-spacing: 2.5px; }
+.home-scene .pc-step b,
+.home-scene .pc-main .pc-step b,
+.home-scene .pc-start .pc-step b {
+  width: 34px;
+  height: 34px;
+  color: var(--cinnabar);
+  background: rgba(120, 100, 71, .10);
+  border: 1px solid color-mix(in srgb, var(--edge) 70%, transparent);
+  box-shadow: none;
+  text-shadow: 0 1px 0 rgba(255, 252, 243, .9);
+}
+.home-scene .pc-mainflag,
+.home-scene .pc-startflag {
+  color: var(--cinnabar);
+  background: rgba(166, 62, 47, .06);
+  border: 1px solid color-mix(in srgb, var(--cinnabar) 38%, transparent);
+  font-size: 10px;
+}
+.home-scene .pc-startflag { color: var(--cinnabar); border-color: color-mix(in srgb, var(--cinnabar) 38%, transparent); }
+
+/* 字形：撤掉发光圆托盘（那是展柜的做法），笔画直接刻在骨上 */
+.home-scene .pc-art { min-height: 138px; margin: 6px 0 16px; border-top: 0; border-bottom: 0; }
+.home-scene .pc-art::before { display: none; }
+.home-scene .pc-main .pc-art { min-height: 182px; }
+/* 骨面上的笔画要"刻进去"，靠的是下沿一道受光的亮影；
+   再加一道极淡的暗晕，把小字号下被抗锯齿洗淡的笔画补回一半厚度。 */
+.home-scene .pc-art-glyph {
+  width: 104px;
+  height: 104px;
+  color: var(--ink-carve);
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 252, 243, .92))
+    drop-shadow(0 0 .7px rgba(36, 29, 20, .45));
+}
+.home-scene .pc-main .pc-art-glyph { width: 116px; height: 116px; }
+/* 两个构件并排时每个只占半幅，笔画跟着缩一半 —— 得放大显示尺寸才等重 */
+.home-scene .pc-art-glyph.pc-art-comp { width: 142px; height: 142px; }
+.home-scene .pc-art-note {
+  right: 2px;
+  bottom: 0;
+  color: var(--ink-soft);
+  font-size: 10px;
+  letter-spacing: .12em;
+}
+
+.home-scene .pc-title h3 {
+  color: var(--ink-carve);
+  font-size: 20px;
+  letter-spacing: .05em;
+  text-shadow:
+    0 1px 0 rgba(255, 252, 243, .95),
+    0 -1px 0 rgba(48, 32, 16, .14);
+}
+.home-scene .pc-tagline { color: var(--ink-soft); font-size: 11.5px; }
+.home-scene .pc-desc { color: var(--ink-2); font-size: 12.5px; line-height: 1.8; }
+
+/* 图标：三片骨上唯一的实红小块。inline 的 accent 色要被压掉（所以 !important） */
+.home-scene .pc-icon {
+  width: 34px;
+  height: 36px;
+  color: #fdf6e8;
+  background: var(--cinnabar) !important;
+  border: 0;
+  font-size: 19px;
+  box-shadow: 0 1px 0 rgba(255, 252, 243, .5);
+}
+
+.home-scene .play-card .tag {
+  color: var(--ink-2);
+  background: rgba(120, 100, 71, .07);
+  border-color: color-mix(in srgb, var(--edge) 80%, transparent);
+}
+.home-scene .pc-progbar {
+  background: rgba(120, 100, 71, .13);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--edge) 75%, transparent);
+}
+.home-scene .pc-progfill { background: var(--cinnabar); }
+.home-scene .pc-progtext { color: var(--ink-soft); }
+
+.home-scene .pc-go {
+  color: var(--cinnabar);
+  border-top-color: color-mix(in srgb, var(--edge) 55%, transparent);
+  font-size: 12px;
+}
+.home-scene .pc-slot:hover .pc-go,
+.home-scene .pc-slot:focus-within .pc-go { color: var(--cinnabar-hi); }
+
+/* ----------------------------------------------------------------------------
+   5. 拿起反馈：抬高 + 影变长 + 骨面亮半档（像是转向了光）
+   ----------------------------------------------------------------------------
+   atmos.css 里那段 .home-scene .play-card:hover 与这里同特异性，
+   靠的是本文件后加载；所以那组声明必须**整组**给回来，
+   否则会漏掉半套深色值（border-color / box-shadow 都是深色时期写的）。
+   ---------------------------------------------------------------------------- */
+.home-scene .play-card:hover,
+.home-scene .play-card:focus-visible {
+  color: var(--ink-carve);
+  background-color: #fbf4e4;
+  background-image: url("../assets/bone-surface.png"), var(--fiber);
+  background-size: 232px 232px, 220px 220px;
+  background-position: var(--bx, 0) var(--by, 0), 0 0;
+  background-repeat: repeat, repeat;
+  background-blend-mode: normal, multiply;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+}
+.home-scene .play-card.pc-main:hover,
+.home-scene .play-card.pc-main:focus-visible {
+  background-color: #f8efd9;
+  background-image: url("../assets/bone-surface.png"), var(--fiber);
+  background-size: 232px 232px, 220px 220px;
+  background-position: var(--bx, 0) var(--by, 0), 0 0;
+  background-repeat: repeat, repeat;
+  background-blend-mode: normal, multiply;
+}
+.home-scene .play-card:focus-visible { outline: 0; }
+.home-scene .pc-slot:focus-within {
+  outline: 2px solid var(--cinnabar);
+  outline-offset: 12px;
+  border-radius: 4px;
+}
+
+/* ----------------------------------------------------------------------------
+   6. 中屏：主玩法跨两行。栅格位置从 .play-card 挪到了 .pc-slot
+   ----------------------------------------------------------------------------
+   ui.css:1808 那段是按 `.play-card` 写的，现在卡外面多了一层，
+   那些 grid-column / grid-row 全部失效 —— 不补这段，三片会挤成一列。
+   ---------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .home-scene .play-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  }
+  .home-scene .pc-slot.pc-main { grid-column: 2; grid-row: 1 / span 2; }
+  .home-scene .pc-slot.pc-start { grid-column: 1; grid-row: 1; }
+  .home-scene .pc-slot:not(.pc-main):not(.pc-start) { grid-column: 1; grid-row: 2; }
+  /* 这一段主玩法跨两行，卡片高度差不多翻倍。
+     图卷的淡出是按卡片高度算百分比的 —— 不跟着缩一半，那道淡出会落到
+     标题下面去，房址轮廓正好横穿"殷商王邑"四个字。 */
+  .home-scene .play-card.pc-main::after {
+    -webkit-mask-image: linear-gradient(180deg, #000 0 20%, rgba(0, 0, 0, .5) 28%, transparent 36%);
+    mask-image: linear-gradient(180deg, #000 0 20%, rgba(0, 0, 0, .5) 28%, transparent 36%);
+  }
+  /* 跨两行后多出来的高度别全堆在"已点亮"和"进入"之间，
+     交给字形那一块吃掉 —— 大骨上留白多是对的，正文中间空一大截不是。 */
+  .home-scene .pc-slot.pc-main .pc-art { flex: 1 1 auto; }
+}
+
+@media (max-width: 720px) {
+  .home-scene .play-grid { grid-template-columns: minmax(0, 1fr); }
+  .home-scene .pc-slot.pc-main,
+  .home-scene .pc-slot.pc-start,
+  .home-scene .pc-slot:not(.pc-main):not(.pc-start) {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  /* 单列时骨片独占一行，角度留着会把左右两边顶出去 */
+  .home-scene .pc-slot:nth-child(1),
+  .home-scene .pc-slot:nth-child(2),
+  .home-scene .pc-slot:nth-child(3) { transform: none; }
+  .home-scene .play-card { padding: 28px 24px 24px; min-height: 0; }
+  .home-scene .pc-art { min-height: 108px; margin: 4px 0 14px; }
+  /* 缺口是按比例缩的，窄屏下横向会显得更夸口，收一点投影 */
+  .home-scene .pc-slot { filter: drop-shadow(0 10px 14px rgba(92, 68, 36, .22)); }
+}
+
+/* ----------------------------------------------------------------------------
+   7. 减少动效
+   ---------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .home-scene .pc-slot { transition: none; }
+  .home-scene .pc-slot:hover,
+  .home-scene .pc-slot:focus-within { transform: none; }
+  .home-scene .play-card { transition: none; }
+}

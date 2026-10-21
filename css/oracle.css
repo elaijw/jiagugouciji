@@ -1,0 +1,152 @@
+/* ============================================================================
+   字有骨气 · 甲骨骨片层（oracle.css）
+   ----------------------------------------------------------------------------
+   把图鉴里"拓黑方块 + 反白字形"换成一枚枚**骨片**：
+     · 底  真实骨面（assets/oracle-bone.jpg 的局部，multiply 压进米色骨胎）
+     · 形  每格轮廓不同，是敲下来的碎片，不是网页盒子
+     · 字  凹刻：槽色压深、下沿受光
+   配合同目录的 js/core/oracle.js，骨片进入视口时按笔顺刻一遍。
+
+   为什么是单文件覆盖：
+     图鉴的卡片结构（.atlas-card / .ac-ob / .ac-glyph）已经在 shell.js 里定死，
+     JS 里不要动。这里只改"长什么样"，于是三个状态随时可以整层撤掉：
+     删掉 index.html 里本文件那一行 <link> 就回到拓黑方块。
+
+   讨伐名录（.is-codex）**不在此列**：那一档的主角是 Boss 形象图，
+   不是甲骨字形，套骨片会把插图一起裁进碎片轮廓里。
+   ============================================================================ */
+
+/* ---------- 1. 骨片本体 ---------- */
+.atlas-card:not(.is-codex) .ac-ob {
+  /* 骨胎：三档米色，让每片有受光差 */
+  background-color: #e7d9bb;
+  /* 三层：提亮罩 × 真实骨面 × 骨胎。
+     纯 multiply 时真实骨面会把整片压成深褐色石头，241 格铺开像一堆煤渣，
+     字也糊在里面；所以在最上面再盖一层半透明米色把亮度提回来，
+     纹理退到"骨面上有一点石纹"的程度。 */
+  background-image:
+    linear-gradient(rgba(252, 246, 233, .60), rgba(246, 236, 216, .60)),
+    url("../assets/oracle-bone.jpg"),
+    radial-gradient(120% 110% at 26% 14%, #fbf4e2 0%, #efe3c9 44%, #dccaa8 100%);
+  background-size: 100% 100%, 620%, cover;
+  background-position: 0 0, 47% 50%, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-blend-mode: normal, multiply, normal;
+
+  /* 碎片的轮廓：五款轮换。角度都在 0~3% 之间，不做成大斜角，
+     否则 241 格铺开会像马赛克，而不是一堆骨 */
+  clip-path: polygon(2% 1%, 96% 0, 100% 13%, 98% 92%, 88% 100%, 4% 98%, 0 86%, 1% 10%);
+  /* 边缘的内侧阴影：clip-path 会把 box-shadow 裁掉，只能用 inset */
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 238, .55),
+    inset 0 2px 10px rgba(120, 96, 58, .22),
+    inset 0 -8px 16px rgba(96, 72, 40, .16);
+}
+.atlas-card:not(.is-codex):nth-child(5n + 2) .ac-ob {
+  clip-path: polygon(0 3%, 90% 0, 100% 8%, 99% 84%, 92% 100%, 10% 97%, 1% 90%);
+  background-color: #ecdfc2;
+  background-size: 100% 100%, 700%, cover;
+  background-position: 0 0, 43% 45%, center;
+}
+.atlas-card:not(.is-codex):nth-child(5n + 3) .ac-ob {
+  clip-path: polygon(3% 0, 100% 2%, 97% 90%, 90% 99%, 2% 100%, 0 12%);
+  background-color: #e2d3b2;
+  background-size: 100% 100%, 560%, cover;
+  background-position: 0 0, 52% 52%, center;
+}
+.atlas-card:not(.is-codex):nth-child(5n + 4) .ac-ob {
+  clip-path: polygon(0 0, 94% 1%, 100% 20%, 96% 100%, 42% 97%, 0 92%);
+  background-color: #eadcbb;
+  background-size: 100% 100%, 760%, cover;
+  background-position: 0 0, 39% 41%, center;
+}
+.atlas-card:not(.is-codex):nth-child(5n + 5) .ac-ob {
+  clip-path: polygon(4% 2%, 98% 0, 100% 96%, 8% 100%, 0 40%);
+  background-color: #dfcdab;
+  background-size: 100% 100%, 640%, cover;
+  background-position: 0 0, 55% 58%, center;
+}
+
+/* ---------- 2. 刻进去的字 ----------
+   字色是"槽里的一点脏"，不是墨。
+   下沿一道极淡的亮边＝凹槽下壁受光，这一条是"凹"和"印上去"的唯一区别。 */
+.atlas-card:not(.is-codex) .ac-glyph {
+  color: #2c1c0c;
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 253, 245, 1))
+    drop-shadow(0 -0.9px 0 rgba(28, 16, 5, .42));
+}
+/* 线宽：56px 的格子里，2.4px 的金线在骨白上会"发飘"，
+   刻痕要比描边粗一档才压得住。口径仍是 modes.css 的 non-scaling-stroke。 */
+.atlas-card:not(.is-codex) .ac-glyph path { stroke-width: 3.2px; }
+
+/* 未解锁：骨片留着，字淡一档但**仍要读得清**——这是字形，不是装饰 */
+.atlas-card:not(.is-codex):not(.got) .ac-glyph { opacity: .62; }
+
+/* ---------- 3. 悬停 / 聚焦 ----------
+   原来的悬停是"抬起 2px + 朱砂描边"，但 clip-path 会把描边和投影一起裁掉，
+   所以这里改成：字回到全不透明 + 内侧浮现一道朱砂细线 + 极小的位移。 */
+.atlas-card:not(.is-codex):hover .ac-ob,
+.atlas-card:not(.is-codex):focus-visible .ac-ob {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 0 0 1px var(--cinnabar),
+    inset 0 2px 10px rgba(120, 96, 58, .22),
+    inset 0 -8px 16px rgba(96, 72, 40, .16);
+}
+.atlas-card:not(.is-codex):hover .ac-glyph,
+.atlas-card:not(.is-codex):focus-visible .ac-glyph { opacity: 1; }
+
+/* 现代字的小签：从"墨底白字"改成"骨底朱字"，
+   免得一块骨片上突然贴一张黑标签。 */
+.atlas-card:not(.is-codex) .ac-char {
+  background: rgba(246, 238, 220, .94);
+  color: var(--cinnabar);
+  box-shadow: inset 0 0 0 1px rgba(166, 62, 47, .55);
+  font-weight: 700;
+}
+
+/* ---------- 5. 每日一字：同一片骨 ----------
+   首页"每日一字"的 132×132 方框，原本是青铜色的浅底 + 边框。
+   换成骨片后，首页与图鉴是同一套语汇：字都长在骨头上。 */
+.dc-ob {
+  border: 0;
+  border-radius: 0;
+  background-color: #e7d9bb;
+  background-image:
+    /* 这一片比图鉴大（132px），提亮罩淡一档、纹理放近一档，
+       否则在首页这一格里纹理几乎看不见，退化成一块平色卡纸。 */
+    linear-gradient(rgba(252, 246, 233, .50), rgba(246, 236, 216, .50)),
+    url("../assets/oracle-bone.jpg"),
+    radial-gradient(120% 110% at 26% 14%, #fbf4e2 0%, #efe3c9 44%, #dccaa8 100%);
+  background-size: 100% 100%, 600%, cover;
+  background-position: 0 0, 44% 52%, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-blend-mode: normal, multiply, normal;
+  clip-path: polygon(1% 2%, 95% 0, 100% 15%, 97% 93%, 86% 100%, 3% 97%, 0 84%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 238, .5),
+    inset 0 2px 12px rgba(120, 96, 58, .22);
+}
+.dc-glyph {
+  color: #2c1c0c;
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 253, 245, 1))
+    drop-shadow(0 -0.9px 0 rgba(28, 16, 5, .40));
+}
+.dc-glyph path { stroke-width: 3px; }
+/* 组合示意的说明贴在骨片下沿，别被斜角切掉 */
+.dc-composednote { bottom: 4px; }
+
+/* ---------- 4. 减少动态 / 打印 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .atlas-card:not(.is-codex):hover .ac-ob { transform: none; }
+}
+@media print {
+  /* 打印时骨片没有意义，回到平色块，省墨且不糊 */
+  .atlas-card:not(.is-codex) .ac-ob {
+    clip-path: none;
+    background-image: none;
+    background-color: #efe4ca;
+  }
+}

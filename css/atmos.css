@@ -1,0 +1,699 @@
+/* ============================================================================
+   字有骨气 · 氛围层（atmos）
+   ----------------------------------------------------------------------------
+   这一层只做三件事，一件布局都不碰：
+
+     1. 光     —— 页面不是一张平纸，而是被一束暖光从上方照着的骨面。
+     2. 厚度   —— 卡片与按钮是"能拿起来的物件"，不是彩色矩形。
+     3. 柔和   —— 全站的边由直角的"裁切"变成圆角的"磨过"。
+
+   为什么单独开一层：站点原有两层审美并存——顶栏/首屏/玩法卡是深色展厅，
+   内容区是浅色档案卡（全透明、无框、0 圆角、0 阴影）。两者撞在一起时，
+   深色区"像一个游戏"、浅色区"像一份申报表"，中间没有过渡。
+   这一层把浅色区往"被灯光照着的展陈面"推一档，让两边连上。
+
+   回退：删掉 index.html 里那一行 <link> 即可，所有规则随文件消失。
+   ============================================================================ */
+
+/* ============================================================================
+   1. 光
+   ----------------------------------------------------------------------------
+   三层叠加，全部 fixed，不随页面滚动（否则滚到中段光就没了）：
+
+     顶部天光    从视口上方打下来的暖白，落在页面顶端，是"光源"
+     左上朱砂    极淡的侧光，给骨面一点温度，避免整页发灰
+     四周暗角    把注意力收到中间，同时让边缘沉下去——这是"展柜"的感觉
+
+   层级用 z-index: 0，站点内容层的 .top / .wrap / .footer 都是 z-index: 1，
+   天然压在它上面，不需要给任何元素改定位。
+   ============================================================================ */
+html::after {
+  content: '';
+  position: fixed; inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(132% 78% at 50% -8%,
+      rgba(255, 250, 236, .82) 0%, rgba(255, 250, 236, 0) 56%),
+    radial-gradient(74% 58% at 6% 4%,
+      rgba(166, 62, 47, .06) 0%, rgba(166, 62, 47, 0) 62%),
+    radial-gradient(150% 108% at 50% 44%,
+      rgba(74, 58, 36, 0) 40%, rgba(74, 58, 36, .20) 100%);
+}
+
+/* 顶栏下沿：一道从深到无的淡影。
+   顶栏是深色的，内页内容却是骨白的，两者硬碰在一起会有一条"刀切"的分界。
+   灯在墙上的样子不是一条线，是一片晕开的暗。这一层就是那片暗。 */
+.top::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 100%;
+  height: 22px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(24, 20, 16, .20), rgba(24, 20, 16, 0));
+}
+
+/* 首屏是深色满幅照片，天光压上去会把照片洗白，所以那一屏自己承担光。
+   这里不额外处理，靠 .hero-veil 已有的暗角。 */
+
+/* ============================================================================
+   2. 顶栏：从"网页导航条"变成 HUD
+   ----------------------------------------------------------------------------
+   原来是一条半透明深色带，下沿一根 1px 线。缺的是"玻璃厚度"：
+   上沿一条受光、下沿一条更深的影、中间一点点由深到浅的过渡。
+   ============================================================================ */
+.top {
+  background:
+    linear-gradient(180deg,
+      rgba(38, 33, 27, .97) 0%,
+      rgba(20, 17, 14, .97) 62%,
+      rgba(14, 12, 10, .98) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 220, .10),
+    0 1px 0 rgba(255, 244, 220, .05),
+    0 10px 26px -14px rgba(8, 6, 5, .65);
+  border-bottom-color: rgba(242, 232, 213, .10);
+}
+
+/* 导航项：药丸，选中态用朱砂底 + 内高光，而不是一块平色 */
+.top .top-link {
+  border-radius: var(--r-pill);
+  transition: background var(--t-fast) var(--ease),
+              color var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease);
+}
+.top .top-link.on {
+  background: linear-gradient(180deg, rgba(180, 72, 54, .42), rgba(140, 50, 38, .30));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 210, 190, .26),
+    inset 0 0 0 1px rgba(199, 96, 76, .34),
+    0 2px 10px -4px rgba(166, 62, 47, .55);
+  color: #ffe2d6;
+}
+.top .top-set {
+  border-radius: var(--r-pill);
+  box-shadow: inset 0 1px 0 rgba(255, 244, 220, .10);
+}
+
+/* 甲骨字形与四字字标之间留一口气：三个字时 2px 够，四个字时贴在一起
+   会读成"甲骨字"一个词，断开才看得清是「甲骨」+站名。 */
+.top .top-brand { gap: 7px; }
+
+/* 品牌三字：加一层极淡的外发光，让它在深色上"被灯照着" */
+.top .brand-art .ch {
+  filter: drop-shadow(0 0 10px rgba(240, 214, 168, .16));
+}
+
+/* ============================================================================
+   2.5 浅色版面：让它也被灯照着
+   ----------------------------------------------------------------------------
+   .sheet 是一整块近白的版面，原来只有一层很淡的纸纹。
+   一块均匀的白，无论边框多细、阴影多准，看过去都还是"一张纸"。
+   真实的白纸在一盏灯下不是均匀的：**靠近光源那头亮，远端沉一点**。
+
+   所以这里给它两层：
+     左上 一层暖白提亮（光落下来的那一角）
+     右下 一层极淡的骨褐压暗（远离光的那一头）
+
+   两层的透明度都很低，只负责"有光"这件事，不负责"有颜色"。
+   ============================================================================ */
+.sheet {
+  background-image:
+    radial-gradient(120% 82% at 10% -12%,
+      rgba(255, 253, 246, .95) 0%, rgba(255, 253, 246, 0) 58%),
+    radial-gradient(96% 78% at 104% 112%,
+      rgba(168, 142, 96, .15) 0%, rgba(168, 142, 96, 0) 62%),
+    linear-gradient(rgba(252, 248, 238, .88), rgba(252, 248, 238, .88)),
+    url("../assets/oracle-bone.jpg"),
+    var(--fiber);
+  background-size: auto, auto, auto, cover, 220px 220px;
+  background-position: 0 0, 0 0, 0 0, center, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-blend-mode: normal, normal, normal, multiply, multiply;
+
+  /* 骨版的"厚度"：四条边各有一点点内影，上面浅、下面深。
+     这是把一整块面板当成一片骨头来做的关键——
+     没有这道内影，它无论多圆都还是一张纸。 */
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 253, 246, .66),
+    inset 0 2px 2px rgba(255, 255, 255, .92),
+    inset 0 0 60px -30px rgba(120, 96, 58, .30),
+    inset 0 -22px 34px -22px rgba(120, 96, 58, .22),
+    0 2px 6px rgba(41, 35, 30, .06),
+    0 18px 40px -30px rgba(41, 35, 30, .22);
+}
+
+/* ============================================================================
+   3. 厚度：卡片
+   ----------------------------------------------------------------------------
+   三层：顶边受光 + 底边压暗 + 外部接触影。
+   这三层是"色块"与"物件"的唯一区别，缺了就是 div。
+   ============================================================================ */
+.sheet,
+.sect,
+.panel,
+.howto-sec,
+.howto-tips,
+.atlas-card,
+.wy-card,
+.cfg-sec {
+  box-shadow: var(--lip-hi), var(--lip-lo), var(--sh-1);
+}
+
+/* 首页那三张玩法卡本来就是做好的深色卡（背景图 + 3px 金顶边 + 深色渐变），
+   这里**只补圆角**，不动它的底色：深色卡在浅骨地上是首页唯一的重色块，
+   也是"这站是个游戏"的第一眼证据，把它改成浅色是自毁招牌。
+   圆角也不给满 20px——它是一排三张并排，圆得太狠轮廓会散，14px 刚好。 */
+.play-card,
+.daily-card,
+.collect-card {
+  border-radius: var(--r);
+}
+/* 卡顶那道金线（原来是一条 3px 的 border-top）。
+   一上圆角它就在两端被切成斜口，像折断的线。
+   改成 inset 阴影：贴在内侧、跟着圆角一起弯，不再有接缝。
+   颜色用变量，三张卡（推荐起点那张是朱砂）各自覆盖，不用重复写整条 box-shadow。 */
+.home-scene .play-card {
+  --top-line: #786447;
+  border-top-width: 1px;
+  border-top-color: rgba(65, 53, 39, .9);
+  box-shadow:
+    inset 0 3px 0 0 var(--top-line),
+    0 14px 28px rgba(35, 26, 17, .13);
+}
+.home-scene .play-card.pc-start { --top-line: #c44e37; }
+.home-scene .play-card:hover {
+  --top-line: #e16848;
+  box-shadow:
+    inset 0 3px 0 0 var(--top-line),
+    0 22px 44px rgba(35, 26, 17, .23);
+}
+.pc-go {
+  margin-top: auto;
+  transition: letter-spacing var(--t-base) var(--ease),
+              color var(--t-base) var(--ease);
+}
+.play-card:hover .pc-go { letter-spacing: 2px; }
+
+/* 大面板（题面卡、讨伐卡、图鉴详情）：圆更大一档，看起来像"一块骨版"。
+   但 28px 对整页宽的白面太大——它顶到首屏照片下沿时会露出两枚很显眼的圆角，
+   像是在照片前面贴了一张卡纸。20px 是"看得出磨过"又不"跳出来"的那一档。 */
+.sheet { border-radius: var(--r-lg); }
+.wy-card { border-radius: var(--r-lg); clip-path: none; }
+
+/* ============================================================================
+   4. 厚度：按钮
+   ----------------------------------------------------------------------------
+   按钮是最能体现"游戏感 vs 网页感"的零件。
+   网页按钮：平色 + 圆角 + hover 变色。游戏按钮：有一层顶光、一层底影，
+   按下去会真的往下走 1.5px，而且朱砂面是渐变的（上亮下暗 = 受光方向）。
+   ============================================================================ */
+.btn {
+  border-radius: var(--r-sm);
+  box-shadow: var(--lip-hi), var(--lip-lo), var(--sh-1);
+  transition: background var(--t-fast) var(--ease),
+              border-color var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease),
+              transform var(--t-fast) var(--ease);
+}
+.btn:active {
+  transform: translateY(1.5px);
+  box-shadow: inset 0 2px 5px rgba(41, 35, 30, .20);
+}
+
+/* 主按钮：朱砂渐变 + 顶部高光 + 底部暗边，像一枚压过的手印 */
+.btn.primary {
+  background: linear-gradient(180deg, #bb4d38 0%, var(--cinnabar) 54%, #8f3325 100%);
+  border-color: #7e2d21;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 214, 196, .40),
+    inset 0 -1px 0 rgba(0, 0, 0, .22),
+    0 2px 4px -1px rgba(120, 40, 28, .40),
+    0 10px 20px -10px rgba(120, 40, 28, .55);
+  text-shadow: 0 1px 0 rgba(80, 20, 12, .42);
+}
+.btn.primary:hover {
+  background: linear-gradient(180deg, #ca5a43 0%, var(--cinnabar-hi) 54%, #9a3929 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 205, .46),
+    inset 0 -1px 0 rgba(0, 0, 0, .20),
+    0 3px 6px -1px rgba(120, 40, 28, .42),
+    0 14px 26px -12px rgba(120, 40, 28, .60);
+}
+.btn.primary:active {
+  background: linear-gradient(180deg, #a8402c 0%, #98372a 100%);
+  box-shadow: inset 0 2px 6px rgba(60, 12, 8, .45);
+}
+
+.btn.danger {
+  background: linear-gradient(180deg, #7d2c22 0%, #602019 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 200, 180, .22), var(--sh-1);
+}
+.btn.sm { padding-inline: var(--s-4); }
+.btn.ghost { box-shadow: none; }
+.btn.ghost:active { box-shadow: none; }
+
+/* ============================================================================
+   4.5 标题断行
+   ----------------------------------------------------------------------------
+   `#/modes` 的标题「从认字形，到挑战终局」在 1440 宽下最后一个「局」字
+   被挤到第二行，孤零零一个字——这是中文排版里最难看的一种断法
+   （orphan）。浏览器默认是"能塞多少塞多少"，`text-wrap: balance` 改成
+   "尽量让两行一样长"，于是断在逗号后，两行读起来才像一句完整的话。
+   给所有大标题都开，不挑页面。 */
+h1, .lv-title, .sec-h, .bb-cover-title, .bb-question-title, .bb-teach-title,
+.cp-title, .as-title, .rw-title {
+  text-wrap: balance;
+}
+
+/* ============================================================================
+   5. 柔和：把所有"八角硬切"换成不对称圆角
+   ----------------------------------------------------------------------------
+   站点原来用 clip-path 给骨片、构件格、图标块切一个不规则八边形，
+   意图是"像一片碎骨"。但它切的角度很钝、顶点很尖，一片片并排时
+   全是硬角对硬角，反而是整页最"扎手"的地方。
+
+   改法：不用 clip-path，用**四个角半径各不相同**的 border-radius。
+     border-radius: 13px 9px 14px 10px / 10px 14px 9px 13px;
+   横轴四个值 / 竖轴四个值——四个角的曲率都不一样，所以轮廓是"手工磨过的"，
+   而不是"圆角矩形"。这比统一圆角更像骨片，也比尖角柔和。
+   ============================================================================ */
+
+/* 图鉴的骨片：五款轮廓轮换，原来是五个 clip-path 多边形。
+   多边形的顶点角度虽然不大，但"棱角"是硬的——241 格铺开时，
+   整张图鉴像一墙削好的石片。
+   改成**不对称圆角**：四个角半径各不相同，所以每片的轮廓仍然不一样，
+   但每一条边都在收口处弯了下来。五款按位置轮换，保留"没有两片一样"的味道。
+
+   同时把 box-shadow 从"必须用 inset"解放出来：clip-path 会把外投影裁掉，
+   换成 border-radius 之后，骨片终于能有一点离地的影。 */
+.atlas-card:not(.is-codex) .ac-ob,
+.dc-ob {
+  clip-path: none;
+}
+.atlas-card:not(.is-codex) .ac-ob {
+  border-radius: 14px 10px 15px 11px / 11px 15px 10px 14px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 238, .60),
+    inset 0 2px 10px rgba(120, 96, 58, .20),
+    inset 0 -8px 16px rgba(96, 72, 40, .15),
+    0 1px 2px rgba(90, 70, 40, .10);
+}
+.atlas-card:not(.is-codex):nth-child(5n + 2) .ac-ob {
+  border-radius: 10px 15px 11px 14px / 15px 10px 14px 11px;
+}
+.atlas-card:not(.is-codex):nth-child(5n + 3) .ac-ob {
+  border-radius: 15px 11px 10px 15px / 12px 14px 11px 13px;
+}
+.atlas-card:not(.is-codex):nth-child(5n + 4) .ac-ob {
+  border-radius: 11px 14px 15px 10px / 14px 11px 13px 15px;
+}
+.atlas-card:not(.is-codex):nth-child(5n + 5) .ac-ob {
+  border-radius: 13px 16px 10px 13px / 10px 13px 16px 12px;
+}
+/* 首页「每日一字」那块骨片：它是单独一件，不必轮换，给最"圆"的一套 */
+.dc-ob {
+  border-radius: 20px 14px 22px 16px / 16px 22px 14px 20px;
+}
+.atlas-card { border-radius: var(--r); }
+
+/* 图标块：小方章，四角略不同 */
+.pc-icon,
+.mc-icon {
+  clip-path: none;
+  border-radius: 11px 8px 12px 9px / 9px 12px 8px 11px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .26),
+    inset 0 -1px 0 rgba(0, 0, 0, .22),
+    0 2px 6px -2px rgba(41, 35, 30, .40);
+}
+
+/* 构件格与构件台：从八边尖角改成磨圆的骨片 */
+.piece,
+.slot,
+.bb-piece,
+.l2-slot {
+  clip-path: none;
+  border-radius: 12px 9px 13px 10px / 10px 13px 9px 12px;
+  box-shadow: var(--lip-hi), var(--lip-lo), 0 1px 2px rgba(41, 35, 30, .10);
+  transition: transform .1s var(--ease), box-shadow var(--t-fast) var(--ease),
+              border-color var(--t-fast) var(--ease);
+}
+.piece:hover,
+.bb-piece:hover {
+  border-color: color-mix(in srgb, var(--cinnabar) 45%, var(--edge));
+  box-shadow: var(--lip-hi), var(--lip-lo),
+              0 2px 5px rgba(41, 35, 30, .10),
+              0 8px 16px -8px rgba(41, 35, 30, .28);
+}
+.slot.filled { box-shadow: inset 0 0 0 1px rgba(166, 62, 47, .35), var(--lip-hi); }
+
+/* 卡片上那些小标签：药丸，比直角方块柔和 */
+.tag,
+.mc-badge,
+.chip,
+.howto-tags span {
+  border-radius: var(--r-pill);
+}
+
+/* ============================================================================
+   6. 深色面：打光 + 圆角
+   ----------------------------------------------------------------------------
+   三个玩法的深色面板（入门课、王邑、讨伐）在 modes.css 里都没有 border-radius，
+   是整站最"硬"的一片区域——一进第一关，前面几屏磨出来的柔边全没了，
+   像突然换了个网站。这里按层级统一补上：
+
+     lg  整块面板（课程面板、题面大卡）
+     r   面板里的嵌入块（题面、拆解、小贴士）
+     sm  可以点的格子（构件格）
+
+   同时给它们一层"从上面照下来"的光：深色面板最怕平，
+   顶边一条极淡的暖光就能让它从背景里站起来。
+   ============================================================================ */
+.bb-intro-cover,
+.bb-course-finish,
+.bb-lesson-panel,
+.bb-teach-panel,
+.bb-cover-fact,
+.wy-side,
+.lv-guide {
+  border-radius: var(--r-lg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 220, .09),
+    0 16px 36px -20px rgba(12, 9, 6, .55);
+}
+
+/* 深色面最怕"平"：一块均匀的黑，看起来就是个 div。
+   下面这几块是 page 里的主舞台，各加两束光——
+     左上 一束暖白（主光源，从纸窗方向来）
+     右下 一点朱砂反光（呼应甲骨上的填朱）
+   两束都极淡（0.07~0.10），只负责让"黑"有深有浅，绝不抢文字。 */
+.bb-lesson-panel,
+.bb-teach-panel,
+.bb-intro-cover,
+.bb-course-finish {
+  background-image:
+    radial-gradient(64% 46% at 16% -4%, rgba(255, 226, 178, .10), transparent 64%),
+    radial-gradient(46% 38% at 102% 104%, rgba(166, 62, 47, .09), transparent 72%),
+    linear-gradient(145deg, #221c16, #171411);
+}
+.wy-side,
+.lv-guide {
+  background-image:
+    radial-gradient(70% 56% at 16% -6%, rgba(255, 226, 178, .09), transparent 66%),
+    linear-gradient(158deg, #241d17, #171411);
+}
+
+/* 题面卡里那两片甲骨字，是整关的焦点。给它一束**从字形背后透出来**的光：
+   像把骨片举到灯前，字自己会亮。没有这束光，字就是浮在黑板上的金线。
+
+   同时把卡收窄到 660px：它原来是全宽的，而内容只有两片字，
+   于是一束光打在中间、两边各留一块死黑——那块黑比字更抢眼。
+   收窄之后卡本身成了一个"展台"，光、字、台三者才是一件事。 */
+.bb-question-card {
+  position: relative;
+  max-width: 660px;
+  background-image:
+    radial-gradient(42% 92% at 50% 48%, rgba(238, 202, 142, .13), transparent 74%),
+    radial-gradient(circle, rgba(182, 139, 84, .17), rgba(27, 22, 17, .34) 69%);
+  box-shadow: inset 0 0 46px -14px rgba(0, 0, 0, .55);
+}
+
+/* 构件格原来是一层 rgba(...,.045) 的极淡底色——在深色面板上等于没有，
+   六个格子看起来像六个洞。提亮一档并加顶边受光，才是"可以拿起来的骨片"。 */
+.bb-intro-choice {
+  background: linear-gradient(180deg,
+    rgba(245, 231, 205, .085) 0%,
+    rgba(245, 231, 205, .035) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 246, 226, .08),
+    0 2px 6px -3px rgba(0, 0, 0, .5);
+}
+.bb-intro-choice:hover,
+.bb-intro-choice:focus-visible {
+  background: linear-gradient(180deg,
+    rgba(198, 122, 84, .24) 0%,
+    rgba(174, 102, 68, .13) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 200, .16),
+    0 8px 18px -10px rgba(120, 40, 28, .55);
+}
+.bb-intro-choice.selected {
+  background: linear-gradient(180deg,
+    rgba(196, 93, 65, .34) 0%,
+    rgba(150, 62, 44, .24) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 226, 208, .24),
+    inset 0 -2px 0 #c45d41;
+}
+.bb-question-card,
+.bb-teach-composition,
+.bb-live-fact,
+.lv,
+.lv-foot,
+.wy2-board-art {
+  border-radius: var(--r);
+}
+.bb-intro-choice,
+.bb-hint-btn {
+  border-radius: var(--r-sm);
+}
+/* 印章是圆的，别给它圆角方块 */
+.bb-portrait-seal { border-radius: var(--r-pill); }
+.bb-promise-item { border-radius: var(--r-pill); }
+/* 关卡行的悬停：从"整行变色"改成"抬起一点" */
+.lv {
+  transition: transform var(--t-base) var(--ease),
+              box-shadow var(--t-base) var(--ease),
+              border-color var(--t-base) var(--ease);
+}
+
+.mode-card,
+.play-card.pc-main {
+  position: relative;
+}
+.mode-card::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 62% at 50% -6%, rgba(255, 240, 214, .10), transparent 60%),
+    linear-gradient(180deg, transparent 62%, rgba(0, 0, 0, .16) 100%);
+}
+
+/* ============================================================================
+   7. 浅色卡片：从底上"立起来"
+   ----------------------------------------------------------------------------
+   讨伐、图鉴、说明这几页都是"近白的卡压在骨白的地上"，只靠 1px 罫线分辨。
+   在 1440 宽的距离上看，卡片边缘几乎看不见，整页像一块整体——这就是
+   "像申报表"最直接的原因。补顶边受光 + 底边压暗，卡才有一层"纸的厚度"。
+   ============================================================================ */
+.bo-tier {
+  box-shadow: var(--lip-hi), var(--lip-lo), var(--sh-1);
+  /* 原渐变收到 #e9dcc2 收尾——那个颜色比页面底（#f2e8d5）还暗，
+     于是卡片的下半截"沉"进背景里，看过去像卡片缺了一块。
+     卡片要么比底亮、要么靠影分离，不能比底还暗。
+     这里整条渐变都压在底之上，最深处也留一档差。 */
+  background:
+    radial-gradient(ellipse at 18% 10%, #fffefa 0%, rgba(255, 254, 250, 0) 58%),
+    linear-gradient(158deg, #fffdf7 0%, #fbf4e7 58%, #f7edda 100%);
+  border-color: color-mix(in srgb, var(--edge) 88%, var(--patina));
+}
+/* 「正在打的那一阶」原来是 border-left: 3px 朱砂。
+   上了圆角后，左边框会在上下两头收成斜角，像贴了一条胶带。
+   改成 inset 阴影：宽度一样，但两端跟着圆角弯。 */
+.bo-tier.current {
+  border-left-width: 1px;
+  border-left-color: color-mix(in srgb, var(--cinnabar) 42%, var(--edge));
+  box-shadow:
+    inset 3px 0 0 var(--cinnabar),
+    var(--lip-hi),
+    var(--lip-lo),
+    var(--sh-1);
+}
+/* 字形珠：圆的，给它一点球面的感——上亮下暗 */
+.bo-bead {
+  background: radial-gradient(120% 120% at 34% 22%, #fffdf8 0%, var(--bone-hi) 52%, var(--bone-lo) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .9),
+    inset 0 -2px 3px rgba(96, 76, 44, .16),
+    var(--sh-1);
+}
+.bo-bead:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .9),
+    inset 0 -2px 3px rgba(96, 76, 44, .14),
+    var(--sh-2);
+}
+
+/* ============================================================================
+   8. 输入与选择
+   ============================================================================ */
+input[type="text"], input[type="search"], input[type="number"],
+select, textarea, .inp {
+  border-radius: var(--r-sm);
+  box-shadow: inset 0 1px 3px rgba(41, 35, 30, .10), var(--lip-hi);
+  transition: border-color var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease);
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible, .inp:focus-visible {
+  outline: none;
+  border-color: var(--cinnabar);
+  box-shadow: inset 0 1px 3px rgba(41, 35, 30, .08),
+              0 0 0 3px rgba(166, 62, 47, .16);
+}
+
+/* 键盘焦点：全站统一一圈朱砂，深色面上换成暖金光 */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cinnabar) 78%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+.top :focus-visible,
+.hero :focus-visible {
+  outline-color: rgba(240, 214, 168, .82);
+}
+
+/* ============================================================================
+   8.5 考绩弹层里的骨片
+   ----------------------------------------------------------------------------
+   典礼弹层那块 200×200 的骨片，是全站最大的一件"实物"，
+   但它是八角 clip-path 切的——角越大，尖角越扎眼。
+   换成不对称圆角：四角半径不同，仍然是"一片手工裁的骨"，但都是圆的。
+   .rw-slot（六格总览里的小格）同款缩小版。
+   ============================================================================ */
+.rw-bone {
+  clip-path: none;
+  border-radius: 26px 18px 30px 20px / 20px 30px 18px 26px;
+  filter: drop-shadow(0 8px 14px rgba(58, 42, 22, .32));
+}
+.rw-slot {
+  clip-path: none;
+  border-radius: 12px 8px 14px 9px / 9px 14px 8px 12px;
+  /* 槽位也要有"凹进去"的感：内影比底色深一档 */
+  box-shadow: inset 0 2px 5px rgba(96, 74, 42, .16),
+              inset 0 0 0 1px rgba(255, 250, 238, .34);
+}
+/* 槽位上的朱砂内框是一个 inset:0 的伪元素，它自己没有圆角，
+   不继承就会在四角露出直角，像给圆片贴了个方框。 */
+.rw-slot::after { border-radius: inherit; }
+
+/* ============================================================================
+   8.6 分隔线：从"画一条线"变成"刻一道槽"
+   ----------------------------------------------------------------------------
+   首页每个区块之间是一条 1px 实线，全站还有十几处 hr。
+   一条等宽的实线是排版软件里最省事的做法，也是最没有材质感的做法：
+   它看起来像"表格边框"，不像"东西上的一道痕"。
+
+   刻痕有两条特征：
+     1. 两端会淡出去（刻刀起落的地方没有锋利的端头）
+     2. 一边暗、一边亮（光从上方来，槽的下沿受光）
+
+   所以改成：水平渐变收两端 + 线下补一条 1px 白色高光。
+   ============================================================================ */
+.home-sec,
+.howto-secs > .howto-sec {
+  border-top: 0;
+}
+.home-sec { position: relative; }
+.home-sec::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    rgba(194, 188, 174, 0) 0%,
+    rgba(194, 188, 174, .95) 6%,
+    rgba(194, 188, 174, .95) 94%,
+    rgba(194, 188, 174, 0) 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .72);
+}
+hr, .hr {
+  border: 0; height: 1px; margin: var(--s-4) 0;
+  background: linear-gradient(90deg,
+    rgba(194, 188, 174, 0), rgba(194, 188, 174, .9) 10%,
+    rgba(194, 188, 174, .9) 90%, rgba(194, 188, 174, 0));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .68);
+  opacity: 1;
+}
+
+/* ============================================================================
+   8.7 成就：徽记与卡
+   ============================================================================ */
+.ach-icon {
+  clip-path: none;
+  border-radius: 10px 8px 11px 9px / 9px 11px 8px 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7),
+              0 1px 3px rgba(41, 35, 30, .14);
+}
+.ach-item {
+  border-radius: var(--r-sm);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .66);
+  transition: border-color var(--t-base) var(--ease),
+              background var(--t-base) var(--ease),
+              box-shadow var(--t-base) var(--ease);
+}
+/* 已达成的那一格：徽记实心朱砂 + 一点点外光，让它在一屏灰里亮起来 */
+.ach-item.done {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .7),
+    0 0 0 1px rgba(166, 62, 47, .10),
+    0 4px 12px -8px rgba(166, 62, 47, .55);
+}
+.ach-item.done .ach-icon {
+  background: linear-gradient(180deg, var(--cinnabar-hi), var(--cinnabar));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 214, 196, .40),
+    inset 0 -1px 0 rgba(0, 0, 0, .22);
+}
+
+/* ============================================================================
+   9. 滚动条：默认滚动条是整页最"未设计"的一处
+   ============================================================================ */
+@supports (scrollbar-width: thin) {
+  html { scrollbar-width: thin; scrollbar-color: rgba(140, 128, 102, .55) transparent; }
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(140, 128, 102, .42);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--r-pill);
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(120, 106, 80, .62); background-clip: content-box; }
+
+/* ============================================================================
+   10. 尊重「减少动态效果」：只停位移与过渡，不去掉任何视觉层次
+   ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .play-card:hover,
+  .daily-card:hover,
+  .collect-card:hover,
+  .piece:hover,
+  .bb-piece:hover { transform: none; }
+  .play-card:hover .pc-go { letter-spacing: 1px; }
+}
+
+/* 窄屏：卡片内边距收一档，圆角收一档，否则小屏上四角会显得过圆 */
+@media (max-width: 720px) {
+  .play-card, .daily-card, .collect-card { padding: var(--s-4); border-radius: var(--r); }
+  .sheet { border-radius: var(--r-lg); }
+  html::after { background:
+    radial-gradient(150% 62% at 50% -6%, rgba(255, 250, 236, .72), rgba(255, 250, 236, 0) 58%);
+  }
+}
+
+/* ============================================================================
+   11. 页脚题记：站名的双关只在这一句里说得清
+   ----------------------------------------------------------------------------
+   「字有骨气」听不出所以然时，它就只是个名字；给它一行题记，再接一根朱砂
+   竖线当引文记号，页脚就从「版权声明区」变回卷末的跋。
+   ============================================================================ */
+.footer .foot-motto {
+  color: rgba(242, 232, 213, .88);
+  letter-spacing: .08em;
+  margin-bottom: var(--s-1);
+  padding-left: var(--s-3);
+  border-left: 2px solid rgba(166, 62, 47, .62);
+}

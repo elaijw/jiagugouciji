@@ -1,0 +1,279 @@
+/* ============================================================================
+   字有骨气 · 考绩（reward.css）
+   ----------------------------------------------------------------------------
+   一套围绕"契"的奖励：认字攒契 → 攒够开卜骨 → 集齐六片称贞人。
+
+   为什么是"契"和"卜骨"，不是金币和宝箱：
+     商代卜完要在一旁刻"验辞"，记下这一卦准不准——那就是最早的记账。
+     所以本作的奖励物是**刻在骨上的记号**，不是游戏化的金币。
+     这套说法评委听得懂，也不破坏原来的文化调性。
+
+   三个面：
+     .rw-chip   顶栏的常驻计数器（即时反馈的落点）
+     .rw-float  奖励飘字（答对那一刻）
+     .rw-mask   开卜骨的典礼（里程碑）
+   ============================================================================ */
+
+/* ---------- 顶栏计数器 ---------- */
+.rw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(201, 168, 106, .42);
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(201, 168, 106, .16), rgba(166, 62, 47, .10));
+  color: var(--on-dark, #f2e8d5);
+  font-size: 12px;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease, transform .2s ease;
+}
+.rw-chip:hover,
+.rw-chip:focus-visible {
+  border-color: rgba(201, 168, 106, .8);
+  background: linear-gradient(180deg, rgba(201, 168, 106, .26), rgba(166, 62, 47, .16));
+  transform: translateY(-1px);
+}
+/* 朱砂点：不是图标，是"卜兆"的那一撇 */
+.rw-dot {
+  width: 7px; height: 7px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--cinnabar, #a63e2f);
+  box-shadow: 0 0 0 2px rgba(166, 62, 47, .18);
+  flex: 0 0 auto;
+}
+.rw-num {
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.rw-lab { color: rgba(242, 232, 213, .55); font-size: 11px; }
+.rw-bones { font-size: 11px; color: rgba(242, 232, 213, .45); letter-spacing: .04em; }
+
+/* 今日双倍角标 */
+.rw-chip.dbl { border-color: rgba(232, 201, 140, .9); }
+.rw-chip.dbl::after {
+  content: "×2";
+  font-size: 10px;
+  color: #12100c;
+  background: #e8c98c;
+  padding: 0 3px;
+  border-radius: 1px;
+  margin-left: -2px;
+}
+
+@media (max-width: 720px) {
+  /* 只收掉"骨 x/6"，"契"字留着——不然顶栏上一个孤零零的数字没人看得懂 */
+  .rw-bones { display: none; }
+  .rw-chip { padding: 0 8px; gap: 6px; }
+}
+
+/* ---------- 飘字 ---------- */
+.rw-float {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  font-size: 13px;
+  letter-spacing: .06em;
+  color: #e8c98c;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+  animation: rwFloat 900ms cubic-bezier(.22,.61,.36,1) forwards;
+}
+@keyframes rwFloat {
+  from { opacity: 0; transform: translate(-50%, 4px) scale(.94); }
+  22%  { opacity: 1; transform: translate(-50%, -6px) scale(1); }
+  to   { opacity: 0; transform: translate(-50%, -34px) scale(1); }
+}
+
+/* 计数器"被加到"的一下 */
+.rw-chip.hit { animation: rwHit 420ms ease; }
+@keyframes rwHit {
+  0% { transform: scale(1); }
+  38% { transform: scale(1.06); border-color: rgba(232, 201, 140, .95); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- 开卜骨的典礼 ---------- */
+.rw-mask {
+  position: fixed; inset: 0; z-index: 900;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background: rgba(14, 11, 8, .72);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: rwFade 220ms ease both;
+}
+@keyframes rwFade { from { opacity: 0 } to { opacity: 1 } }
+
+.rw-card {
+  position: relative;
+  width: min(420px, 100%);
+  padding: 26px 26px 22px;
+  background:
+    radial-gradient(120% 110% at 26% 12%, #fbf4e2 0%, #f1e5cb 52%, #e2d1b0 100%);
+  border: 1px solid rgba(201, 168, 106, .7);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .7);
+  animation: rwIn 420ms cubic-bezier(.22,.61,.36,1) both;
+  text-align: center;
+}
+@keyframes rwIn {
+  from { opacity: 0; transform: translateY(14px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.rw-kicker {
+  margin: 0 0 4px;
+  font-size: 11px;
+  letter-spacing: .28em;
+  color: var(--cinnabar, #a63e2f);
+}
+.rw-title {
+  margin: 0 0 18px;
+  font-size: 20px;
+  letter-spacing: .08em;
+  color: #2c1c0c;
+  font-weight: 600;
+}
+
+/* 骨片本身：与图鉴同一套做法（真实骨面 + 碎边 + 凹刻字） */
+.rw-bone {
+  position: relative;
+  width: 200px; height: 200px;
+  margin: 0 auto 18px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  background: radial-gradient(120% 110% at 26% 14%, #fbf4e2 0%, #efe3c9 44%, #dccaa8 100%);
+  clip-path: polygon(2% 1%, 96% 0, 100% 14%, 98% 92%, 88% 100%, 4% 98%, 0 86%, 1% 10%);
+  /* 投影必须用 filter：clip-path 会把 box-shadow 一起裁掉。
+     filter 在裁剪之后生效，影子才会顺着碎边描一圈。 */
+  filter: drop-shadow(0 7px 12px rgba(58, 42, 22, .30));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 238, .55),
+    inset 0 3px 14px rgba(110, 86, 50, .28),
+    inset 0 -10px 22px rgba(84, 62, 34, .18);
+}
+/* 骨面纹理走伪元素 + mix-blend-mode：
+   background-blend-mode 在 "两张图 + 底色" 三层时混不稳，实测发白。 */
+.rw-bone::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: url("../assets/oracle-bone.jpg") 47% 50% / 620% no-repeat;
+  mix-blend-mode: multiply;
+  opacity: .9;
+}
+.rw-bone > * { position: relative; z-index: 1; }
+.rw-bone svg { width: 118px; height: 118px; }
+.rw-bone path {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 3.4px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rw-bone-glyph {
+  color: #2c1c0c;
+  filter:
+    drop-shadow(0 1px 0 rgba(255, 253, 245, 1))
+    drop-shadow(0 -0.9px 0 rgba(28, 16, 5, .42));
+}
+
+.rw-line {
+  margin: 0 0 4px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: #6b5a40;
+  letter-spacing: .04em;
+}
+.rw-note {
+  margin: 0 0 18px;
+  font-size: 12px;
+  line-height: 1.9;
+  color: #8a7a5e;
+}
+
+.rw-acts { display: flex; gap: 10px; justify-content: center; }
+.rw-btn {
+  padding: 8px 20px;
+  border: 1px solid var(--cinnabar, #a63e2f);
+  background: var(--cinnabar, #a63e2f);
+  color: #fdf7ec;
+  font-size: 13px;
+  letter-spacing: .12em;
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.rw-btn.ghost {
+  background: transparent;
+  color: #6b5a40;
+  border-color: rgba(107, 90, 64, .35);
+}
+.rw-btn:hover { filter: brightness(1.06); }
+
+/* 六片卜骨的总览：一格一片 */
+.rw-wall {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 4px 0 18px;
+}
+.rw-slot {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(120, 96, 58, .10);
+  clip-path: polygon(2% 2%, 97% 0, 100% 92%, 6% 100%, 0 16%);
+  /* 已得的那几片是 <button>（可以点开重看），把浏览器默认样式清掉 */
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  color: inherit;
+}
+.rw-slot.on { cursor: pointer; }
+.rw-slot.on:focus-visible { outline: none; }
+/* "被指到"的朱砂内框：clip-path 会裁掉外描边，inset 也压不过骨面伪元素，
+   所以单独一层盖在最上面（骨面是 ::before，这一层是 ::after）。 */
+.rw-slot.on::after {
+  content: "";
+  position: absolute; inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px rgba(166, 62, 47, .48);
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.rw-slot.on:hover::after,
+.rw-slot.on:focus-visible::after { opacity: 1; }
+.rw-slot.on {
+  background: radial-gradient(120% 110% at 26% 14%, #fbf4e2 0%, #efe3c9 44%, #dccaa8 100%);
+  overflow: hidden;
+}
+.rw-slot.on::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: url("../assets/oracle-bone.jpg") 47% 50% / 520% no-repeat;
+  mix-blend-mode: multiply;
+  opacity: .9;
+}
+.rw-slot > * { position: relative; z-index: 1; }
+.rw-slot span {
+  font-size: 11px;
+  letter-spacing: .1em;
+  color: #9a8a6d;
+}
+.rw-slot svg { width: 62%; height: 62%; }
+.rw-slot path {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rw-mask, .rw-card, .rw-chip.hit { animation: none; }
+  .rw-float { display: none; }
+}

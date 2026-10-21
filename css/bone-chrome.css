@@ -1,0 +1,170 @@
+/* ============================================================================
+   字有骨气 · 骨白外框：顶栏与页脚
+   ----------------------------------------------------------------------------
+   到选关页这一步，"太黑暗"剩下的大头已经不是内容，是**外框**：
+   顶栏 rgba(20,17,14,.96)、页脚 #171411 —— 一上一下两条近黑的带子，
+   中间无论怎么摊骨片，整页第一眼仍然是"黑框里放了点东西"。
+   这两处的深色都来自 css/ui.css 末尾那段「竞赛展示视觉层」，
+   而它们的**原始亮色版本**在上面的基础段里本来就有，所以这里只是翻回来。
+
+   顺手要一起改的（漏一个就是白字压白底）：
+       .brand-glyph   原来被 filter: invert 刷成浅色
+       .brand-art .ch gradient 文字从骨白改回墨
+       .top-link / .on / .top-set
+       .footer 及其内部四类文字色
+
+   本文件必须排在 ui.css、atmos.css 之后。要回退：删掉 index.html 里这一行。
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   1. 顶栏：回到骨色纸边
+   ---------------------------------------------------------------------------- */
+.top {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--bone) 92%, transparent);
+  border-bottom-color: var(--edge);
+  box-shadow: 0 6px 22px rgba(41, 35, 30, .07);
+}
+.top .brand-glyph { filter: none; }
+.top .brand-art .ch {
+  background-image: linear-gradient(180deg, var(--ink-carve) 0%, #4c3b26 100%);
+}
+.top .top-link { color: var(--ink-2); }
+.top .top-link:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--bronze) 13%, transparent);
+}
+.top .top-link.on {
+  color: var(--cinnabar-tint);
+  background: color-mix(in srgb, var(--cinnabar) 11%, transparent);
+}
+.top .top-set {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--bone-white) 76%, transparent);
+  border-color: var(--edge);
+}
+.top .top-set:hover {
+  background: var(--bone-white);
+  border-color: var(--bronze-hi);
+}
+
+/* 顶栏那个攒契计数器（.rw-chip）原本是按深色底设计的：
+   字色 var(--on-dark) 骨白、说明字是 rgba(242,232,213,…)。
+   顶栏翻白以后它整块变成"浅字压浅底"，实测几乎看不见 —— 必须一起翻。 */
+.rw-chip {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--bronze) 40%, transparent);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--bronze) 14%, transparent),
+    color-mix(in srgb, var(--cinnabar) 8%, transparent));
+}
+.rw-chip:hover,
+.rw-chip:focus-visible {
+  border-color: color-mix(in srgb, var(--bronze) 74%, transparent);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--bronze) 22%, transparent),
+    color-mix(in srgb, var(--cinnabar) 14%, transparent));
+}
+.rw-chip .rw-num { color: var(--cinnabar-tint); }
+.rw-chip .rw-lab,
+.rw-chip .rw-bones { color: var(--ink-soft); }
+
+/* ----------------------------------------------------------------------------
+   2. 页脚：从"黑底展板"改成"案面收边"
+   ----------------------------------------------------------------------------
+   不换成纯骨白：页脚是页面的"最后一层"，需要一个比地略沉的收口，
+   否则滚动到底会感觉内容还没完。用骨-lo 的四成，只压一档，不压成黑。
+   ---------------------------------------------------------------------------- */
+.footer {
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--bone-lo) 42%, transparent);
+  border-top-color: var(--edge);
+}
+.footer .foot-h { color: var(--ink); }
+.footer .foot-p,
+.footer .foot-item,
+.footer .foot-bar { color: var(--ink-2); }
+.footer a { color: var(--bronze-tint); }
+.footer a:hover { color: var(--cinnabar-tint); }
+.footer .foot-bar {
+  border-top-color: color-mix(in srgb, var(--edge) 60%, transparent);
+}
+.footer .foot-ver,
+.footer .foot-tag { color: var(--ink-soft); }
+
+/* ----------------------------------------------------------------------------
+   4. 轻提示：从"黑药丸"改成案上压的一张签
+   ----------------------------------------------------------------------------
+   它只在第一次进站时出现（"欢迎来到字有骨气……"），4.2 秒后消失。
+   但它是整屏最大的一块纯深色，正落在骨白案面中央 —— 一出现就像黑幕又拉上了。
+   一张纸不该用黑药丸说话，所以改成和 .hero-guide / .lv-guide 同一套"签"：
+   骨白底 + 左侧一道朱线。
+   ---------------------------------------------------------------------------- */
+.toast {
+  color: var(--ink);
+  background: linear-gradient(104deg, rgba(255, 253, 247, .98), rgba(246, 236, 216, .98));
+  border: 1px solid var(--edge-in);
+  border-left: 2px solid var(--cinnabar);
+  border-radius: 3px;
+  box-shadow: 0 8px 22px rgba(41, 35, 30, .16);
+}
+
+/* ----------------------------------------------------------------------------
+   5. 顶栏的声音开关
+   ----------------------------------------------------------------------------
+   一个 34px 的方形按钮，和「设置」并排。图标是自己画的（一个喇叭 + 两道
+   声波 + 一道斜杠），不用 emoji 也不用字体图标：
+   两态靠 .is-off 切透明度，不换 SVG —— 换字符串会重建节点，切换时闪。
+   ---------------------------------------------------------------------------- */
+.top .top-snd {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--bone-white) 76%, transparent);
+  border: 1px solid var(--edge);
+  /* 圆，而不是和「设置」一样的胶囊：同一个高度下，圆的读作"图标按钮"、
+     胶囊的读作"文字按钮"，两种形状各有各的语义，混着用才对。 */
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease);
+}
+.top .top-snd:hover {
+  color: var(--ink);
+  background: var(--bone-white);
+  border-color: var(--bronze-hi);
+}
+.top .top-snd:focus-visible {
+  outline: 2px solid var(--cinnabar);
+  outline-offset: 2px;
+}
+.top .top-snd svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.top .top-snd .snd-body {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: .8;
+}
+.top .top-snd .snd-wave,
+.top .top-snd .snd-slash {
+  transition: opacity .18s linear;
+}
+.top .top-snd .snd-slash { opacity: 0; }
+.top .top-snd.is-off { color: var(--ink-soft); }
+.top .top-snd.is-off .snd-wave { opacity: 0; }
+.top .top-snd.is-off .snd-slash { opacity: 1; }
+
+/* 窄屏顶栏只有一个位置放这个按钮：试玩版印章先让位 */
+@media (max-width: 620px) {
+  .top .top-seal { display: none; }
+}

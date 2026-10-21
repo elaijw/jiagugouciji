@@ -1,0 +1,386 @@
+/* ============================================================================
+   字有骨气 · 选关页：案上摊开的三片卜骨
+   ----------------------------------------------------------------------------
+   原来的选关页是一整块近黑展板（#171411）+ 三张深色卡，跟首屏"关灯"是同一个病。
+
+   这一版把三张卡换成三片骨板，摊在骨白的案面上：
+       案面（.sheet）       —— 白，是纸
+       骨板（.lv，有磕口）  —— 暖一档，是物
+       刻上去的字           —— 墨，是痕迹
+   三层里只有中间那层有投影，所以层次是"物压在纸上"，不是"三个色块"。
+
+   骨板轮廓来自 js/core/slab-card-shape.js（由 dev/_slab_cardpath.py 生成），
+   三片各磕各的口子，并排才像三块骨头而不是同一张卡复制三遍。
+
+   clip-path 会把元素自己的投影一起裁掉，所以影挂在**父级** .lv-slot 上，
+   而不是 .lv 上 —— 这个坑在首屏那次已经踩过一遍了。
+
+   本文件必须排在 modes.css 之后（它要覆盖文件里那段深色主题）。
+   要回退：删掉 index.html 里 slab-modes.css 那一行。
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   1. 案面：从"暗房"换回纸
+   ---------------------------------------------------------------------------- */
+.modes-scene .sheet {
+  /* 原值：background-color:#171411 + 两团暗红径向渐变 */
+  color: var(--ink);
+  background-color: var(--sheet);
+  background-image: var(--fiber);
+  background-size: 220px 220px;
+  background-blend-mode: multiply;
+  border-color: var(--edge);
+  box-shadow: 0 24px 70px rgba(41, 35, 30, .10);
+}
+
+/* 王邑图卷的淡底纹：暗板上是 .11，纸上必须再压下去，否则像水渍 */
+.modes-scene .sheet::before { opacity: .055; }
+
+/* 抬头那一块：暗板时期是"浅色字压在黑底上"，现在得逐条换回墨色。
+   漏掉任何一条都是一片白 —— 首屏那次漏了 .hero 的 color，整屏字直接没影。 */
+.modes-scene .lv-intro { border-bottom-color: var(--edge); }
+.modes-scene .lv-kicker { color: var(--cinnabar-tint); }
+.modes-scene .lv-title {
+  color: var(--ink-carve);
+  letter-spacing: .06em;
+  text-shadow: none;
+}
+.modes-scene .lv-lead { color: var(--ink-2); }
+
+/* 龟宝那一条提示：做成案上压着的一张签，左侧一道朱线 */
+.modes-scene .lv-guide {
+  background: linear-gradient(104deg, rgba(255, 253, 247, .96), rgba(246, 236, 216, .78));
+  border: 1px solid var(--edge-in);
+  border-left: 2px solid var(--cinnabar);
+  box-shadow: 0 2px 6px rgba(41, 35, 30, .06);
+}
+.modes-scene .lv-guide-mark {
+  color: var(--cinnabar);
+  background: none;
+  border: 0;
+}
+.modes-scene .lv-guide-name { color: var(--ink); }
+.modes-scene .lv-guide-note { color: var(--ink-2); }
+
+/* ----------------------------------------------------------------------------
+   2. 骨板的位置：三片各偏一个角度
+   ----------------------------------------------------------------------------
+   投影挂在这一层（.lv 里的 clip-path 会把投影裁没）。
+   三片角度各不相同 —— 并排一模一样就变成表格了。
+   ---------------------------------------------------------------------------- */
+.modes-scene .lv-slot {
+  position: relative;
+  display: flex;
+  transition: transform .34s var(--ease), filter .34s var(--ease);
+  filter:
+    drop-shadow(0 15px 19px rgba(92, 68, 36, .26))
+    drop-shadow(0 3px 4px rgba(92, 68, 36, .17));
+}
+.modes-scene .lv-slot:nth-child(1) { transform: rotate(-.75deg) translateY(3px); }
+.modes-scene .lv-slot:nth-child(2) { transform: rotate(.4deg) translateY(-4px); }
+.modes-scene .lv-slot:nth-child(3) { transform: rotate(-.5deg) translateY(5px); }
+
+/* 拿起来：转正 + 抬高 + 影变长 */
+.modes-scene .lv-slot:hover,
+.modes-scene .lv-slot:focus-within {
+  transform: rotate(0deg) translateY(-8px);
+  filter:
+    drop-shadow(0 24px 28px rgba(92, 68, 36, .28))
+    drop-shadow(0 5px 7px rgba(92, 68, 36, .18));
+}
+
+/* ----------------------------------------------------------------------------
+   3. 骨板本体
+   ---------------------------------------------------------------------------- */
+.modes-scene .lv {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  /* 暗板时期是 min-height:480px —— 那是在"一整块展板"里排高度，
+     换成独立骨板以后这个值只会让每片底部多出一截空白，所以放掉，
+     高度交给三片里最高的那片（grid 的 stretch 会把三片拉齐）。 */
+  min-height: 0;
+  /* 四周留足：磕口最深能吃掉 30px，正文不能压到缺口上 */
+  padding: 34px clamp(26px, 3vw, 38px) 30px;
+  overflow: hidden;
+
+  color: var(--ink-carve);
+  /* 骨面：一张同色系的纹理（assets/bone-surface.png，由 dev/_gen_bone.py 生成）
+     + 纸纤维用 multiply 再压一层细颗粒。
+     这里**不用**首屏那张真照片：照片里原有的刻辞、暗角、展柜反光会跟卡片上的字
+     打架，而且它偏亮，压上来以后比纸还白 —— 层次就反了，看着是白卡片不是骨头。
+     首屏用真照片（要细节），承载体用纹理（要让字清楚），两个用途两种素材。 */
+  background-color: #f8f0dd;
+  background-image: url("../assets/bone-surface.png"), var(--fiber);
+  background-size: 232px 232px, 220px 220px;
+  background-position: var(--bx, 0) var(--by, 0), 0 0;
+  background-repeat: repeat, repeat;
+  background-blend-mode: normal, multiply;
+
+  border: 0;
+  box-shadow: none;
+  /* 骨板轮廓。三个 id 对应三片，见 js/core/slab-card-shape.js */
+  clip-path: url(#slabCard1);
+}
+.modes-scene .lv-slot:nth-child(1) .lv { clip-path: url(#slabCard1); --bx: -18px; --by: -24px; }
+.modes-scene .lv-slot:nth-child(2) .lv { clip-path: url(#slabCard2); --bx: -96px; --by: -128px; }
+.modes-scene .lv-slot:nth-child(3) .lv { clip-path: url(#slabCard3); --bx: -58px; --by: -186px; }
+
+/* 骨面本身：顶部受光（光从右上落到案上，和首屏同一个方向）+ 底部沉影。
+   只做明暗，不再叠纹理 —— 纹理已经在上面的 background-image 里了。 */
+.modes-scene .lv::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 118% 66% at 86% -8%, rgba(255, 255, 252, .78), transparent 58%),
+    radial-gradient(ellipse 96% 52% at 4% 106%, rgba(146, 116, 70, .17), transparent 64%),
+    linear-gradient(172deg, rgba(255, 251, 240, .22) 0%, rgba(214, 190, 152, .16) 100%);
+  content: '';
+  pointer-events: none;
+}
+
+/* 内容都在骨面上，得抬到纸纹之上 */
+.modes-scene .lv > * { position: relative; z-index: 1; }
+
+/* 旧版那道竖分隔线：骨板之间不需要，缺的是"缝"不是"线" */
+.modes-scene .lv + .lv { border-left: 0; }
+.modes-scene .lv-row::before { display: none; }
+.modes-scene .lv-row {
+  gap: clamp(14px, 2.2vw, 30px);
+  padding: 26px 0 20px;
+  border-bottom-color: var(--edge-in);
+}
+
+/* ----------------------------------------------------------------------------
+   4. 骨面上的字
+   ----------------------------------------------------------------------------
+   刻字与印字的区别全在两行 text-shadow：槽的下沿受光、上沿背光。
+   反过来写就是凸字（贴上去的），方向不能颠。
+   ---------------------------------------------------------------------------- */
+.modes-scene .lv-top {
+  min-height: 26px;
+  padding-bottom: 10px;
+  border-bottom-color: color-mix(in srgb, var(--edge) 55%, transparent);
+}
+.modes-scene .lv-no {
+  color: var(--cinnabar);
+  font-size: 15px;
+  letter-spacing: 3px;
+  text-shadow: 0 1px 0 rgba(255, 252, 243, .95);
+}
+.modes-scene .lv-step {
+  color: var(--ink-soft);
+  font-size: 10.5px;
+  letter-spacing: 2px;
+}
+
+/* 文案区撑开剩下的高度，让"进入"永远贴到骨板的底边 ——
+   否则三片字数不同，"进入"会停在不同高度，一排看过去是歪的。 */
+.modes-scene .lv-body { flex: 1 1 auto; }
+
+.modes-scene .lv-name,
+.modes-scene .lv-center .lv-name {
+  color: var(--ink-carve);
+  font-size: 21px;
+  letter-spacing: .04em;
+  line-height: 1.42;
+  text-shadow:
+    0 1px 0 rgba(255, 252, 243, .95),
+    0 -1px 0 rgba(48, 32, 16, .14);
+}
+.modes-scene .lv-tag {
+  color: var(--cinnabar-tint);
+  font-size: 12px;
+  letter-spacing: .05em;
+}
+.modes-scene .lv-desc {
+  color: var(--ink-2);
+  font-size: 12.5px;
+  line-height: 1.78;
+}
+
+/* 出处：像用小刀在边角上划的一行小字 */
+.modes-scene .lv-cap {
+  color: var(--ink-soft);
+  font-size: 10.5px;
+  letter-spacing: .02em;
+}
+.modes-scene .lv-cta {
+  color: var(--cinnabar);
+  font-size: 12px;
+}
+.modes-scene .lv-start .lv-cta,
+.modes-scene .lv-boss .lv-cta {
+  color: var(--cinnabar);
+  border-bottom-color: color-mix(in srgb, var(--cinnabar) 55%, transparent);
+}
+.modes-scene .lv-start .lv-no { color: var(--cinnabar); }
+.modes-scene .lv-boss .lv-no { color: var(--cinnabar-tint); }
+.modes-scene .lv-boss .lv-step { color: var(--ink-soft); }
+
+.modes-scene .lv-foot {
+  border-top-color: color-mix(in srgb, var(--edge) 55%, transparent);
+}
+
+/* 悬停时"进入"才亮起来：整片骨上只有这一处红 */
+.modes-scene .lv-slot:hover .lv-cta,
+.modes-scene .lv-slot:focus-within .lv-cta { color: var(--cinnabar-hi); }
+
+.modes-scene .lv-meta { color: var(--ink-soft); font-size: 11.5px; }
+
+/* ----------------------------------------------------------------------------
+   4.5 悬停 / 焦点：旧层的深色悬停要整组接管
+   ----------------------------------------------------------------------------
+   modes.css:2672 有一段
+       .modes-scene .lv:hover { background: linear-gradient(155deg,#352a20,#1c1713 72%) }
+   伪类让它比 `.modes-scene .lv` 高一级特异性 —— **跟加载顺序无关**，
+   本文件排在后面也压不住。于是指针一压上去，骨片当场变回黑卡，
+   而字还是墨色，深字压黑底，比原来还难认。
+
+   所以这里不是"改个颜色"，是按同一个选择器把整组声明重写一遍：
+   背景（简写会连 image / size / blend 一起重置，必须逐条给回来）、描边、投影、位移。
+   位移只能是 0 —— 抬起交给 .lv-slot，两边各抬一次会叠成 13px 的双跳。
+   骨片被"拿起来"的反馈走：抬高 + 影变长 + 骨面亮半档（像是转向了光）。
+   ---------------------------------------------------------------------------- */
+.modes-scene .lv:hover,
+.modes-scene .lv:focus-visible {
+  z-index: 2;
+  color: var(--ink-carve);
+  background-color: #fbf4e4;
+  background-image: url("../assets/bone-surface.png"), var(--fiber);
+  background-size: 232px 232px, 220px 220px;
+  background-position: var(--bx, 0) var(--by, 0), 0 0;
+  background-repeat: repeat, repeat;
+  background-blend-mode: normal, multiply;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+}
+/* 焦点环由 .lv-slot:focus-within 画（见第 6 节），骨片自己不要再画一个 */
+.modes-scene .lv:focus-visible { outline: 0; }
+
+/* 旧层的悬停还会顺手改字色（modes.css:2678 起那组 #ffb09a / #ff9d83），
+   在浅骨面上是浅红压浅黄。这里按同特异性拿回朱砂。 */
+.modes-scene .lv:hover .lv-no,
+.modes-scene .lv:focus-visible .lv-no,
+.modes-scene .lv-start:hover .lv-no,
+.modes-scene .lv-boss:hover .lv-no { color: var(--cinnabar); }
+.modes-scene .lv:hover .lv-step,
+.modes-scene .lv:focus-visible .lv-step { color: var(--ink-soft); }
+.modes-scene .lv:hover .lv-cta,
+.modes-scene .lv:focus-visible .lv-cta,
+.modes-scene .lv-start:hover .lv-cta,
+.modes-scene .lv-start:focus-visible .lv-cta,
+.modes-scene .lv-boss:hover .lv-cta,
+.modes-scene .lv-boss:focus-visible .lv-cta {
+  color: var(--cinnabar-hi);
+  border-bottom-color: color-mix(in srgb, var(--cinnabar-hi) 55%, transparent);
+}
+
+/* 三片一样宽。
+   暗板时期是 .9fr / 1.35fr / .9fr —— 中间那片当时是"深色主展台"，
+   宽度是它唯一剩下的主次标记。可骨板一旦同色，宽窄不一就只剩"没对齐"这一个读法：
+   三块骨头摆在案上，凭什么中间那块宽一倍？
+   主次改用内容表达（中间那片本来就有 5 个地图钉 + 61 字），宽度拉平。 */
+@media (min-width: 1051px) {
+  .modes-scene .lv-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  /* 三片里的字形区高度原本是 200 / 228 / 191（中间那片按"主展台"给了 210 的底），
+     于是玩法名分别停在 607 / 632 / 601 —— 并排看是三个错开 30px 的标题。
+     骨片是贴着排的，标题必须落在同一条线上，高度差还给"字形本身大小不同"，
+     不还给"版面留白不同"。 */
+  .modes-scene .lv-slot .lv .lv-art {
+    min-height: 236px;
+    /* 三片的 art 外边距原本也不一样（12/14 与 16/12），顺手拉齐 */
+    margin: 12px 0 14px;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   5. 字形：从"托盘里裱着的拓片"改成"直接刻在骨上"
+   ----------------------------------------------------------------------------
+   暗板时期字形外面套一个发光的圆盘（.lv-plate），那是展柜的做法。
+   骨面上没有圆盘 —— 就是笔画本身，靠投影表现凹进去。
+   ---------------------------------------------------------------------------- */
+.modes-scene .lv-art {
+  min-height: 170px;
+  margin: 16px 0 12px;
+}
+.modes-scene .lv-art::before { display: none; }
+.modes-scene .lv-plate {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.modes-scene .lv-glyph,
+.modes-scene .lv-center .lv-glyph {
+  color: var(--ink-carve);
+  filter: drop-shadow(0 1px 0 rgba(255, 252, 243, .9));
+}
+.modes-scene .lv:hover .lv-glyph,
+.modes-scene .lv-slot:hover .lv-glyph { transform: none; }
+
+.modes-scene .lv-comp { color: var(--ink-carve); }
+.modes-scene .lv-plus { color: var(--cinnabar-tint); }
+.modes-scene .lv-modern { color: var(--ink-2); }
+.modes-scene .lv-arrow { color: var(--ink-soft); }
+.modes-scene .lv-ping { color: var(--ink-2); }
+.modes-scene .lv-dot { background: var(--cinnabar); box-shadow: 0 0 0 3px rgba(166, 62, 47, .12); }
+.modes-scene .lv-chain::before {
+  background: linear-gradient(90deg, transparent, var(--edge), transparent);
+}
+
+/* 朱砂小印：整片骨上唯一的正红方块，位置永远在右上角那一小块留白里 */
+.modes-scene .lv-seal {
+  padding: 2px 6px;
+  color: #fdf6e8;
+  background: var(--cinnabar);
+  border: 0;
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  box-shadow: 0 1px 0 rgba(255, 252, 243, .5);
+}
+
+/* ----------------------------------------------------------------------------
+   6. 焦点：骨板被 clip 掉了，focus 环只能画在不被裁的父级上
+   ---------------------------------------------------------------------------- */
+.modes-scene .lv:focus-visible { outline: 0; }
+.modes-scene .lv-slot:focus-within {
+  outline: 2px solid var(--cinnabar);
+  outline-offset: 12px;
+  border-radius: 4px;
+}
+
+/* ----------------------------------------------------------------------------
+   7. 窄屏：单列时骨板变宽，磕口会被横向拉开 —— 收一点角度，也收一点投影
+   ---------------------------------------------------------------------------- */
+@media (max-width: 980px) {
+  .modes-scene .lv { padding: 30px 26px 26px; }
+  .modes-scene .lv-slot:nth-child(1),
+  .modes-scene .lv-slot:nth-child(2),
+  .modes-scene .lv-slot:nth-child(3) { transform: none; }
+}
+
+@media (max-width: 760px) {
+  .modes-scene .lv-row { gap: 16px; padding: 18px 0 14px; }
+  .modes-scene .lv { padding: 28px 22px 24px; }
+  .modes-scene .lv-slot {
+    filter: drop-shadow(0 10px 14px rgba(92, 68, 36, .22));
+  }
+  .modes-scene .lv-name { font-size: 19px; }
+  .modes-scene .lv-art { min-height: 132px; margin: 12px 0 10px; }
+}
+
+/* ----------------------------------------------------------------------------
+   8. 减少动效：不抬起，但要保留"可点"的反馈（换成影子加深）
+   ---------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .modes-scene .lv-slot { transition: none; }
+  .modes-scene .lv-slot:hover,
+  .modes-scene .lv-slot:focus-within { transform: none; }
+}

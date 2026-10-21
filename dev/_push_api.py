@@ -24,6 +24,7 @@ import hashlib
 import io
 import os
 import sys
+import time
 
 import requests
 
@@ -55,7 +56,28 @@ SKIP_SUFFIX = (".bak", ".orig", ".tmp", "~")
 
 
 def call(H, method, url, **kw):
-    r = requests.request(method, url, headers=H, timeout=300, **kw)
+    """每个请求都带重试。
+
+    本机的代理（127.0.0.1:6686）会**间歇性**返回一张不属于 api.github.com
+    的证书，表现为 `CERTIFICATE_VERIFY_FAILED: Hostname mismatch`。
+    同一条命令上一分钟还 200，下一个请求就炸——不是内容问题，是链路的抖动。
+    一次推送要发上百个请求（82 个文件 = 82 次 blob），只要有一次抽风整趟就废，
+    所以这里按"连接层错误"重试，HTTP 状态码错误照旧直接报。
+    """
+    retryable = (requests.exceptions.SSLError,
+                 requests.exceptions.ConnectionError,
+                 requests.exceptions.Timeout,
+                 requests.exceptions.ChunkedEncodingError)
+    r = None
+    for attempt in range(5):
+        try:
+            r = requests.request(method, url, headers=H, timeout=300, **kw)
+            break
+        except retryable as e:
+            if attempt == 4:
+                raise SystemExit("网络/证书错误，重试 5 次仍失败：\n%s\n%s"
+                                 % (url, str(e)[:300]))
+            time.sleep(1.2 * (attempt + 1))
     if r.status_code >= 300:
         raise SystemExit("HTTP %s %s\n%s" % (r.status_code, url, r.text[:600]))
     return r.json()

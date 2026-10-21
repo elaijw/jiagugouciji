@@ -1,5 +1,5 @@
 /* ============================================================
-   字趣 · 玩法模块：甲骨构字
+   字有骨气 · 玩法模块：甲骨构字
    —— 从原单文件原型迁移而来。作为平台的第一个模式接入：
       · 只通过 App.modes.register 声明自己，不触碰壳层
       · self-contained：自建 DOM、自持状态、自己管定时器
@@ -29,6 +29,48 @@
   var WIN_NEED = 5;          /* 字库满 5 张即结束 */
 
   var DIVINE = (App.data && App.data.DIVINE) || [];
+
+  /* ---------- 甲骨拼合字形 ----------
+     数据集里只有 37 个构件的真字形；34 张字卡都是合体字，没有整字字形。
+     所以"这个字的甲骨形"只能用**真构件**拼出来（日＋月 → 甲骨日＋甲骨月）。
+     拼出来的只是示意：位置、比例、叠放关系不等于该字甲骨原形，
+     界面上一律标"拼合示意"，不冒充原形。
+     这里放在模块级，第一关题面和旧的自由对战共用一份排布规则。 */
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function obCanvas() {
+    return (App.glyphs && App.glyphs.canvas) || 100;
+  }
+  /* 多数甲骨合体字左右并置；下面这些是上下相叠（屋盖在上、手在树上等） */
+  var STACKED = { '家': 1, '安': 1, '灾': 1, '牢': 1, '采': 1, '集': 1, '共': 1, '兵': 1, '焚': 1 };
+
+  function obSvgEl(name, cls) {
+    if (!App.glyphSvg) { return null; }
+    var inner = App.glyphSvg(name, 'currentColor');
+    if (!inner) { return null; }
+    var svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + obCanvas() + ' ' + obCanvas());
+    svg.setAttribute('class', cls || 'obsvg');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.innerHTML = inner;
+    return svg;
+  }
+
+  /* strict=true：任一构件缺字形就整片不画。
+     宁可空着，也不画一个"少了一块的甲骨形"——那会直接教错。 */
+  function composeBox(card, extraCls, strict) {
+    var parts = String((card && card.w) || '').split('+').filter(Boolean);
+    var have = parts.filter(function (n) { return !!obSvgEl(n, 'x'); });
+    if (!have.length) { return null; }
+    if (strict && have.length < parts.length) { return null; }
+    var cls = 'obcomp' + (STACKED[card.g] || have.length < 2 ? ' stack' : '');
+    if (extraCls) { cls += ' ' + extraCls; }
+    var box = App.el('div', cls);
+    have.forEach(function (n) {
+      /* 不夹分隔符：这是"组出来的字形"，构件应当紧贴 */
+      box.appendChild(obSvgEl(n, 'obcomp-g') || App.el('span', 'obcomp-g', n));
+    });
+    return box;
+  }
 
   /* ---------- 工具 ---------- */
   function starsOf(card) {
@@ -126,6 +168,8 @@
       { title: '什么是“组合示意”？', body: '本课用字形数据中已收录的真构件做拼合练习；合体字的拼合图不冒充原甲骨上的完整刻形。' }
     ];
     var state = { deck: [], index: 0, selected: [], choices: [], choiceIndex: -1, hint: false };
+    /* 题面是否同时给甲骨字形；想退回"只给今字"就改成 false */
+    var SHOW_OB_FACE = true;
 
     function clear() { U.clearNode(root); }
     function glyph(name, cls) {
@@ -244,10 +288,31 @@
       lesson.appendChild(U.el('p', 'bb-eyebrow', '先观察，再动手'));
       lesson.appendChild(U.el('h2', 'bb-question-title', '这个字由哪些构件组成？'));
       lesson.appendChild(U.el('p', 'bb-question-note', '点选下方的甲骨构件；需要几个构件，就选几个。'));
-      var cardFace = U.el('div', 'bb-question-card');
-      cardFace.appendChild(U.el('span', 'bb-question-label', '今字题面'));
-      cardFace.appendChild(U.el('strong', 'bb-question-char', card.g));
-      cardFace.appendChild(U.el('span', 'bb-question-sub', '找出它的构件组合'));
+      /* 题面同时给两种字形：左边甲骨（真构件拼合示意），右边今字。
+         关掉这一条（改成 false）就退回"只给今字"的老样子。
+         说明：旧的自由对战模式里写过"直接给拼好的甲骨形＝剧透答案"，
+         但那套是抢答计分玩法；入门课本来就是慢慢认形，
+         先把甲骨形摆出来，才真的在练"辨形"，而不是练"认今字"。 */
+      var obFace = SHOW_OB_FACE ? composeBox(card, 'bb-qface-glyph', true) : null;
+      var cardFace = U.el('div', 'bb-question-card' + (obFace ? ' has-ob' : ''));
+      if (obFace) {
+        var pairRow = U.el('div', 'bb-qpair-row');
+        var obSide = U.el('div', 'bb-qface');
+        obSide.appendChild(U.el('span', 'bb-question-label', '甲骨字形 · 拼合示意'));
+        obSide.appendChild(obFace);
+        pairRow.appendChild(obSide);
+        pairRow.appendChild(U.el('span', 'bb-qface-sep'));
+        var modernSide = U.el('div', 'bb-qface');
+        modernSide.appendChild(U.el('span', 'bb-question-label', '今字'));
+        modernSide.appendChild(U.el('strong', 'bb-question-char', card.g));
+        pairRow.appendChild(modernSide);
+        cardFace.appendChild(pairRow);
+        cardFace.appendChild(U.el('span', 'bb-question-sub', '找出它的构件组合'));
+      } else {
+        cardFace.appendChild(U.el('span', 'bb-question-label', '今字题面'));
+        cardFace.appendChild(U.el('strong', 'bb-question-char', card.g));
+        cardFace.appendChild(U.el('span', 'bb-question-sub', '找出它的构件组合'));
+      }
       lesson.appendChild(cardFace);
 
       var choiceHead = U.el('div', 'bb-choice-head');
@@ -372,7 +437,7 @@
       copy.appendChild(U.el('p', 'bb-cover-lead',
         '龟宝带你认识了甲骨文的材料与记录方式，也一起拼了 ' + state.deck.length + ' 个字形。接下来可以去第二关，在王邑小地图里继续探索。'));
       copy.appendChild(U.el('p', 'bb-finish-summary', '本地已收集 ' + learnedCount() + ' 个构字字形'));
-      var nextMap = U.el('a', 'btn primary bb-start', '进入第二关 · 走遍王邑 →');
+      var nextMap = U.el('a', 'btn primary bb-start', '进入第二关 · 点亮王邑 →');
       nextMap.href = '#/play/wangyi-map';
       copy.appendChild(nextMap);
       var replay = U.el('button', 'btn bb-replay', '再上一遍入门课');
@@ -424,25 +489,10 @@
       return svg;
     }
 
-    /* 合体字的构件排布方向。
-       多数甲骨合体字是左右并置；下面这些是上下相叠（屋盖在上、
-       手在树上等）。这只是**示意**，不代表该字甲骨原形的精确位置——
-       界面上一律标明"组合示意"，不冒充原形。 */
-    var STACKED = { '家': 1, '安': 1, '灾': 1, '牢': 1, '采': 1, '集': 1, '共': 1, '兵': 1, '焚': 1 };
-
-    /* 把合体字用【真甲骨构件】拼出来：'日+月' → 甲骨日 ＋ 甲骨月 */
+    /* 把合体字用【真甲骨构件】拼出来：'日+月' → 甲骨日 ＋ 甲骨月
+       排布规则（左右并置 / 上下相叠）见模块级 STACKED 与 composeBox */
     function composeOracle(card) {
-      var parts = String(card.w || '').split('+').filter(Boolean);
-      var have = parts.filter(function (n) { return !!App.glyphSvg(n); });
-      if (!have.length) return null;
-      var box = U.el('div', 'obcomp' + (STACKED[card.g] || have.length < 2 ? ' stack' : ''));
-      have.forEach(function (n) {
-        /* 不夹分隔符：这是"组出来的字形"，构件应当紧贴；
-           "＋"式的公式说明交给判定文案（正解 宀＋火）。 */
-        var s = obSvg(n, null, 'obcomp-g');
-        if (s) { box.appendChild(s); } else { box.appendChild(U.el('span', 'obcomp-g', n)); }
-      });
-      return box;
+      return composeBox(card);
     }
 
     /* ---------- 状态 ---------- */

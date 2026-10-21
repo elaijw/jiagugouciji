@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>甲骨字形 · 质感试验</title>
+<!--
+  试验页，不是网站本体。
+  目的：把站点里现在的"金色细线稿"，换成看起来像真甲骨的"图像"。
+
+  三条路线全部由项目真实数据现场生成：
+    字形  js/core/_data.js 的 glyph-parts（73 个字有真字形）
+    骨面  assets/oracle-bone.jpg 的局部 + 程序噪声
+    纸面  CSS 渐变 + feTurbulence 噪声
+  没有手绘，也没有新增素材。
+-->
+<style>
+:root{
+  --ink:#29231e; --ink-2:#6b6153;
+  --bone:#f2e8d5; --bone-hi:#faf5e9; --bone-lo:#e7dcc3;
+  --cinnabar:#a63e2f; --bronze:#8c8066; --patina:#b9a480;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:#12100d;color:#e8ddc7;
+  font-family:"Songti SC","Noto Serif SC",serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 40px}
+
+.bar{position:sticky;top:0;z-index:9;background:rgba(18,16,13,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid #2e2820}
+.bar .wrap{display:flex;align-items:center;gap:14px;height:56px}
+.bar b{font-size:15px;letter-spacing:.14em;font-weight:600}
+.bar span{font-size:12px;color:#8b8171;letter-spacing:.08em}
+
+.intro{padding:52px 0 16px}
+.intro h1{margin:0 0 14px;font-size:32px;line-height:1.4;font-weight:600}
+.intro p{margin:0;font-size:14px;line-height:1.95;color:#a89e8c;max-width:70ch}
+.intro .k{color:#d8b878}
+
+.sec{padding:40px 0 6px}
+.sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+.sec-h h2{margin:0;font-size:19px;letter-spacing:.05em;font-weight:600}
+.sec-h em{font-style:normal;font-size:11px;letter-spacing:.14em;color:#12100d;
+  background:#c9a86a;padding:3px 7px;border-radius:2px}
+.sec-note{margin:0 0 20px;font-size:13px;line-height:1.9;color:#93897a;max-width:76ch}
+.sec-note b{color:#cfc3ac;font-weight:600}
+
+.row{display:grid;grid-template-columns:repeat(6,1fr);gap:16px}
+
+/* ---------- 通用字形 ---------- */
+.glyph{display:block;width:100%;height:100%}
+.glyph path{vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+
+/* ============================================================
+   0 · 现状
+   ============================================================ */
+.v0 .tile{aspect-ratio:1;background:#1c1813;border:1px solid #3a332a;
+  display:flex;align-items:center;justify-content:center;position:relative}
+.v0 .glyph{width:64%;height:64%;color:#c9a86a}
+.v0 .glyph path{stroke-width:2.2px}
+
+/* ============================================================
+   1 · 骨片（推荐）
+   ------------------------------------------------------------
+   一格 = 一片骨。三件事让它像骨头而不像卡片：
+     a 不规则轮廓（clip-path 四款轮换，看起来是敲下来的碎片）
+     b 真实骨面（oracle-bone.jpg 的局部，multiply 压到 40% 上下）
+     c 刻槽（槽色 + 下沿受光 + 槽里的一点脏）
+   ============================================================ */
+.v1 .cell{filter:drop-shadow(0 3px 5px rgba(40,28,14,.30))}
+.v1 .tile{
+  aspect-ratio:1;position:relative;overflow:hidden;
+  background:
+    radial-gradient(120% 110% at 24% 14%, #fdf6e6 0%, #f0e4c8 38%, #e0cda9 72%, #cbb693 100%);
+  clip-path:polygon(2% 1%, 96% 0, 100% 14%, 98% 92%, 88% 100%, 4% 98%, 0 86%, 1% 10%);
+}
+.v1 .cell:nth-child(2) .tile{clip-path:polygon(0 3%, 90% 0, 100% 8%, 99% 84%, 92% 100%, 10% 97%, 1% 90%)}
+.v1 .cell:nth-child(3) .tile{clip-path:polygon(3% 0, 100% 2%, 97% 90%, 90% 99%, 2% 100%, 0 12%)}
+.v1 .cell:nth-child(4) .tile{clip-path:polygon(0 0, 94% 1%, 100% 20%, 96% 100%, 42% 97%, 0 92%)}
+.v1 .cell:nth-child(5) .tile{clip-path:polygon(4% 2%, 98% 0, 100% 96%, 8% 100%, 0 40%)}
+.v1 .cell:nth-child(6) .tile{clip-path:polygon(0 5%, 92% 0, 100% 12%, 97% 94%, 84% 100%, 3% 96%, 0 60%)}
+
+/* 真实骨面：不同格子取照片的不同位置，避免六格一模一样 */
+.v1 .tile::before{
+  content:"";position:absolute;inset:0;
+  background-image:url("assets/oracle-bone.jpg");
+  background-size:420%;
+  background-position:47% 50%;
+  mix-blend-mode:multiply;
+  opacity:.30;
+}
+/* 取景刻意压在中段浅色骨面上（x 44~52% / y 44~56%），
+   避免取到骨片边缘的深色阴影——那会在格子里留下大块脏斑 */
+.v1 .cell:nth-child(2) .tile::before{background-size:520%;background-position:44% 48%}
+.v1 .cell:nth-child(3) .tile::before{background-size:380%;background-position:49% 47%}
+.v1 .cell:nth-child(4) .tile::before{background-size:610%;background-position:46% 51%}
+.v1 .cell:nth-child(5) .tile::before{background-size:460%;background-position:51% 49%}
+.v1 .cell:nth-child(6) .tile::before{background-size:560%;background-position:45% 53%}
+
+/* 骨面细节：霉斑 / 土沁 / 崩口阴影 */
+.v1 .tile::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(34% 26% at 78% 78%, rgba(122,92,54,.30), transparent 72%),
+    radial-gradient(26% 20% at 18% 22%, rgba(140,110,70,.18), transparent 70%),
+    linear-gradient(180deg, rgba(255,252,240,.30), transparent 34%, rgba(84,62,34,.20));
+}
+
+.v1 .glyph{
+  position:absolute;inset:0;margin:auto;width:62%;height:62%;z-index:2;
+  color:#3c2814;
+  /* 下沿受光：读起来是凹槽下壁反光，而不是字形发光 */
+  filter:drop-shadow(0 1px 0 rgba(255,253,244,.95))
+         drop-shadow(0 -.8px 0 rgba(40,26,10,.38));
+}
+.v1 .glyph path{stroke-width:3.3px}
+
+/* ============================================================
+   2 · 拓片
+   ------------------------------------------------------------
+   墨色近黑，边缘用低频噪声位移做出手拓的涩边，
+   再叠一层高频噪声当"飞白"。纸纹程序生成。
+   ============================================================ */
+.v2 .tile{
+  aspect-ratio:1;position:relative;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;border-radius:2px;
+  background:radial-gradient(120% 115% at 32% 22%, #fdf9ee 0%, #f6eeda 52%, #e8dbc0 100%);
+  box-shadow:inset 0 0 32px rgba(108,84,50,.24);
+}
+.v2 .tile::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.6;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.2'/%3E%3C/svg%3E");
+  mix-blend-mode:multiply;
+}
+.v2 .glyph{width:66%;height:66%;position:relative;z-index:2;
+  color:#0f0b06;filter:url(#rub);}
+.v2 .glyph path{stroke-width:3.8px}
+
+/* ============================================================
+   3 · 阴刻（深色区用）
+   ============================================================ */
+.v3 .tile{
+  aspect-ratio:1;position:relative;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;border-radius:2px;
+  /* 注意：底色不能太深。深槽要在"比它更亮的表面"上才看得见，
+     底色压到 #2a2318 时，槽跟着一起黑掉，等于没画。 */
+  background:radial-gradient(130% 120% at 28% 10%, #6a5940 0%, #55462f 48%, #3b3022 100%);
+  box-shadow:inset 0 1px 0 rgba(255,240,210,.18), inset 0 -16px 30px rgba(0,0,0,.42);
+}
+.v3 .tile::after{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='4'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.3'/%3E%3C/svg%3E");
+  mix-blend-mode:overlay;
+}
+.v3 .glyph{width:62%;height:62%;position:relative;z-index:2;
+  color:#120d07;
+  /* 只有下沿一条亮边 + 槽口一圈暗晕，才是"刻进去"的读法 */
+  filter:drop-shadow(0 1.4px 0 rgba(244,216,166,.88))
+         drop-shadow(0 0 3px rgba(0,0,0,.7));
+}
+.v3 .glyph path{stroke-width:3.4px}
+
+/* ---------- 小尺寸校验 ---------- */
+.small{display:flex;gap:10px;margin-top:16px;align-items:flex-end}
+.small .tile{width:56px;height:56px;aspect-ratio:auto}
+.small .glyph{width:40px;height:40px}
+.small .lbl{font-size:11px;color:#7d7466;letter-spacing:.1em;margin-left:6px}
+
+.verdict{margin:34px 0 0;padding:18px 20px;border-left:2px solid var(--cinnabar);
+  background:rgba(166,62,47,.07);font-size:13px;line-height:2;color:#b8ab97}
+.verdict b{color:#e2d3b8}
+
+.mo{display:flex;gap:26px;align-items:flex-start;margin-top:4px;flex-wrap:wrap}
+.mo-big{width:300px;height:300px;position:relative;flex:0 0 auto}
+.mo-big .cell{width:100%;height:100%}
+.mo-big .tile{width:100%;height:100%;aspect-ratio:auto}
+.mo-big .glyph{width:190px;height:190px}
+.mo-big .hit{position:absolute;right:12px;bottom:10px;font-size:11px;letter-spacing:.1em;
+  color:rgba(42,34,24,.55);z-index:3}
+.mo-note{font-size:13px;line-height:2;color:#93897a;max-width:42ch}
+.mo-note b{color:#cfc3ac}
+
+.foot{padding:44px 0 70px;color:#6f6759;font-size:12px;line-height:2;
+  border-top:1px solid #241f18;margin-top:44px}
+</style>
+</head>
+<body>
+
+<!-- 拓片用滤镜：低频位移做涩边 + 高频噪声做飞白 -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="rub" x="-14%" y="-14%" width="128%" height="128%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.03 0.04" numOctaves="3" seed="9" result="lo"/>
+    <feDisplacementMap in="SourceGraphic" in2="lo" scale="2.2" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<header class="bar">
+  <div class="wrap"><b>甲骨字形 · 质感试验</b><span>字有骨气 / 字形方向比选</span></div>
+</header>
+
+<div class="wrap">
+  <div class="intro">
+    <h1>把"一根线"变成"一片甲骨"</h1>
+    <p>现在站内的甲骨文是<span class="k">单一线宽的矢量线稿</span>——干净，但读起来像图标、像星座连线，
+      不像刻在骨头上的东西。下面三条路线都用项目<span class="k">真实字形数据</span>现场生成，
+      没有手绘、没有新增素材。请挑一条。</p>
+  </div>
+
+  <section class="sec v0">
+    <div class="sec-h"><h2>现状</h2><em>NOW</em></div>
+    <p class="sec-note">深底 + 金色发丝线。深色卡片里稳定，放到骨白纸面上就"浮"了。</p>
+    <div class="row"></div>
+  </section>
+
+  <section class="sec v1">
+    <div class="sec-h"><h2>一 · 骨片</h2><em>推荐</em></div>
+    <p class="sec-note">一格就是<b>一片骨</b>：不规则轮廓、真实骨面（照片局部 + 土沁）、字是凹进去的刻槽。
+      图鉴排开就是"一盘骨片"，比现在的黑方块更有物性，也天然解释了"这些字从哪来"。</p>
+    <div class="row"></div>
+    <div class="small"></div>
+  </section>
+
+  <section class="sec v2">
+    <div class="sec-h"><h2>二 · 拓片</h2><em>纸墨</em></div>
+    <p class="sec-note">墨色近黑，边缘用低频噪声位移做出手拓的涩边，再叠飞白。最"文雅"，
+      适合图鉴详情、引用块、说明页；<b>暗底上不成立</b>。</p>
+    <div class="row"></div>
+    <div class="small"></div>
+  </section>
+
+  <section class="sec v3">
+    <div class="sec-h"><h2>三 · 阴刻</h2><em>深色区</em></div>
+    <p class="sec-note">深底上把字做成暗槽、只让下沿受一点光。比现在的亮金线"沉"得多，
+      适合首屏、玩法卡、Boss 区域这类深色面。</p>
+    <div class="row"></div>
+    <div class="small"></div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><h2>动起来</h2><em>逐笔刻出</em></div>
+    <p class="sec-note">笔画有先后，可以按笔顺一笔一笔刻出来。悬停或滚动到位时触发一次，
+      <b>不循环</b>——循环会让整页一直在动，看久了躁。</p>
+    <div class="mo">
+      <div class="mo-big v1" id="moA">
+        <div class="cell"><div class="tile"><div class="glyph" data-ch="龍"></div></div></div>
+        <div class="hit">移上来看</div>
+      </div>
+      <div class="mo-note">
+        <b>落地口径</b><br>
+        1 只有 ≥100px 的大字形做逐笔，图鉴小格做会像闪烁；<br>
+        2 每笔错开 70ms，总时长压在 800ms 内；<br>
+        3 尊重 prefers-reduced-motion，关掉就只给终态。
+      </div>
+    </div>
+  </section>
+
+  <div class="verdict">
+    <b>建议：按区域分工，不全站只选一条。</b><br>
+    骨白区（图鉴 / 字卡 / 每日一字）用<b>骨片</b>；深色区（首屏 / 玩法卡 / Boss）用<b>阴刻</b>；
+    <b>拓片</b>只留给说明页与引用块。<br>
+    理由：骨片在小尺寸下仍能读出"这是骨头"，阴刻解决深底上亮线发飘，拓片负责"文化感"的那一小块。
+  </div>
+
+  <div class="foot">
+    本页仅用于比选，未改动站点任何文件。<br>
+    字形：hanzi-glyphs-svg（CC BY 4.0）· 骨片照：Gary Todd（CC0 1.0）
+  </div>
+</div>
+
+<script src="js/core/_data.js"></script>
+<script src="js/core/leveldata.js"></script>
+<script>
+(function () {
+  'use strict';
+  /* 只用数据里确实有真字形的字：车/马/龙 在数据集里是繁体键（車/馬/龍） */
+  var CHARS = ['日', '月', '虎', '雨', '車', '龍'];
+
+  function glyphHTML(ch) {
+    if (!App.hasGlyph(ch)) {
+      /* 没有字形就不画，宁可留白也不拿现代字冒充甲骨 */
+      return '<div style="width:64%;height:64%;display:flex;align-items:center;' +
+        'justify-content:center;font-size:26px;opacity:.25;color:#5a4a32">缺</div>';
+    }
+    return '<svg class="glyph" viewBox="0 0 100 100" role="img" aria-label="甲骨文「' + ch + '」">' +
+      App.glyphSvg(ch, 'currentColor') + '</svg>';
+  }
+
+  function buildRow(host, sizeCls) {
+    var html = '';
+    for (var i = 0; i < CHARS.length; i++) {
+      html += '<div class="cell"><div class="tile' + (sizeCls || '') + '">' +
+        glyphHTML(CHARS[i]) + '</div></div>';
+    }
+    host.innerHTML = html;
+  }
+
+  var rows = document.querySelectorAll('.row');
+  for (var i = 0; i < rows.length; i++) { buildRow(rows[i]); }
+
+  /* 小尺寸校验：56px 还能不能认出来 */
+  var smalls = document.querySelectorAll('.small');
+  for (var j = 0; j < smalls.length; j++) {
+    var h = '';
+    for (var k = 0; k < 4; k++) {
+      h += '<div class="cell"><div class="tile">' + glyphHTML(CHARS[k]) + '</div></div>';
+    }
+    h += '<span class="lbl">56px 实际尺寸</span>';
+    smalls[j].innerHTML = h;
+  }
+
+  /* 逐笔刻出 */
+  function carve(svg) {
+    if (!svg || !svg.querySelectorAll) { return; }
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { return; }
+    var paths = svg.querySelectorAll('path');
+    for (var i = 0; i < paths.length; i++) {
+      var p = paths[i], L = 0;
+      try { L = p.getTotalLength(); } catch (e) { L = 0; }
+      if (!L || !p.animate) { continue; }
+      p.animate(
+        [{ strokeDasharray: L + ' ' + L, strokeDashoffset: L },
+         { strokeDasharray: L + ' ' + L, strokeDashoffset: 0 }],
+        { duration: 480, delay: i * 70, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'none' }
+      );
+    }
+  }
+
+  var mo = document.getElementById('moA');
+  if (mo) {
+    var g = mo.querySelector('.glyph');
+    /* 用整段 SVG 替换占位 div（outerHTML），否则路径会丢 viewBox */
+    if (g) { g.outerHTML = glyphHTML('龍'); }
+    mo.addEventListener('mouseenter', function () { carve(mo.querySelector('svg')); });
+    setTimeout(function () { carve(mo.querySelector('svg')); }, 800);
+  }
+})();
+</script>
+</body>
+</html>

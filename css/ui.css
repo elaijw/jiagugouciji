@@ -1,5 +1,5 @@
 /* ============================================================================
-   字趣 · 界面层（壳层与页面）
+   字有骨气 · 界面层（壳层与页面）
    ----------------------------------------------------------------------------
    本次改版的界面骨架：
 
@@ -102,6 +102,8 @@ img { max-width: 100%; }
 .brand-art .ch:nth-child(1) { transform: rotate(-1.6deg) translateY(-1px); }
 .brand-art .ch:nth-child(2) { transform: rotate(.9deg) translateY(1px); }
 .brand-art .ch:nth-child(3) { transform: rotate(-.7deg); }
+/* 四个字之后，倾斜要连成一列"手摆的"节奏，不能中间断掉 */
+.brand-art .ch:nth-child(4) { transform: rotate(1.2deg) translateY(1px); }
 @supports not ((-webkit-background-clip: text) or (background-clip: text)) {
   .brand-art .ch {
     background-image: none; color: var(--ink); -webkit-text-fill-color: currentColor;
@@ -1410,7 +1412,7 @@ html.js-motion .mo-now { transition: none !important; }
 }
 
 /* ============================================================================
-   字趣 · 竞赛展示视觉层
+   字有骨气 · 竞赛展示视觉层
    墨拓展厅 × 朱砂信号 × 真实甲骨字形。
    仅重塑展示层，路由、玩法数据与操作规则保持原样。
    ============================================================================ */

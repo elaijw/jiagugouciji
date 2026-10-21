@@ -1,0 +1,512 @@
+/* ============================================================================
+   字有骨气 · 首屏：一片摊在案上的卜骨
+   ----------------------------------------------------------------------------
+   上一版首屏是全屏黑：照片 `brightness(.64)` + `grayscale(.74)`，
+   整屏只剩几处高光，第一印象是"关灯了"。
+   这一版把它翻过来：**骨白的案面 + 一片真实的骨片**，光从右上照下来。
+
+   商代占卜的四个动作按顺序演一遍（全部 CSS 关键帧，无 JS）：
+       钻凿 → 灼（一点火）→ 兆（裂纹从灼点裂开）→ 刻（标题逐字刻出）
+
+   这一层只负责首屏。要回退：删掉 index.html 里 slab.css 那一行。
+   注意：本文件必须排在 ui.css 之后 —— 它要覆盖 ui.css 里"竞赛展示视觉层"
+   那一段（.hero-* 全套深色值），靠的是同特异性下后加载制胜。
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   1. 案面：从"暗房"换成"骨白台面"
+   ---------------------------------------------------------------------------- */
+.hero {
+  /* 整条首屏演出的节拍系数。
+     原先每个关键帧都写死毫秒：灼 0s 起、裂 1.02s、刻 1.46s，整段 2.5s 演完 ——
+     字还没看清就结束了，读起来是"闪一下"，不是"刻上去"。
+     现在所有 duration / delay 都是"原值 × 这个数"，改节奏只动这一行，
+     先后顺序（钻凿 → 灼 → 兆 → 刻）不用重新对表。
+     1 = 原来的速度；1.7 约等于整段 4.3s。 */
+  --sf-tempo: 1.7;
+
+  /* 原值：radial-gradient(...) , #12100e —— 纯黑兜底 */
+  background:
+    /* 右上方的暖白受光：光从窗外来，落在案面与骨片之上 */
+    radial-gradient(ellipse 112% 96% at 78% 34%,
+      rgba(255, 252, 243, .92) 0%, rgba(255, 250, 238, 0) 62%),
+    /* 左下角的沉影，给案面厚度 */
+    radial-gradient(ellipse 96% 78% at 4% 104%,
+      rgba(150, 122, 76, .20) 0%, rgba(150, 122, 76, 0) 64%),
+    /* 案面本体：骨白偏暖，不是白纸 */
+    linear-gradient(166deg, #fbf6e8 0%, #f4ead6 44%, #e9dcc0 100%);
+  /* 深色面上的文字色换回墨色 —— 这一行漏了，整屏字会看不见 */
+  color: var(--ink-carve);
+  min-height: max(660px, calc(100svh - 58px));
+  /* 内容整体居中偏上：骨片的中心就在视口中心，字要落在这片骨上 */
+  justify-content: center;
+  padding-bottom: 0;
+}
+
+/* 纸纹：单独一层，避免和多层渐变互相 blending 发浑 */
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: url("../assets/paper.png") repeat;
+  background-size: 220px 220px;
+  mix-blend-mode: multiply;
+  opacity: .40;
+}
+
+/* ----------------------------------------------------------------------------
+   2. 骨片：从照片里抠出来，摆在案上
+   ----------------------------------------------------------------------------
+   assets/oracle-slab-mask.svg 是用 dev/_slab_outline.py 从这张照片分割出来的
+   轮廓（暖度判据 R-B≥15 + 从中心取最大连通域 + 外扩 4px）。
+   外扩那一圈是有意留的：骨片边缘在照片里是背光的暗影，留着它，
+   骨片就有一道"厚度"，而不是被剪刀剪出来的纸片。
+   ---------------------------------------------------------------------------- */
+.hero-slab {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: auto;
+  /* 骨片占屏 62%：它得是主角，但不能宽到把文字的位置也占了。
+     图片本身只含骨片（dev/_crop_slab.py 裁过），骨片约占图幅 87%，
+     所以这里的宽度基本就是骨片在屏幕上的宽度。 */
+  right: clamp(0px, 1vw, 28px);
+  width: clamp(640px, 63vw, 1060px);
+  aspect-ratio: 3 / 2;   /* 与 assets/oracle-slab.jpg 一致，裁形才不会拉歪 */
+  transform: translateY(-50%) rotate(-.8deg);
+  pointer-events: none;
+
+  /* 灼点在骨片**左上**：裁切图像素 (348, 241)。
+     真实甲骨上的钻凿本来就多沿边缘排（避开骨质厚的地方），
+     放在这里既不压标题，也离"兆"该出现的位置更近。 */
+  --ember-x: 46.92%;   /* 700 / 1492 */
+  --ember-y: 36.18%;   /* 360 / 995 */
+}
+
+/* 骨片的投影层：clip-path 会连同元素自身的 drop-shadow 一起裁掉，
+   所以影必须挂在父级 —— 父级 filter 看到的是"已经裁好的骨片"。 */
+.hero-slab-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  filter:
+    drop-shadow(0 26px 30px rgba(92, 68, 36, .34))
+    drop-shadow(0 4px 8px rgba(92, 68, 36, .22));
+}
+.slab-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* 骨片本体。
+   原值有 filter: grayscale(.74) sepia(.45) contrast(1.12) brightness(.64) ——
+   这四个值加起来就是"黑"。现在反过来：提亮、去掉去色、只留一点点暖。 */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%;
+  opacity: 1;
+  transform: none;
+  animation: none;
+
+  /* 裁形：把展柜背景整个剔掉，只留骨片。
+     objectBoundingBox 坐标 → 元素只要保持 3:2（与照片一致）就不会拉歪。 */
+  clip-path: url(#slabClip);
+
+  filter: brightness(1.14) saturate(.88) contrast(.96) sepia(.12);
+}
+
+/* 焦痕：钻凿点周围被火烤焦的一圈。冷却后仍留在骨上（真实甲骨上能看见）
+   multiply 而不是普通的半透明黑 —— 焦痕是"骨被烤变深"，不是盖一层灰 */
+.hero-burn {
+  position: absolute;
+  z-index: 2;
+  left: var(--ember-x);
+  top: var(--ember-y);
+  width: 40%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) scale(.35);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(64, 34, 14, .66) 0%,
+    rgba(96, 56, 24, .40) 17%,
+    rgba(128, 88, 48, .22) 33%,
+    rgba(160, 122, 78, .10) 50%,
+    rgba(180, 148, 104, 0) 68%);
+  mix-blend-mode: multiply;
+  opacity: 0;
+  animation: sfBurn calc(3.8s * var(--sf-tempo)) cubic-bezier(.3, .1, .3, 1) forwards;
+}
+
+/* 受光：骨片中部微微提亮一档，让它看起来是"被灯照着"，
+   而不是"一块发灰的图片"。刻意不做成整片漂白 —— 骨纹和刻痕要留住。 */
+.hero-sheen {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 44%;
+  width: 78%;
+  height: 64%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 42%,
+    rgba(255, 252, 243, .46) 0%,
+    rgba(253, 248, 236, .30) 44%,
+    rgba(251, 245, 232, .10) 68%,
+    rgba(251, 245, 232, 0) 86%);
+  pointer-events: none;
+}
+
+/* ----------------------------------------------------------------------------
+   3. 兆：裂纹
+   ----------------------------------------------------------------------------
+   骨裂不是曲线，是一折一折的。所以路径全用 L（折线），不用 Q。
+   每条 path 带 pathLength="100"，虚线动画的偏移量就固定是 0~100，
+   不必用 JS 去量 getTotalLength()。
+   ---------------------------------------------------------------------------- */
+.hero-fire {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+}
+.hero-fire svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.sf-c {
+  fill: none;
+  stroke: #4a3018;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* 裂口下沿受一道白光：裂是凹进去的，光在上方，所以槽的下沿亮 */
+  filter: drop-shadow(0 1.6px 0 rgba(255, 250, 236, .82));
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: sfRift calc(.40s * var(--sf-tempo)) cubic-bezier(.32, 0, .24, 1) forwards;
+  /* 灼点最亮之后才开始裂：先烫，后裂，顺序不能反。
+     --d 是每条裂纹彼此的错峰（.58s 这类），也一起按节拍缩放。 */
+  animation-delay: calc((1.02s + var(--d, 0s)) * var(--sf-tempo));
+}
+.sf-main {
+  stroke-width: 4.6;
+  stroke: #40290f;
+}
+@keyframes sfRift {
+  to { stroke-dashoffset: 0; }
+}
+
+/* 灼点：从暗红 → 亮橙 → 冷却成焦褐 */
+.sf-ember {
+  fill: #7e2f16;
+  opacity: 0;
+  filter: blur(2.5px);
+  animation: sfEmber calc(3.9s * var(--sf-tempo)) ease-out forwards;
+}
+.sf-spark {
+  fill: #fff4dc;
+  opacity: 0;
+  animation: sfSpark calc(1.6s * var(--sf-tempo)) ease-out forwards;
+}
+@keyframes sfEmber {
+  0%   { opacity: 0;   r: 8px;  fill: #6d2410; }
+  12%  { opacity: .92; r: 30px; fill: #d2683a; }
+  24%  { opacity: 1;   r: 34px; fill: #f79a58; }
+  44%  { opacity: .88; r: 25px; fill: #c25a2b; }
+  100% { opacity: .40; r: 19px; fill: #3f2410; }
+}
+@keyframes sfSpark {
+  0%   { opacity: 0; r: 2px; }
+  13%  { opacity: 1; r: 7px; }
+  42%  { opacity: .8; r: 5px; }
+  100% { opacity: 0; r: 2px; }
+}
+@keyframes sfBurn {
+  0%   { opacity: 0;    transform: translate(-50%, -50%) scale(.35); }
+  22%  { opacity: .95;  transform: translate(-50%, -50%) scale(1.02); }
+  100% { opacity: .82;  transform: translate(-50%, -50%) scale(1.12); }
+}
+
+/* ----------------------------------------------------------------------------
+   4. 刻：文字压在案面上
+   ----------------------------------------------------------------------------
+   案面是浅色的，所以字是**深墨**；再用"下沿一道白光"做出刻进去的凹。
+   这是凹刻的通用做法：槽的受光边在下方，背光边在上方 —— 方向错了会变成凸字。
+   ---------------------------------------------------------------------------- */
+.hero-in {
+  z-index: 4;
+  /* 居左：字写在骨片**旁边的案面**上，不是在骨片中间。
+     试过把标题压在骨片正中（整页一片骨）——骨片上的原刻字、骨纹、
+     深色断面全都在跟标题抢笔画，副文直接糊掉了。展签和展品分开才对。 */
+  align-items: flex-start;
+  text-align: left;
+  max-width: min(1360px, 100%);
+  padding: 0 clamp(20px, 4vw, 56px) clamp(104px, 14vh, 148px);
+}
+.hero-body { max-width: min(480px, 39vw); }
+
+.hero-kicker {
+  color: #8a5a3c;
+  font-size: 11px;
+  letter-spacing: 3.2px;
+  margin-bottom: 18px;
+}
+.hero-kicker::before {
+  width: 34px;
+  height: 1px;
+  background: var(--cinnabar);
+  opacity: .8;
+}
+
+.hero-title {
+  color: #2b1f12;
+  font-size: clamp(36px, 4.1vw, 56px);
+  font-weight: 500;
+  letter-spacing: .035em;
+  line-height: 1.18;
+  text-shadow:
+    0 1px 0 rgba(255, 252, 243, .95),
+    0 -1px 0 rgba(48, 32, 16, .18),
+    0 3px 14px rgba(120, 92, 54, .13);
+}
+/* 逐字刻出：每个字自己一段 delay（--i），一个 h1 整体淡入是"网页"，
+   一字一顿才是"刻"。起始态带 blur，像刀锋还没落稳。 */
+.hero-title .hc {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(6px);
+  filter: blur(4px);
+  animation: sfCarve calc(.52s * var(--sf-tempo)) cubic-bezier(.22, .68, .3, 1) forwards;
+  /* 起手时刻**不**跟着节拍整段后移。
+     照 1.46s × 1.7 算，标题要到 2.48s 才落第一刀 —— 左边那一整块本该写字的地方
+     空两秒半，第一眼会被读成"标题没加载出来"。
+     裂纹 1.73s 起，刀就跟着起（1.10s × 1.7 ≈ 1.87s），先裂后刻的顺序仍在。
+     放慢的是"刻"本身：每字 .884s、字距 82ms，
+     十四个字从 1.87s 刻到 3.73s。 */
+  animation-delay: calc((1.10s + var(--i, 0) * .048s) * var(--sf-tempo));
+}
+@keyframes sfCarve {
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.hero-lead {
+  color: #57452c;
+  font-size: clamp(14.5px, 1.24vw, 17px);
+  line-height: 1.9;
+  max-width: 30em;
+  margin: 18px 0 0;
+  text-shadow: 0 1px 0 rgba(255, 252, 244, .7);
+}
+
+/* 主按钮：朱砂在骨白上是最跳的一点，保留渐变，把投影换成暖褐 */
+.hero .hero-main {
+  color: #fff8ee;
+  background: linear-gradient(150deg, #bd5139, #8d2d24);
+  border: 1px solid rgba(120, 40, 28, .55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 226, 208, .30),
+    inset 0 -2px 0 rgba(74, 20, 14, .34),
+    0 10px 20px -8px rgba(120, 40, 28, .52);
+}
+.hero .hero-main:hover {
+  background: linear-gradient(150deg, #d2603f, #a5382b);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 216, .36),
+    inset 0 -2px 0 rgba(74, 20, 14, .30),
+    0 16px 30px -10px rgba(120, 40, 28, .58);
+  transform: translateY(-2px);
+}
+/* 次按钮：从"暗底玻璃"改成"案面上的描边按钮" */
+.hero .hero-ghost {
+  color: #5b4630;
+  background: rgba(255, 252, 244, .62);
+  border: 1px solid rgba(122, 96, 58, .42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+.hero .hero-ghost:hover {
+  color: #33240f;
+  background: rgba(255, 253, 247, .92);
+  border-color: var(--cinnabar);
+  transform: translateY(-2px);
+}
+.hero-trust {
+  color: #7a664a;
+  font-size: 11px;
+  letter-spacing: 2.2px;
+  text-shadow: none;
+}
+
+/* 龟宝入口：从"暗色玻璃条"改成"案上的一张签" */
+.hero-guide {
+  color: #3b2c18;
+  background: linear-gradient(100deg, rgba(255, 253, 246, .88), rgba(250, 243, 229, .58));
+  border: 1px solid rgba(140, 110, 66, .30);
+  border-radius: var(--r);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 2px 8px -3px rgba(96, 72, 40, .18);
+}
+.hero-guide:hover {
+  background: linear-gradient(100deg, rgba(255, 253, 246, .98), rgba(253, 242, 230, .82));
+  border-color: color-mix(in srgb, var(--cinnabar) 52%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .95), 0 8px 18px -8px rgba(120, 68, 40, .34);
+}
+.hero-guide-copy b { color: #3b2c18; }
+.hero-guide-copy span { color: #7d6a50; }
+.hero-guide-arrow { color: var(--cinnabar); }
+.hero-guide-glyph { color: #6a5536; }
+.hero-guide-mascot {
+  filter: drop-shadow(0 3px 6px rgba(96, 72, 40, .28));
+}
+
+/* ----------------------------------------------------------------------------
+   5. 朱砂印：把原来那个"发光圆环 + 浮动甲骨字"改成一方印
+   ----------------------------------------------------------------------------
+   原来那一组是"博物馆展签"的语言（虚线圆环、光晕、浮动），
+   放在骨片旁边像另一个界面的东西。印是同一套语言里的：
+   朱砂、方形、压在骨片上，正好呼应"篆刻"。
+   ---------------------------------------------------------------------------- */
+.hero-relic {
+  /* 压在骨片右下角，留出一截骨面当"边白"，印才像盖上去的而不是贴上去的 */
+  top: auto;
+  right: clamp(88px, 9.2vw, 232px);
+  bottom: clamp(136px, 24vh, 250px);
+  width: clamp(84px, 7vw, 104px);
+  transform: rotate(-2.5deg);
+  place-items: center;
+}
+/* 印章的边框：实线方框 + 内侧一道细线 */
+.hero-relic::before {
+  inset: 0;
+  border: 2.5px solid rgba(158, 52, 38, .78);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 250, 240, .30);
+}
+.hero-relic::after {
+  inset: 7px;
+  border: 1px solid rgba(158, 52, 38, .40);
+  border-radius: 1px;
+  opacity: 1;
+}
+.hero-relic-ring {
+  inset: 0;
+  border: 0;
+  border-radius: 3px;
+  box-shadow: none;
+  animation: none;
+  background: radial-gradient(circle at 50% 42%,
+    rgba(166, 62, 47, .10), rgba(166, 62, 47, .02) 62%, transparent 78%);
+}
+.hero-rune {
+  width: 66%;
+  height: 66%;
+  color: #9a3b2a;
+  filter: none;
+  animation: none;
+  opacity: .88;
+}
+.hero-relic-mark {
+  bottom: -22px;
+  padding: 0;
+  color: #9a3b2a;
+  background: none;
+  border: 0;
+  font-size: 9.5px;
+  letter-spacing: 3px;
+  opacity: .74;
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------------------
+   6. 案沿：数字条 / 下滑提示 / 署名
+   ---------------------------------------------------------------------------- */
+.hero .stat-band {
+  border-top-color: rgba(120, 94, 56, .26);
+}
+.hero .stat-cell b { color: #7c4a2e; }
+.hero .stat-cell span { color: #7d6a50; }
+.hero .hero-credit .hc-name { color: #7a6448; }
+.hero .hero-credit .hc-src { color: #93815f; }
+.hero .hero-cue {
+  color: #7a6448;
+  border: 0;
+  background: transparent;
+}
+.hero .hero-cue:hover { color: var(--cinnabar); }
+
+/* ----------------------------------------------------------------------------
+   7. 窄屏：骨片退到背景，文字上来
+   ----------------------------------------------------------------------------
+   骨片是横长的（1.5:1）。窄屏硬塞会把字挤没，所以改成"骨片铺底、文字压上去"：
+   骨片放大到超出屏幕，只露出中段，视觉上是"你正对着一片骨头"。
+   ---------------------------------------------------------------------------- */
+@media (max-width: 980px) {
+  .hero-body { max-width: min(100%, 34em); }
+  .hero-slab {
+    right: -34%;
+    width: 118vw;
+    opacity: .72;
+  }
+  .hero-relic { display: none; }
+}
+
+@media (max-width: 700px) {
+  .hero {
+    padding-bottom: 118px;
+    align-items: flex-start;
+  }
+  .hero-in {
+    padding-top: 56px;
+    padding-bottom: 40px;
+  }
+  .hero-body { max-width: 100%; }
+  .hero-slab {
+    top: 46%;
+    right: -66%;
+    width: 178vw;
+    opacity: .62;
+  }
+  .hero-title {
+    font-size: clamp(32px, 9.6vw, 44px);
+    letter-spacing: .03em;
+  }
+  .hero-lead { font-size: 14px; line-height: 1.85; }
+  .hero .hero-main,
+  .hero .hero-ghost { min-height: 46px; }
+  .sf-c { stroke-width: 5px; }
+  .sf-main { stroke-width: 7px; }
+}
+
+/* ----------------------------------------------------------------------------
+   8. 尊重「减少动态效果」：直接给终态，不留半边
+   ---------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .sf-c {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .sf-ember {
+    animation: none;
+    opacity: .34;
+    r: 16px;
+    fill: #4a2a14;
+  }
+  .sf-spark { animation: none; opacity: 0; }
+  .hero-burn {
+    animation: none;
+    opacity: .7;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+  .hero-title .hc {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .hero-guide:hover,
+  .hero .hero-main:hover,
+  .hero .hero-ghost:hover { transform: none; }
+}

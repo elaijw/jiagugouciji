@@ -1,5 +1,5 @@
 /* ============================================================
-   字趣 · 路由与壳层
+   字有骨气 · 路由与壳层
    路由：#/home  #/modes  #/play/:modeId  #/settings  #/plan
    壳层负责"外部框架"（站点头、返回、底部信息、主题），
    场景负责"内容"（首页、模式选择、设置、对局）。
@@ -21,6 +21,66 @@
     var h = location.hash;
     location.hash = '';
     setTimeout(function () { location.hash = h; }, 30);
+  }
+
+  /* ---------- 首屏：灼、兆、刻 ----------
+     商代占卜的四步是「钻凿 → 灼 → 看兆 → 刻辞」。
+     首屏就按这个顺序演一遍：先一点火，再从灼点裂出兆纹，最后把标题一字一字刻上去。
+     全部由 CSS 关键帧驱动（见 css/slab.css），这里只负责把图形放进去；
+     重播靠"每次进首页都重建 .hero"，不需要记状态。
+
+     坐标写在原图像素空间（2400×1600），与 assets/oracle-bone.jpg 一一对应，
+     所以裂纹会落在骨片的实际位置上，不会因为屏幕宽度漂移。
+     骨片本体在照片里占 x 470~1848 / y 379~1298，下面所有点都在这个范围里。 */
+  /* 坐标写在**裁切图**的像素空间（1492×995），与 assets/oracle-slab.jpg 一一对应。
+     裁切图是 dev/_crop_slab.py 从原片里按骨片包围盒抠出来的：
+     原片里骨片只占 19.5% 面积，四周全是深灰展柜，直接用就得把图放大近两倍。
+
+     所有点都落在骨片本体内部（骨片在裁切图里占 x 94~1392 / y 69~900）。
+     第一版把灼点放在 (348,241) 想贴"骨片左缘"，结果正落在左上角的缺口上，
+     裂纹整组裂在骨头外面 —— 落点必须按**骨面**算，不能按外框算。 */
+  var SLAB_FIRE =
+    '<svg viewBox="0 0 1492 995" preserveAspectRatio="none" aria-hidden="true">'
+    /* 兆干：竖向主裂 —— "卜"字那一竖 */
+    + '<path class="sf-c sf-main" pathLength="100" d="M700,360 L688,250 L706,190"/>'
+    /* 兆干往下的短段（真实卜兆上长下短） */
+    + '<path class="sf-c sf-main" pathLength="100" d="M700,360 L714,470 L700,560"/>'
+    /* 兆枝：横向主裂，与兆干成直角 */
+    + '<path class="sf-c sf-main" pathLength="100" d="M700,360 L800,372 L890,356"/>'
+    /* 左侧只留一条细裂：真实卜兆是「一竖 + 一侧横」，画成十字就不是卜了 */
+    + '<path class="sf-c" pathLength="100" style="--d:.58s" d="M690,362 L620,352 L556,364"/>'
+    /* 四散的细裂：骨裂从不只有一条主纹 */
+    + '<path class="sf-c" pathLength="100" style="--d:.60s" d="M688,250 L636,214 L590,226"/>'
+    + '<path class="sf-c" pathLength="100" style="--d:.70s" d="M706,190 L756,168"/>'
+    + '<path class="sf-c" pathLength="100" style="--d:.66s" d="M714,470 L790,492 L838,482"/>'
+    + '<path class="sf-c" pathLength="100" style="--d:.76s" d="M600,346 L578,410 L594,458"/>'
+    + '<path class="sf-c" pathLength="100" style="--d:.84s" d="M510,358 L466,338 L432,348"/>'
+    + '<path class="sf-c" pathLength="100" style="--d:.90s" d="M700,560 L644,586 L606,576"/>'
+    + '<path class="sf-c" pathLength="100" style="--d:.96s" d="M790,492 L794,548"/>'
+    + '</svg>';
+
+  /* 标题逐字刻出。
+     拆字是为了让每个字有自己的 delay（--i）——一个 h1 整体淡入是"网页"，
+     一字一顿才是"刻"。读屏会逐字念，所以视觉层 aria-hidden，h1 上用 aria-label 给整句。 */
+  function carveTitle(el, text) {
+    el.setAttribute('aria-label', text.replace(/\n/g, ''));
+    var lines = String(text).split('\n');
+    var idx = 0;
+    lines.forEach(function (line, li) {
+      if (li) {
+        var br = document.createElement('br');
+        br.setAttribute('aria-hidden', 'true');
+        el.appendChild(br);
+      }
+      line.split('').forEach(function (ch) {
+        var s = document.createElement('span');
+        s.className = 'hc';
+        s.textContent = ch;
+        s.setAttribute('aria-hidden', 'true');
+        s.style.setProperty('--i', idx++);
+        el.appendChild(s);
+      });
+    });
   }
 
   /* ---------- 顶部导航 ----------
@@ -57,10 +117,47 @@
     brand.appendChild(img);
     var art = App.el('span', 'brand-art');
     art.setAttribute('aria-hidden', 'true');
-    ['构', '字', '记'].forEach(function (ch) { art.appendChild(App.el('span', 'ch', ch)); });
+    ['字', '有', '骨', '气'].forEach(function (ch) { art.appendChild(App.el('span', 'ch', ch)); });
     brand.appendChild(art);
-    brand.appendChild(App.el('span', 'sr-only', '字趣 · 甲骨构字记'));
+    brand.appendChild(App.el('span', 'sr-only', '字有骨气 · 甲骨构字记'));
     return brand;
+  }
+
+  /* 顶栏的声音开关。
+     图标写成一个常量、靠 .is-off 切状态，不换 SVG 字符串 ——
+     每次 renderHeader 都重建节点，换字符串会让开关在切换的瞬间闪一下。 */
+  var SND_ICON =
+    '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">' +
+      '<path class="snd-body" d="M3 7.6h2.5L9.4 4.2v11.6L5.5 12.4H3z"/>' +
+      '<g class="snd-wave">' +
+        '<path d="M12.3 7.5a3.6 3.6 0 0 1 0 5"/>' +
+        '<path d="M14.4 5.5a6.4 6.4 0 0 1 0 9"/>' +
+      '</g>' +
+      '<path class="snd-slash" d="M3.6 16.4 16.4 3.6"/>' +
+    '</svg>';
+
+  function paintSoundBtn(btn, on) {
+    if (!btn) { return; }
+    btn.className = 'top-snd' + (on ? '' : ' is-off');
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.setAttribute('aria-label', on ? '关闭声音' : '打开声音');
+    btn.title = on ? '声音：开' : '声音：关';
+  }
+
+  function soundButton() {
+    var on = App.sound ? App.sound.on() : true;
+    var btn = App.el('button', 'top-snd');
+    btn.type = 'button';
+    btn.innerHTML = SND_ICON;
+    paintSoundBtn(btn, on);
+    btn.onclick = function () {
+      if (!App.sound) {
+        App.toast('这个浏览器不支持声音');
+        return;
+      }
+      App.sound.toggle();
+    };
+    return btn;
   }
 
   function renderHeader() {
@@ -83,12 +180,8 @@
     top.appendChild(nav);
 
     var right = App.el('div', 'top-right');
-    right.appendChild(App.el('span', 'seal top-seal', App.BRAND_SEAL || '正式版'));
-    /* 演示中常驻一枚印章，点一下就退出并还原（不让人在假进度里迷路） */
-    if (App.demo && App.demo.active()) {
-      var demoSeal = App.demo.badge();
-      if (demoSeal) { right.appendChild(demoSeal); }
-    }
+    right.appendChild(App.el('span', 'seal top-seal', App.BRAND_SEAL || '试玩版'));
+    right.appendChild(soundButton());
     var set = App.el('a', 'top-link top-set' + (act === 'settings' ? ' on' : ''), '设置');
     set.href = '#/settings';
     set.setAttribute('aria-label', '设置与备份');
@@ -217,7 +310,7 @@
           if (wy.done.hasOwnProperty(z2)) { n += (wy.done[z2] || []).length; }
         }
       }
-      return { now: n, all: all, label: '已学完' };
+      return { now: n, all: all, label: '已点亮' };
     }
     if (m.id === 'boss-raid') {
       var total = 0;
@@ -253,20 +346,37 @@
     var hero = App.el('section', 'hero');
     var hin = App.el('div', 'hero-in');   /* 只装文字，背景在它下面 */
 
-    /* 实物直接铺满整块当背景。
-       这张原片本身就是暗底（骨片居中、四周深色展柜），
-       压一层薄纱把文字托出来即可，不必把照片压得看不见。
+    /* ================= 首屏：一片摊在案上的卜骨 =================
+       上一版把这张骨片照片铺满全屏、压到 brightness(.64) 再去色 74%，
+       整屏几乎全黑。那不是"展陈"，是"关灯"。
+       现在反过来：把照片里那块骨片**单独抠出来**（assets/oracle-slab-mask.svg
+       是从这张照片分割出的轮廓），摆在骨白的案面上，只保留一圈背光的暗边当厚度。
+       然后再做商代占卜真正的四个动作：钻凿 → 灼 → 兆（裂） → 刻。
        来源 Gary Todd，CC0 1.0 公有领域（法律上无需署名，仍照标）。 */
+    var slab = App.el('div', 'hero-slab');
+    /* clipPath 必须内联在本文档里 —— CSS 的 clip-path 引用外部 SVG 的
+       #fragment 不生效（浏览器只认同文档内的）。轮廓数据在 slab-shape.js。 */
+    if (App.slabClipSvg) { slab.innerHTML = App.slabClipSvg('slabClip'); }
+    /* 包一层 span 专门负责投影：clip-path 会把元素自身的 drop-shadow 一起裁掉，
+       把影挂到父级才跟着骨片轮廓走。 */
+    var art = App.el('span', 'hero-slab-art');
     var bg = App.el('img', 'hero-bg');
-    /* 首屏大图：优先 WebP（1600px，61KB，比原 JPG 省 82%），
-       老浏览器不认 WebP 时回落到 JPG。 */
-    bg.src = 'assets/oracle-bone.webp';
-    bg.onerror = function () { bg.onerror = null; bg.src = 'assets/oracle-bone.jpg'; };
-    bg.decoding = 'async';
+    bg.src = 'assets/oracle-slab.jpg';
     bg.alt = '';
     bg.setAttribute('aria-hidden', 'true');
-    hero.appendChild(bg);
-    hero.appendChild(App.el('div', 'hero-veil'));
+    art.appendChild(bg);
+    slab.appendChild(art);
+    /* 抛光亮区：给文字让路。骨片中部原来刻着真卜辞（浅褐细线），
+       提亮一层把它压淡，标题压上去才不打架。 */
+    slab.appendChild(App.el('span', 'hero-sheen'));
+    /* 灼痕：钻凿点周围被火烤焦的一圈，冷却后留在骨上 */
+    slab.appendChild(App.el('span', 'hero-burn'));
+    /* 兆：裂纹从灼点裂开。坐标写在原图像素空间（viewBox 2400×1600），
+       与骨片像素一一对应；pathLength=100 让虚线动画不必量长度。 */
+    var fire = App.el('div', 'hero-fire');
+    fire.innerHTML = SLAB_FIRE;
+    slab.appendChild(fire);
+    hero.appendChild(slab);
 
     var relic = App.el('div', 'hero-relic');
     relic.setAttribute('aria-hidden', 'true');
@@ -278,9 +388,11 @@
 
     var hb = App.el('div', 'hero-body');
     hb.appendChild(App.el('p', 'hero-kicker', '甲骨文互动叙事　/　CULTURAL GAME LAB'));
-    hb.appendChild(App.el('h1', 'hero-title', '从一片卜骨，\n读懂汉字的来处'));
+    var h1 = App.el('h1', 'hero-title');
+    carveTitle(h1, '从一片卜骨，\n读懂汉字的来处');
+    hb.appendChild(h1);
     hb.appendChild(App.el('p', 'hero-lead',
-      '亲手拼出甲骨字形，走遍殷商王邑，最后迎战构件 Boss。把三千年前的文字，'
+      '亲手拼出甲骨字形，点亮殷商王邑，最后迎战构件 Boss。把三千年前的文字，'
       + '从展柜里的知识，变成一场可以亲自参与的探索。'));
 
     var cta = App.el('div', 'hero-cta');
@@ -293,7 +405,7 @@
     b2.href = '#/atlas';
     cta.appendChild(b2);
     hb.appendChild(cta);
-    hb.appendChild(App.el('p', 'hero-trust', '辨形 → 构字 → 走遍王邑 → 迎战 Boss'));
+    hb.appendChild(App.el('p', 'hero-trust', '辨形 → 构字 → 点亮王邑 → 迎战 Boss'));
     var guide = App.el('a', 'hero-guide');
     guide.href = '#/play/bone-build';
     guide.setAttribute('aria-label', '跟龟宝从第一关认识甲骨字形与构件');
@@ -355,7 +467,7 @@
     var sec1 = App.el('section', 'home-sec');
     sec1.id = 'playSection';
     sec1.appendChild(sectionHead('三步，开启甲骨探索',
-      '从认字形，到走遍王邑，再迎战 Boss 终局',
+      '从认字形，到点亮王邑，再迎战 Boss 终局',
       '#/modes', '全部玩法 →'));
     /* 主线：给每张卡排上步骤号，卡之间用一条贯穿的细线串起来。
        顺序仍按 App.modes.playable() 的注册顺序，**不重排**——
@@ -377,7 +489,11 @@
       card.appendChild(step);
 
       var art = App.el('div', 'pc-art');
-      var artGlyph = spec.comps ? compSvgNode(spec.comps, 'pc-art-glyph')
+      /* 构件组合要单独标一个类：compSvgNode 是把 n 个构件并排塞进 100 宽的画布
+         （每个 scale 1/n），描边也跟着缩到 1/n —— 两个构件并排时笔画只剩一半粗，
+         在暗底上看不出来，在骨面上就是"淡到像没刻"。
+         所以这一类要单独给更大的显示尺寸（见 css/slab-home.css 第 4 节）。 */
+      var artGlyph = spec.comps ? compSvgNode(spec.comps, 'pc-art-glyph pc-art-comp')
                                 : glyphSvgNode(spec.char, 'pc-art-glyph');
       if (artGlyph) { art.appendChild(artGlyph); }
       if (spec.comps) { art.appendChild(App.el('span', 'pc-art-note', '构件组合示意')); }
@@ -405,8 +521,19 @@
       var pr = modeProgress(m);
       if (pr && pr.all) card.appendChild(progressBar(pr));
       card.appendChild(App.el('span', 'pc-go', '进入 →'));
-      grid.appendChild(card);
+
+      /* 骨片用 clip-path 切出来的，clip-path 会把元素自己的 box-shadow 一起裁掉。
+         所以投影和"被拿起来"的位移都挂在这一层外面的 .pc-slot 上，
+         卡本身不再画影。修饰类复制一份，窄屏那段栅格规则还要用（见 slab-home.css）。 */
+      var slot = App.el('div',
+        'pc-slot' + (isMain ? ' pc-main' : '') + (isStart ? ' pc-start' : ''));
+      slot.appendChild(card);
+      grid.appendChild(slot);
     });
+    /* 三条骨板轮廓（内联 clipPath），跟选关页共用同一套形状。
+       必须插在 .play-grid **外面** —— 插进去会变成 grid 的第一个子元素，
+       把 nth-child 顶偏一位，三片各配错轮廓（选关页已经踩过）。 */
+    if (App.slabCardSvg) { sec1.insertAdjacentHTML('afterbegin', App.slabCardSvg()); }
     sec1.appendChild(grid);
     wrap.appendChild(sec1);
 
@@ -496,7 +623,7 @@
     } else {
       cbody.appendChild(App.el('p', 'cc-note',
         st.learned ? '三个玩法里学会的字都会记进这里。'
-                   : '还没开始收集——去王邑地图上认第一个实物，或进图鉴看看有哪些字。'));
+                   : '还没开始收集——去图卷上点亮第一个实物，或进图鉴看看有哪些字。'));
     }
     var cgo = App.el('a', 'btn primary', '进入图鉴');
     cgo.href = '#/atlas';
@@ -684,7 +811,7 @@
         + (q ? '　筛选：「' + atlasFilter.q + '」' : '');
       if (!list.length) {
         grid.appendChild(App.el('p', 'lead', atlasFilter.kind === 'got'
-          ? '还没有解锁任何字。去玩一局——学会、通关、答对都会记进这里。'
+          ? '还没有解锁任何字。去玩一局——点亮、通关、答对都会记进这里。'
           : '没有匹配的字。换个关键词，或点上面的「全部」。'));
         return;
       }
@@ -809,7 +936,7 @@
     var apps = App.atlas.appearancesOf(e.char);
     var links = App.el('div', 'as-links');
     if (apps.some(function (x) { return x.kind === 'object'; })) {
-      var a1 = App.el('a', 'btn sm', '去王邑认出它');
+      var a1 = App.el('a', 'btn sm', '去王邑点亮它');
       a1.href = '#/play/wangyi-map';
       links.appendChild(a1);
     }
@@ -901,7 +1028,7 @@
       ['鼠标', '点一下就是选中；带悬停提示的地方，把指针放上去就能看到名字与说明。'],
       ['触屏', '直接点按；需要"悬停才出现"的内容，按住不放同样会显示。'],
       ['键盘', 'Tab 可以在可点元素之间移动，回车/空格选中；焦点所在处有朱砂描边。'],
-      ['进度', '学习记录与通关记录都存在本机浏览器里，不上传服务器；换设备前记得在「设置」里导出备份。']
+      ['进度', '点亮记录、通关记录都存在本机浏览器里，不上传服务器；换设备前记得在「设置」里导出备份。']
     ].forEach(function (x) {
       var li = App.el('li');
       li.appendChild(App.el('b', null, x[0]));
@@ -959,14 +1086,14 @@
       ['判断构件', '看它由哪几块构件拼成——构件台里有真甲骨字形可对照。'],
       ['拼字', '把构件拖到放置槽，位置对了才会吸附。'],
       ['得甲片', '拼对即入账，结算里能看到这个字的构件与释义。'],
-      ['随时可退', '没有倒计时，答错可以再试；卡住了能求提示。']
+      ['双人模式', '对手可以在倒计时里抢答，比谁先拼出来。']
     ],
     'wangyi-map': [
-      ['选一片', '大地图是唯一入口，五片主题区域任意顺序进入，不分先后。'],
-      ['点实物', '进图后直接点插画上的实物，点中会自动放大到它。'],
-      ['看字卡', '再点一次打开学习卡：甲骨字形、释义、构形说明。'],
-      ['拼笔画', '按学习卡去练，把笔画摆回原位即算学会这个字。'],
-      ['各片独立', '每片进度单独记；一片学完，大地图上该片给出完成标记。']
+      ['一幅灰图', '整幅殷商王邑图卷初始是灰的。'],
+      ['点实物', '点图上的实物热区，认出它对应的字。'],
+      ['构字', '上面给甲骨文原字，下面给笔画，拖到正确位置拼出来。'],
+      ['点亮', '拼成一个字，地图上那一块就亮起来。'],
+      ['演示点亮', '大地图右下角有「演示：点亮全图」，一次点亮全部 61 处；只在屏幕上亮，不动你的存档。']
     ],
     'boss-raid': [
       ['一条线走到底', '21 道关卡沿一枚甲骨片的轮廓推进，通关才解锁下一关。'],
@@ -1004,8 +1131,8 @@
     },
     'wangyi-map': {
       step: '实物探索', char: '邑', chain: true,
-      seal: '5 幅主题小地图', cap: '61 个甲骨字形 · 五片任意顺序',
-      summary: '从大地图挑一片主题区域，点插画上的实物学甲骨字形；每片进度独立记录。',
+      seal: '5 幅主题小地图', cap: '61 个甲骨字形 · 完成一图，点亮一域',
+      summary: '从主题小地图学习甲骨字形；学完一个分区，就点亮大地图上的对应王邑。',
       action: '进入王邑地图'
     },
     'boss-raid': {
@@ -1053,7 +1180,7 @@
     var guideCopy = App.el('div', 'lv-guide-copy');
     guideCopy.appendChild(App.el('span', 'lv-guide-name', '龟宝 · 甲骨小向导'));
     guideCopy.appendChild(App.el('p', 'lv-guide-note',
-      '先上入门课，再进入五幅主题小地图；学会一片，这一片的进度就记满了。'));
+      '先上入门课，再进入五幅主题小地图；学会一片，王邑大地图就亮起一域。'));
     guide.appendChild(guideCopy);
     intro.appendChild(guide);
     host.appendChild(intro);
@@ -1155,8 +1282,23 @@
         no + '，' + (spec.step || '') + '，' + m.name + '。' +
         (spec.summary || m.tagline || ''));
 
-      row.appendChild(card);
+      /* 骨板容器的存在理由只有一个：
+         .lv 上挂的 clip-path 会把元素自己的投影一起裁掉，
+         所以投影必须挂在不被裁的父级上（首屏那次已经踩过）。
+         顺带也是三片各自角度的落点。 */
+      var slot = App.el('div', 'lv-slot');
+      slot.appendChild(card);
+      row.appendChild(slot);
     });
+
+    /* 三条骨板轮廓（内联 clipPath）。
+       CSS 的 clip-path 引用外部 SVG 里的 clipPath 不生效，只认同文档内 fragment，
+       所以路径得由 js/core/slab-card-shape.js 拼成 SVG 塞进来。
+
+       插在**案面**上，不能插进 .lv-row —— 那会让它成为 .lv-row 的第一个子元素，
+       把 .lv-slot:nth-child(n) 整体顶偏一位，三片骨板就各自配错了轮廓
+       （第一片拿到第二片的形）。 */
+    if (App.slabCardSvg) { sh.insertAdjacentHTML('afterbegin', App.slabCardSvg()); }
 
     host.appendChild(row);
 
@@ -1208,6 +1350,39 @@
        原先这里是「内容包」区块：一张只有一行的表（内置字包）+ 导出/导入。
        表已删（用户既改不了也加不了内容），导出/导入移到这里——
        它是唯一的备份途径，不能跟着界面一起删掉。 */
+    /* 声音
+       音乐与音效都是运行期合成的（js/core/audio.js），
+       没有任何音频文件——所以这里也不该出现"加载中"这类说法。 */
+    var s1 = App.el('div', 'sect');
+    s1.appendChild(App.el('h4', null, '声音'));
+    s1.appendChild(App.el('div', 'hint',
+      '背景音乐是一段极疏的羽调（低音 + 磬 + 埙），点关卡时骨板会响一下。' +
+      '全部由浏览器实时合成，不加载音频文件、也不联网。'));
+    var s1b = App.el('div', 'tune');
+    s1b.appendChild(App.el('label', null, '背景音乐与音效'));
+    var sndBtn = App.el('button', 'btn sm');
+    var paint = function () {
+      var on = App.sound ? App.sound.on() : false;
+      sndBtn.textContent = on ? '已开启' : '已关闭';
+      sndBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    };
+    sndBtn.onclick = function () {
+      if (!App.sound) { App.toast('这个浏览器不支持声音'); return; }
+      App.sound.toggle();
+      paint();
+    };
+    paint();
+    if (App.on) { App.on('sound', function () { paint(); }); }
+    s1b.appendChild(sndBtn);
+    var demoBtn = App.el('button', 'btn sm', '试听骨板');
+    demoBtn.onclick = function () {
+      if (!App.sound) { App.toast('这个浏览器不支持声音'); return; }
+      App.sound.demo();
+    };
+    s1b.appendChild(demoBtn);
+    s1.appendChild(s1b);
+    wrap.appendChild(s1);
+
     var s2 = App.el('div', 'sect');
     s2.appendChild(App.el('h4', null, '数据备份'));
     s2.appendChild(App.el('div', 'hint',
@@ -1227,7 +1402,7 @@
         var blob = new Blob([t], { type: 'application/json' });
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = '字趣-备份.json';
+        a.download = '字有骨气-备份.json';
         document.body.appendChild(a); a.click(); a.remove();
         App.toast('已导出');
       } catch (e) { App.toast('本环境不支持下载'); }
@@ -1256,8 +1431,6 @@
     s2.appendChild(ioBar);
     wrap.appendChild(s2);
 
-    /* 演示模式：给演示与评审用的一键填充（可逆，见 js/core/demo.js） */
-    if (App.demo) { wrap.appendChild(App.demo.panel()); }
 
     return sheetWrap(wrap);
   }
@@ -1314,7 +1487,7 @@
         mode.mount(host, App.modes.buildContext(mode));
       } catch (err) {
         host.appendChild(App.el('p', 'lead', '玩法加载出错：' + err.message));
-        if (window.console && console.error) console.error('[字趣] 玩法挂载失败', err);
+        if (window.console && console.error) console.error('[字有骨气] 玩法挂载失败', err);
       }
     }
     return wrap;
@@ -1378,6 +1551,15 @@
     if (!root) { console.error('缺少 #sceneRoot'); return; }
     window.addEventListener('hashchange', render);
     render();
+  }
+
+  /* 声音开关状态一变，顶栏那颗按钮就要重画。
+     走事件而不是各自改各自的：设置页里也能切，两处必须同步。 */
+  if (App.on) {
+    App.on('sound', function (on) {
+      var btns = document.querySelectorAll('.top-snd');
+      for (var i = 0; i < btns.length; i++) { paintSoundBtn(btns[i], on); }
+    });
   }
 
   App.router = { go: go, replay: replay, render: render, start: start, current: function () { return current; } };
