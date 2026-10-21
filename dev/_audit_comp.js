@@ -8,7 +8,7 @@ const os = require('os');
 const fs = require('fs');
 
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-const RAW = process.argv[2] || 'https://elaijw38.github.io/jiagugouciji/';
+const RAW = process.argv[2] || 'https://elaijw.github.io/jiagugouciji/';
 // file:// 指向 index.html 时不能补斜杠；线上目录则补成目录形式
 const BASE = /\.html$/i.test(RAW) ? RAW : RAW.replace(/\/?$/, '/');
 const MOBILE = process.argv.includes('--mobile');

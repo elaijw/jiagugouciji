@@ -52,7 +52,7 @@ EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 NODE = r"C:\Users\32058\.workbuddy\binaries\node\versions\22.22.2-6\node.exe"
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(REPO, "_check")
-BASE = "https://elaijw38.github.io/jiagugouciji/"
+BASE = "https://elaijw.github.io/jiagugouciji/"
 
 SKIP_DIRS = {"_check", "_bak", "_edgeprof", "_docpages", "__pycache__", ".git"}
 # 和 dev/_push_api.py 保持一致：这两个不参与推送，自然也不该拿来做线上比对。

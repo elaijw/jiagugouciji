@@ -37,8 +37,8 @@ python -m http.server 8099
 | | |
 |---|---|
 | 仓库 | `C:\DSH\字趣` |
-| 远端 | `github.com/Elaijw38/jiagugouciji` |
-| 线上 | https://elaijw38.github.io/jiagugouciji/ |
+| 远端 | `github.com/elaijw/jiagugouciji` |
+| 线上 | https://elaijw.github.io/jiagugouciji/ |
 | 技术栈 | **纯 `<script>` + 全局 `App` 命名空间；无框架、无构建、无依赖、双击即开** |
 | 规模 | 产品代码 **8105 行 / 19 个文件**（index.html + css×4 + js）—— 实测口径 |
 | 部署 | GitHub Pages；`deploy.ps1` 会 commit + push（**未经用户明确说"推"不要跑**） |

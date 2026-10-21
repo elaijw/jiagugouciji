@@ -493,7 +493,7 @@
 ### GitHub Pages（当前线上方式）
 
 ```bash
-git clone https://github.com/Elaijw38/jiagugouciji.git
+git clone https://github.com/elaijw/jiagugouciji.git
 cd jiagugouciji
 # 把 index.html、css/、js/ 等放入后
 git add .
@@ -501,12 +501,12 @@ git commit -m "更新说明"
 git push
 ```
 
-站点地址：**https://elaijw38.github.io/jiagugouciji/**
+站点地址：**https://elaijw.github.io/jiagugouciji/**
 
 > 仓库曾用名 `-`，2026-10 改名为 `jiagugouciji`。
 > 旧地址 `…github.io/-/` 由 GitHub 301 重定向到新地址，已发出的链接仍可打开。
 > 本地仓库若仍指向旧地址，执行一次
-> `git remote set-url origin https://github.com/Elaijw38/jiagugouciji.git` 即可。
+> `git remote set-url origin https://github.com/elaijw/jiagugouciji.git` 即可。
 
 **更省事的日常更新**：直接运行仓库根目录的 `deploy.ps1`（右键 → 使用 PowerShell 运行），
 它会自动提交并推送，遇到历史分叉会询问是否覆盖。
@@ -549,7 +549,7 @@ git push
 | 顶层必须有三个 | `index.html` `css/` `js/` | 只有 `index.html` |
 | 目录名全小写 | `css` `js` | `CSS` `JS` `Js` |
 | 层级不能多一层 | 根目录直接是这三个 | 套了 `字趣/` 或 `src/` 一层 |
-| 站点路径 | `elaijw38.github.io/jiagugouciji/` | 误用旧地址 `…github.io/-/`（会重定向，但别写进材料） |
+| 站点路径 | `elaijw.github.io/jiagugouciji/` | 误用旧地址 `…github.io/-/`（会重定向，但别写进材料） |
 
 ---
 

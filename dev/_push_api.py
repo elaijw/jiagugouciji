@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""通过 GitHub REST API 推送改动（Elaijw38/jiagugouciji）。
+"""通过 GitHub REST API 推送改动（elaijw/jiagugouciji）。
 
 为什么不用 git push：这份工作副本是从仓库压缩包解开的，**没有 `.git`**；
 而且本机代理对 git 的 push 返回 502。所以走 API 的 git 数据接口
@@ -28,7 +28,7 @@ import time
 
 import requests
 
-OWNER, REPO, BRANCH = "Elaijw38", "jiagugouciji", "main"
+OWNER, REPO, BRANCH = "elaijw", "jiagugouciji", "main"
 API = "https://api.github.com"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
