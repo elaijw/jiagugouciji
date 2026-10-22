@@ -239,11 +239,52 @@
       return;
     }
 
+
+    /* ---------- DSH 打击反馈（可整体关闭：App.juice.cfg.enabled=false） ---------- */
+    function juicePoint() {
+      return root.querySelector('.bd-figure') || root.querySelector('.bd-plate') || root;
+    }
+    function emitJuice() {
+      if (!App.juice) { return; }
+      var fx = S.fxView;
+      var hp = Math.round(S.hp);
+      var dmg = S.__jHp == null ? 0 : Math.max(0, S.__jHp - hp);
+      S.__jHp = hp;
+
+      if (fx) {
+        if (fx.kind === 'miss') {
+          /* 远端已有「砸空了」标签，这里只轻震一下，不再叠数字，避免重复提示 */
+          App.juice.shake(juicePoint(), 0.45, 150);
+        } else {
+          App.juice.hit(juicePoint(), {
+            kind: fx.kind === 'cut' ? 'cut' : 'break',
+            text: dmg > 0 ? '-' + dmg : '',
+            power: fx.kind === 'cut' ? 0.7 : 1,
+            freeze: fx.kind === 'cut' ? 60 : 70
+          });
+        }
+      }
+
+      /* 阶段切换：骨片开裂 + 色调过渡 */
+      if (S.__jPhase !== S.phase) {
+        if (S.phase >= 2 && App.juice.stageBreak) {
+          App.juice.stageBreak(root.querySelector('.scene') || root, S.phase);
+        }
+        S.__jPhase = S.phase;
+      }
+      /* 通关：一次收束 */
+      if (S.view === 'win' && S.__jView !== 'win' && App.juice.finale) {
+        App.juice.finale(root.querySelector('.scene') || root);
+      }
+      S.__jView = S.view;
+    }
+
     function render() {
       /* 命中特效只活一次：拿到 fxView 就把 S.fx 清掉。
          否则「显示名字」这类无关重绘会把上一次的"封走位"再飘一遍。 */
       S.fxView = S.fx;
       S.fx = null;
+      emitJuice();          /* DSH：数字/裂纹/震屏/顿帧/阶段/收束 */
       App.clearNode(root);
       if (S.view === 'fight' && S.boss) { renderFight(root); return; }
       if (S.view === 'win' && S.boss) { renderWin(root); return; }

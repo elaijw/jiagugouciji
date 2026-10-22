@@ -1,0 +1,198 @@
+/* ============================================================
+   juice.css —— 反馈层样式（裂纹 / 伤害数字 / 震屏 / 顿帧 / 阶段过渡）
+   与 juice.js 配套；整层可通过 App.juice.cfg.enabled=false 关闭。
+   只用 transform / opacity 动效；单次 ≤ 1.2s。
+   ============================================================ */
+
+#juice-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9000;
+  overflow: hidden;
+  contain: strict;
+}
+
+/* ---------- 震屏 ---------- */
+.scene.juice-shaking,
+.juice-shaking {
+  animation: juice-shake 200ms cubic-bezier(.36, .07, .19, .97) both;
+  will-change: transform;
+}
+@keyframes juice-shake {
+  0%   { transform: translate3d(0, 0, 0); }
+  18%  { transform: translate3d(var(--juice-shake, 4px), calc(var(--juice-shake, 4px) * -.7), 0); }
+  36%  { transform: translate3d(calc(var(--juice-shake, 4px) * -1), calc(var(--juice-shake, 4px) * .5), 0); }
+  54%  { transform: translate3d(calc(var(--juice-shake, 4px) * .6), calc(var(--juice-shake, 4px) * .3), 0); }
+  72%  { transform: translate3d(calc(var(--juice-shake, 4px) * -.3), calc(var(--juice-shake, 4px) * -.2), 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/* ---------- 顿帧：极短冻结动画与过渡，制造"打到了"的停顿 ---------- */
+html.juice-frozen *,
+html.juice-frozen *::before,
+html.juice-frozen *::after {
+  animation-play-state: paused !important;
+}
+html.juice-frozen #juice-layer * {
+  animation-play-state: running !important;
+}
+
+/* ---------- 伤害数字 ---------- */
+.juice-num {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-serif, "Songti SC", serif);
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: .5px;
+  color: var(--ink, #29231e);
+  text-shadow: 0 1px 0 rgba(255, 252, 244, .85), 0 0 12px rgba(255, 250, 240, .95);
+  animation: juice-float 860ms cubic-bezier(.2, .8, .3, 1) forwards;
+  white-space: nowrap;
+}
+.juice-num-break { color: var(--cinnabar, #a63e2f); font-size: 28px; }
+.juice-num-cut   { color: #2f5566; font-size: 24px; }
+.juice-num-miss  { color: var(--ink-soft, #6e6455); font-size: 20px; opacity: .8; }
+@keyframes juice-float {
+  0%   { opacity: 0; transform: translate(-50%, -30%) scale(.7); }
+  22%  { opacity: 1; transform: translate(-50%, -72%) scale(1.08); }
+  100% { opacity: 0; transform: translate(-50%, -150%) scale(.96); }
+}
+
+/* ---------- 裂纹 ---------- */
+.juice-crack {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: juice-crack-fade 600ms ease-out forwards;
+}
+.juice-crack-path {
+  fill: none;
+  stroke: rgba(94, 58, 32, .92);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px rgba(255, 248, 236, .9));
+  animation: juice-stroke-draw 320ms ease-out forwards;
+}
+.juice-crack.tone-cut .juice-crack-path { stroke: rgba(46, 82, 104, .95); }
+.juice-crack.tone-stage .juice-crack-path { stroke: rgba(166, 62, 47, .95); stroke-width: 3; }
+@keyframes juice-stroke-draw {
+  from { stroke-dashoffset: 120; opacity: 0; }
+  35%  { opacity: 1; }
+  to   { stroke-dashoffset: 0; opacity: 1; }
+}
+@keyframes juice-crack-fade {
+  0%, 55% { opacity: 1; }
+  100%    { opacity: 0; }
+}
+
+/* ---------- 阶段过渡：整屏压一层色，900ms 退去 ---------- */
+.juice-stagefilm {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  animation: juice-film 900ms ease-out forwards;
+}
+.juice-stagefilm.stage-2 {
+  background: radial-gradient(60% 55% at 50% 45%, rgba(201, 96, 44, .18), rgba(80, 30, 10, .02) 70%);
+}
+.juice-stagefilm.stage-3 {
+  background: radial-gradient(65% 60% at 50% 45%, rgba(70, 110, 140, .16), rgba(10, 20, 40, .03) 72%);
+}
+@keyframes juice-film {
+  0%   { opacity: 0; }
+  18%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---------- 阶段色调（作用在战斗场景，幅度克制） ---------- */
+.scene.boss-raid.juice-phase-2 .bd-figure-art { filter: saturate(1.15) contrast(1.06); }
+.scene.boss-raid.juice-phase-3 .bd-figure-art { filter: saturate(.55) contrast(1.15) brightness(1.04); }
+
+/* ---------- 通关收束 ---------- */
+.juice-finale .bd-figure,
+.juice-finale .bd-winfig {
+  animation: juice-collapse 1000ms cubic-bezier(.3, .7, .2, 1) both;
+}
+@keyframes juice-collapse {
+  0%   { transform: scale(1); opacity: 1; }
+  35%  { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(.92); opacity: .0; }
+}
+
+/* ---------- 笔画斩断：沿原路径淡出一次 ---------- */
+.juice-severed path,
+.juice-severed polyline {
+  animation: juice-sever 460ms ease-out forwards;
+}
+@keyframes juice-sever {
+  0%   { stroke-dasharray: 0 999; opacity: 1; }
+  40%  { stroke-dasharray: 999 0; opacity: 1; }
+  100% { opacity: .35; }
+}
+
+/* ---------- 音效开关 ---------- */
+.sound-toggle {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 9500;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(120, 96, 66, .45);
+  background: rgba(28, 22, 16, .55);
+  color: #e8dcc2;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  opacity: .6;
+  transition: opacity .18s, transform .18s;
+}
+.sound-toggle:hover { opacity: 1; transform: translateY(-1px); }
+.sound-toggle.sound-on { color: #ffd9a0; opacity: .85; }
+
+/* ---------- 减少动态效果：只保留信息，去掉位移与闪烁 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .juice-shaking,
+  .scene.juice-shaking { animation: none !important; }
+  html.juice-frozen * { animation-play-state: running !important; }
+  .juice-crack { animation: none; opacity: .85; }
+  .juice-crack-path { animation: none; stroke-dashoffset: 0; }
+  .juice-stagefilm { animation: none; opacity: .12; }
+  .juice-finale .bd-figure,
+  .juice-finale .bd-winfig { animation: none; }
+  .juice-severed path,
+  .juice-severed polyline { animation: none; opacity: .5; }
+  .juice-num { animation-duration: 0.01ms; }
+}
+
+/* 深色主题兜底：纸面变深时把数字与裂纹翻成米色 */
+@media (prefers-color-scheme: dark) {
+  .juice-num { color: #f3e6c8; text-shadow: 0 1px 0 rgba(60, 34, 16, .55), 0 0 14px rgba(214, 122, 74, .45); }
+  .juice-crack-path { stroke: rgba(255, 236, 200, .92); }
+}
+
+/* ---------- 拼对：把组出的甲骨形"刻"一遍（P1） ---------- */
+.reveal.juice-engrave svg path,
+.reveal.juice-engrave svg polyline,
+.reveal.juice-engrave svg line {
+  stroke-dasharray: 999;
+  animation: juice-engrave 720ms ease-out both;
+}
+@keyframes juice-engrave {
+  0%   { stroke-dashoffset: 999; opacity: .25; }
+  100% { stroke-dashoffset: 0;   opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal.juice-engrave svg path,
+  .reveal.juice-engrave svg polyline,
+  .reveal.juice-engrave svg line { animation: none; stroke-dasharray: none; }
+}
+

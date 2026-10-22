@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="css/theme.css?v=20261020-2">
 <link rel="stylesheet" href="css/ui.css?v=20261020-2">
 <link rel="stylesheet" href="css/modes.css?v=20261021-15">
+<link rel="stylesheet" href="css/juice.css?v=20261022-1">
 <!-- 灵动层：纯增量的交互反馈，必须排在最后（同权重选择器后者胜） -->
 <link rel="stylesheet" href="css/life.css?v=20261020-2">
 <!-- 骨片层：图鉴的拓黑方块 → 骨片；删掉这一行即回退 -->
@@ -114,6 +115,7 @@
 <!-- 声音层：背景古筝 + 点关卡时的骨板声。两段都是 assets/ 里的真实录音
      （Freesound CC0），不是实时合成 —— 合成那套已在 audio.js 里降级为兜底 -->
 <script src="js/core/audio.js?v=20261021-11"></script>
+<script src="js/core/juice.js?v=20261022-1"></script>
 <script src="js/core/slab-shape.js?v=20261020-1"></script>
 <script src="js/core/slab-card-shape.js?v=20261020-1"></script>
 <!-- 关卡层的骨版轮廓：加载时直接挂三条 clipPath 到 body，见文件头注释 -->
@@ -125,7 +127,7 @@
 
 <script src="js/modes/bone-build.js?v=20261020-1"></script>
 <script src="js/modes/wangyi-map.js?v=20261021-10"></script>
-<script src="js/modes/boss-raid.js?v=20261016-1"></script>
+<script src="js/modes/boss-raid.js?v=20261022-1"></script>
 
 <script src="js/core/build.js?v=20261020-1"></script>
 <!-- 灵动层：订阅 route 事件补交互反馈；放在 build.js 之后，首次渲染由它自己补一次 -->
