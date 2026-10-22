@@ -372,8 +372,19 @@
       el.appendChild(credit);
     }
 
+    /* 每片一个极淡的环境色调与进区音高：差别要小，但换地方时能感觉到 */
+    var ZONE_TONE = {
+      sky:   { tint: 'rgba(247, 223, 168, .10)', pitch: 1.22 },
+      land:  { tint: 'rgba(216, 193, 154, .10)', pitch: 1.00 },
+      plant: { tint: 'rgba(168, 196, 154, .09)', pitch: 1.14 },
+      beast: { tint: 'rgba(201, 162, 122, .10)', pitch: 0.90 },
+      life:  { tint: 'rgba(185, 160, 122, .09)', pitch: 0.80 }
+    };
+
     function enterZone(z) {
       S.zone = z; S.view = 'zone'; S.sel = null; S.lens = null;
+      var tone = ZONE_TONE[z && z.id];
+      if (tone && App.sound && App.sound.pluck) { App.sound.pluck(tone.pitch); }
       S.showHot = false; S.zoom = 1; S.scroll = { left: 0, top: 0 };
       S.manual = false; S.region = null;
       S.flow = null;
@@ -657,6 +668,19 @@
       var z = S.zone;
       var s = zoneStat(p, z);
       var AX = 2624, AY = 1472;
+
+      /* 环境色调：只给场景一层很淡的径向底，不盖地图插画 */
+      var tone = ZONE_TONE[z && z.id];
+      if (tone) {
+        /* 挂到真正的 .scene 上，否则被壳层的容器盖住，样式不生效 */
+        var host = (el.closest && el.closest('.scene')) || document.querySelector('.scene') || el;
+        /* 先清掉上一片留下的类，否则会一直挂着 wy2-zone-sky */
+        Array.prototype.slice.call(host.classList).forEach(function (c) {
+          if (/^wy2-zone-/.test(c)) { host.classList.remove(c); }
+        });
+        host.classList.add('wy2-zone', 'wy2-zone-' + z.id);
+        host.style.setProperty('--wy2-tone', tone.tint);
+      }
 
       /* 顶栏：返回 + 片名 + 进度。做得薄，把纵向空间留给地图。 */
       var top = App.el('header', 'wy2-zone-top');

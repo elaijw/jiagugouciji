@@ -314,3 +314,17 @@ html.juice-frozen #juice-layer * {
   .bb-teach-guibao.mood-explain,
   .bb-guibao-finish.mood-cheer { animation: none; }
 }
+
+/* ---------- P2：每片区域的环境底（极淡，不盖插画） ---------- */
+.scene.wy2-zone {
+  position: relative;
+  background-image:
+    radial-gradient(90% 70% at 50% 0%, var(--wy2-tone, rgba(255,255,255,0)) 0%, rgba(0,0,0,0) 70%);
+  background-repeat: no-repeat;
+  transition: background-image .5s ease;
+}
+.scene.wy2-zone-sky   { --wy2-tone: rgba(247, 223, 168, .10); }
+.scene.wy2-zone-land  { --wy2-tone: rgba(216, 193, 154, .10); }
+.scene.wy2-zone-plant { --wy2-tone: rgba(168, 196, 154, .09); }
+.scene.wy2-zone-beast { --wy2-tone: rgba(201, 162, 122, .10); }
+.scene.wy2-zone-life  { --wy2-tone: rgba(185, 160, 122, .09); }
