@@ -348,6 +348,17 @@
     } catch (e) { return fallback; }
   }
 
+  /* 实验开关：?slab=1 时整页按「一张甲骨片」呈现（只加 body 类，不改结构） */
+  (function slabPageFlag() {
+    try {
+      var m = /[?&]slab=(1|2)\b/.exec(location.search);
+      if (m) {
+        document.body.classList.add('slab-page');
+        if (m[1] === '2') { document.body.classList.add('slab-2'); }
+      }
+    } catch (e) {}
+  })();
+
   function sceneHome() {
     var wrap = App.el('div', 'scene home-scene');
     var st = App.atlas.stats();

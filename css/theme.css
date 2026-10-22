@@ -234,6 +234,23 @@
   --danger-hi:   #a13a2c;
   --danger-tint: #7d2a20;   /* 危险类文字 / 错误提示 · 骨底 8.34 ✅ */
 
+  /* —— 主操作的受光三段 ——
+     上亮 / 本体 / 下暗，是**同一种朱砂的三档**，不是三种颜色。
+     单独给名字只为一件事：材质写在 CSS 里时不必再写死十六进制。
+     来源：atmos.css 原来的 #bb4d38 / #8f3325 / #7e2d21（2026-10-22 收进令牌）。 */
+  --solid-top:  #c1553e;
+  --solid-bot:  #8f3325;
+  --solid-edge: #7e2d21;
+
+  /* —— 强烈动作：质问！ / 终局确认 ——
+     与主操作同族、只深一档。它**不是**破坏性操作，
+     破坏性操作用 --danger 走"描边反向"那套（见 ui.css WB-3）。 */
+  --alert-top: #7d2c22;
+  --alert-bot: #602019;
+
+  /* 实底上的字：与深墨面正文同值，合并成一个名字，免得再写 #fdf4ea */
+  --on-solid: var(--on-dark);
+
   /* —— 遮罩：弹层背后压暗。深墨块内不要用它替代 --ink-deep-2 —— */
   --veil: rgba(23, 18, 12, .46);
 
@@ -359,66 +376,25 @@ hr, .hr {
 }
 
 /* ---------- 3.3 按钮 ----------
-   四个层级：默认（次）/ primary（主）/ danger（危险）/ ghost（弱）。
-   尺寸统一（sm 28 / 默认 34 / lg 40），圆角适中，交互态明确。 */
+   【2026-10-22 收权】这里**只留结构**：盒子模型、排列、尺寸档、禁用态。
+   颜色 / 材质 / 悬停 / 按压全部搬到 `ui.css` 的「WB-3」段——唯一权威。
+
+   原因：同一枚 .btn 曾在 4 个文件里各写一遍（app.css / theme.css / ui.css /
+   atmos.css），谁生效取决于 <link> 顺序。于是"在 theme.css 里改了主按钮颜色
+   却纹丝不动"成了常事，而且危险按钮被三个文件各给了三种红。
+   收权后主题只认令牌，换肤只改本文件的 :root。 */
 .btn {
-  --btn-h: 34px;
+  --btn-h: 38px;
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s-1);
   min-height: var(--btn-h);
   font-family: inherit; font-size: var(--fs-md); line-height: 1;
   padding: 0 var(--s-4);
-  color: var(--ink);
-  background: var(--bone-hi);
-  border: 1px solid var(--edge);
-  border-radius: var(--r-sm);
-  box-shadow: var(--sh-1);
+  border-width: 1px;
+  border-style: solid;
   cursor: pointer;
-  transition: background var(--t-fast) var(--ease),
-              border-color var(--t-fast) var(--ease),
-              box-shadow var(--t-fast) var(--ease),
-              transform var(--t-fast) var(--ease);
 }
-.btn:hover {
-  background: color-mix(in srgb, var(--bone-hi) 88%, var(--bronze));
-  border-color: color-mix(in srgb, var(--bronze) 50%, var(--edge));
-}
-.btn:active { transform: translateY(1px); box-shadow: none; }
-
-.btn.sm { --btn-h: 28px; font-size: var(--fs-sm); padding: 0 var(--s-3); }
-.btn.lg { --btn-h: 40px; font-size: var(--fs-lg); padding: 0 var(--s-5); }
-
-/* 主按钮：朱砂实底 */
-.btn.primary {
-  background: var(--cinnabar);
-  color: #fdf4ea;
-  border-color: color-mix(in srgb, var(--cinnabar) 78%, #000);
-  box-shadow: var(--sh-2);
-}
-.btn.primary:hover {
-  background: var(--cinnabar-hi);
-  border-color: color-mix(in srgb, var(--cinnabar-hi) 78%, #000);
-}
-
-/* 危险按钮：深一档的朱砂，与主按钮拉开层级又不喧宾夺主 */
-.btn.danger {
-  background: color-mix(in srgb, var(--cinnabar) 82%, #000);
-  color: #fdf4ea;
-  border-color: color-mix(in srgb, var(--cinnabar) 55%, #000);
-}
-.btn.danger:hover { background: var(--cinnabar); }
-
-/* 弱按钮：无底色，仅描边，用于密集排布的次要操作 */
-.btn.ghost {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  color: var(--ink-2);
-}
-.btn.ghost:hover {
-  background: color-mix(in srgb, var(--bronze) 12%, transparent);
-  border-color: color-mix(in srgb, var(--bronze) 35%, transparent);
-  color: var(--ink);
-}
+.btn.sm { --btn-h: 34px; font-size: var(--fs-sm); padding: 0 var(--s-3); }
+.btn.lg { --btn-h: 44px; font-size: var(--fs-lg); padding: 0 var(--s-5); }
 
 .btn:disabled, .btn[aria-disabled="true"] {
   opacity: .45; box-shadow: none; transform: none;

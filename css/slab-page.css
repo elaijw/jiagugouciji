@@ -1,0 +1,129 @@
+/* ============================================================
+   slab-page.css —— 「整页一张甲骨片」实验版（?slab=1 开启）
+   ------------------------------------------------------------
+   做法：
+     · 页面底 = 骨面材质平铺 + 暖色乘法混合 + 四周暗角（像一块骨摊在案上）
+     · 内容区 = 半透明骨白「刻辞区」，让字仍然读得清
+     · 分区之间用刻痕细线，不用卡片阴影
+   关闭：地址去掉 ?slab=1（或删掉 index.html 里这一行）
+   ============================================================ */
+
+body.slab-page {
+  background-color: #e9dfc9;
+  background-image: url("../assets/bone-surface.png");
+  background-repeat: repeat;
+  background-size: 512px 512px;
+  background-blend-mode: multiply;
+}
+
+/* 四周压暗，做出骨片边缘的厚度感 */
+body.slab-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(120% 100% at 50% 50%, rgba(0,0,0,0) 55%, rgba(64,44,26,.28) 100%),
+    linear-gradient(180deg, rgba(64,44,26,.16), rgba(0,0,0,0) 18%, rgba(0,0,0,0) 82%, rgba(64,44,26,.18));
+}
+
+body.slab-page .app-shell { position: relative; z-index: 1; }
+
+/* 顶栏：从纸白改成骨白半透明 */
+body.slab-page .topbar,
+body.slab-page .nav-top .topbar {
+  background: rgba(245, 238, 223, .82);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid rgba(120, 96, 66, .22);
+}
+
+/* 内容区：刻辞区（半透明骨白，保证对比度） */
+body.slab-page .home-scene > section,
+body.slab-page .home-scene > div {
+  background: rgba(250, 246, 236, .88);
+  border: 1px solid rgba(120, 96, 66, .18);
+  box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 10px 30px rgba(60, 42, 24, .08);
+}
+
+/* 首屏是骨片本体，不要再铺一层 */
+body.slab-page .home-scene .hero,
+body.slab-page .home-scene .hero-in {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+/* 首屏文字压在骨面上：加深一点并留纸色光晕 */
+body.slab-page .hero-title,
+body.slab-page .hero-lead,
+body.slab-page .hero-kicker,
+body.slab-page .hero-trust {
+  color: #241a10;
+  text-shadow: 0 1px 0 rgba(255, 250, 240, .55);
+}
+
+/* 分区标题：刻痕式细线，不用卡片投影 */
+body.slab-page .sec-h,
+body.slab-page .lv-title {
+  border-bottom: 1px solid rgba(120, 96, 66, .28);
+  padding-bottom: 8px;
+}
+
+/* 按钮：骨白底 + 墨字，主按钮仍朱砂 */
+body.slab-page .btn:not(.primary):not(.danger) {
+  background: rgba(252, 248, 240, .9);
+  border-color: rgba(120, 96, 66, .28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.slab-page .topbar { backdrop-filter: none; }
+}
+
+/* ============================================================
+   更强的方案（?slab=2）：整页铺一张骨片照片
+   ------------------------------------------------------------
+   底色直接换成真实的骨片影像（oracle-slab.jpg），上面盖一层暖纸色
+   把对比度压回来；所有分区变成透明，只留刻痕分隔线。
+   ============================================================ */
+body.slab-page.slab-2 {
+  background-image: url("../assets/oracle-slab.jpg");
+  background-size: cover;
+  background-position: center top;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-blend-mode: normal;
+  background-color: #ded2b8;
+}
+body.slab-page.slab-2::before {
+  background:
+    linear-gradient(180deg, rgba(246, 240, 227, .78), rgba(246, 240, 227, .62) 40%, rgba(246, 240, 227, .78)),
+    radial-gradient(120% 90% at 50% 40%, rgba(0,0,0,0) 45%, rgba(52,36,20,.30) 100%);
+}
+body.slab-page.slab-2 .home-scene > section,
+body.slab-page.slab-2 .home-scene > div {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+body.slab-page.slab-2 .home-scene .hero-slab { opacity: .35; }
+body.slab-page.slab-2 .sec-h,
+body.slab-page.slab-2 .lv-title {
+  border-bottom-color: rgba(90, 66, 40, .45);
+}
+body.slab-page.slab-2 .topbar { background: rgba(246, 240, 227, .86); }
+
+/* slab-2 的读数修正：骨面上直接压字会糊，给标题一条淡的刻辞带 */
+body.slab-page.slab-2 .home-scene .hero-slab { display: none; }
+body.slab-page.slab-2 .home-scene .sec-h,
+body.slab-page.slab-2 .home-scene .lv-title,
+body.slab-page.slab-2 .home-scene h2 {
+  color: #20170e;
+  text-shadow: 0 1px 0 rgba(255, 251, 242, .75);
+}
+body.slab-page.slab-2 .home-scene .sec-h + p,
+body.slab-page.slab-2 .home-scene .hero-lead,
+body.slab-page.slab-2 .home-scene .hero-trust {
+  color: #33261a;
+  text-shadow: 0 1px 0 rgba(255, 251, 242, .8);
+}

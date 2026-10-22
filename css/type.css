@@ -21,6 +21,12 @@
                "Source Han Serif CN", STSong, SimSun, serif;
   --font-kai:  "Kaiti SC", "Kaiti TC", KaiTi, STKaiti, "Songti SC", serif;
 
+  /* 圆润黑体：界面与正文用。按系统可用性依次回落，
+     最后落到 sans-serif —— 全站仍然离线可用，不加载网络字体。 */
+  --font-round: "PingFang SC", "HarmonyOS Sans SC", "MiSans",
+                "Source Han Sans SC", "Noto Sans SC",
+                "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+
   /* --font-serif 是 modes.css 里 13 处「地名 / 关卡名 / 签条」在用的旧名字
      （王邑据点名、区域名、印面字、流程标题）。它从来没有定义过，
      一直靠 `font-family` 可继承、取不到值时回落到父级来"碰巧正确"——
@@ -48,7 +54,7 @@
    1. 中文字排的地基
    ---------------------------------------------------------------------------- */
 body {
-  font-family: var(--font-song);
+  font-family: var(--font-round);
   /* 行首标点半角 + 行尾标点悬挂：中文两端对齐时，标点占满一整格
      会在行末留出大洞，这两条让标点"溢出到页边"而不是撑开行。 */
   text-spacing-trim: space-first;
@@ -66,16 +72,18 @@ body {
    ---------------------------------------------------------------------------- */
 h1, h2, h3, .hero-title, .sec-h, .lv-title, .bb-teach-title, .cp-title, .as-title {
   font-synthesis-weight: none;
-  font-family: var(--font-song);
+  font-family: var(--font-round);
+  font-weight: 600;
 }
 /* 大标题：字距略放（刻辞是一字一格，不是密排），行高收紧 */
 .hero-title {
-  letter-spacing: .038em;
-  line-height: 1.16;
+  /* 黑体不需要"一字一格"的字距，收一点更像游戏标题 */
+  letter-spacing: .012em;
+  line-height: 1.18;
 }
 .sec-h, .lv-title, h2 {
-  letter-spacing: .022em;
-  line-height: 1.32;
+  letter-spacing: .008em;
+  line-height: 1.34;
 }
 /* 小标题不必加字距：字距是"气质"，只在大字号上有意义 */
 h3, h4 { letter-spacing: 0; }
@@ -158,4 +166,25 @@ h3, h4 { letter-spacing: 0; }
   }
   body { line-height: 1.82; }
   .hero-title { letter-spacing: .028em; }
+}
+
+/* ----------------------------------------------------------------------------
+   5. 文物语汇：这些地方仍然用衬线
+   ----------------------------------------------------------------------------
+   正文改成黑体以后，"刻辞、题记、引文、出处"若也跟着变，就丢了唯一的历史质感。
+   这里把它们显式拉回宋体/楷体，形成"界面是现代的、材料是古代的"对比。
+   ---------------------------------------------------------------------------- */
+.bb-evidence-src,
+.cite,
+.foot-p,
+.as-meta,
+.wy2-credit,
+.rw-bone-line,
+.rw-line {
+  font-family: var(--font-song);
+}
+.bb-evidence-src,
+.rw-bone-line,
+.rw-line {
+  font-family: var(--font-kai);
 }
