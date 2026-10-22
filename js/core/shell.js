@@ -417,7 +417,7 @@
     b2.href = '#/atlas';
     cta.appendChild(b2);
     hb.appendChild(cta);
-    hb.appendChild(App.el('p', 'hero-trust', '辨形 → 构字 → 点亮王邑 → 迎战 Boss'));
+    hb.appendChild(App.el('p', 'hero-trust', '辨形 → 构字 → 拨雾见邑 → 迎战 Boss'));
     var guide = App.el('a', 'hero-guide');
     guide.href = '#/play/bone-build';
     guide.setAttribute('aria-label', '跟龟宝从第一关认识甲骨字形与构件');
@@ -479,7 +479,7 @@
     var sec1 = App.el('section', 'home-sec');
     sec1.id = 'playSection';
     sec1.appendChild(sectionHead('三步，开启甲骨探索',
-      '从认字形，到点亮王邑，再迎战 Boss 终局',
+      '从认字形，到拨雾见邑，再迎战 Boss 终局',
       '#/modes', '全部玩法 →'));
     /* 主线：给每张卡排上步骤号，卡之间用一条贯穿的细线串起来。
        顺序仍按 App.modes.playable() 的注册顺序，**不重排**——

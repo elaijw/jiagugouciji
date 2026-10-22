@@ -1862,3 +1862,206 @@ html.js-motion .mo-now { transition: none !important; }
   .hero-bg, .hero-relic-ring, .hero-rune { animation: none; }
   .home-scene .play-card { transition: none; }
 }
+
+/* WB-3：统一按钮、卡片与弹层的视觉语法 */
+/* 操作层级：朱砂主操作、描边次操作、描边危险操作、文字弱操作。 */
+.btn {
+  --btn-h: 38px;
+  min-height: var(--btn-h);
+  padding-inline: var(--s-4);
+  border: 1px solid var(--edge);
+  border-radius: var(--r-xs);
+  background: transparent;
+  box-shadow: none;
+  font-weight: 600;
+  transition: transform var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
+}
+.btn.sm { --btn-h: 34px; }
+.btn.lg { --btn-h: 44px; }
+.btn:not(.primary):not(.danger):not(.ghost):hover {
+  background: color-mix(in srgb, var(--bronze) 8%, var(--bone-white));
+  border-color: color-mix(in srgb, var(--bronze) 58%, var(--edge));
+}
+.btn.primary {
+  color: var(--bone-white);
+  background: var(--solid);
+  border-color: var(--solid);
+  box-shadow: var(--lift-1);
+}
+.btn.primary:hover {
+  color: var(--bone-white);
+  background: var(--solid-hi);
+  border-color: var(--solid-hi);
+  box-shadow: var(--lift-1);
+}
+.btn.danger {
+  color: var(--bone-white);
+  background: var(--danger);
+  border-color: var(--danger);
+  box-shadow: var(--lift-1);
+}
+.btn.danger:hover {
+  color: var(--bone-white);
+  background: var(--danger-hi);
+  border-color: var(--danger-hi);
+  box-shadow: var(--lift-1);
+}
+.btn.ghost {
+  color: var(--ink-2);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.btn.ghost:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--bronze) 8%, transparent);
+  border-color: color-mix(in srgb, var(--bronze) 24%, transparent);
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled, .btn[aria-disabled="true"] {
+  opacity: .45;
+  box-shadow: none;
+  transform: none;
+}
+
+/* 分类筛选沿用次操作；选中态以淡朱砂标识，避免与主按钮争抢。 */
+.chipbtn {
+  min-height: 36px;
+  border-radius: var(--r-pill);
+  transition: transform var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
+}
+.chipbtn.on {
+  color: var(--solid);
+  background: color-mix(in srgb, var(--solid) 8%, var(--bone-white));
+  border-color: color-mix(in srgb, var(--solid) 42%, var(--edge));
+  font-weight: 600;
+}
+.chipbtn:active { transform: translateY(1px); }
+
+/* 三种卡片角色：档案/展品保持方角；说明面轻圆；可操作卡片才有悬停抬升。 */
+.sect, .tl-table {
+  background: var(--sheet);
+  border-radius: 0;
+  box-shadow: none;
+}
+.panel, .console {
+  background: var(--bone-hi);
+  border-radius: var(--r-sm);
+  box-shadow: var(--lift-1);
+}
+.scene .mode-card, .scene .home-card {
+  background: var(--bone-white);
+  border: 1px solid var(--edge);
+  border-radius: var(--r);
+  box-shadow: var(--lift-1);
+  transition: transform var(--t-base) var(--ease), opacity var(--t-base) var(--ease);
+}
+.scene .mode-card:hover,
+.scene .home-card:not(.ghost):hover {
+  border-color: color-mix(in srgb, var(--bronze) 56%, var(--edge));
+  box-shadow: var(--lift-2);
+  transform: translateY(-1px);
+}
+.scene .mode-card.pending:hover {
+  border-color: var(--edge);
+  box-shadow: var(--lift-1);
+  transform: none;
+}
+.scene .home-card.ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* 深墨只占弹层标题与字形展台；正文留在纸面，长内容可以独立阅读。 */
+.overlay, .imgpanel {
+  background: var(--veil);
+}
+.edbox, .imgbox {
+  color: var(--ink);
+  background: var(--sheet);
+  border-color: var(--edge);
+  border-radius: var(--r);
+  box-shadow: var(--lift-3);
+}
+.edbox > .edhead, .imgbox > .edhead {
+  margin: calc(0px - var(--s-5)) calc(0px - var(--s-5)) var(--s-4);
+  padding: var(--s-4) var(--s-5);
+  color: var(--on-dark);
+  background: var(--ink-deep);
+  border-bottom-color: var(--ink-deep-line);
+  border-radius: var(--r) var(--r) 0 0;
+}
+.edbox > .edhead h3, .imgbox > .edhead h3 { color: var(--on-dark); }
+.edbox > .edhead .as-kind { color: var(--on-dark-2); background: transparent; border-color: var(--ink-deep-line); }
+.edbox > .edhead .btn:not(.primary):not(.danger),
+.imgbox > .edhead .btn:not(.primary):not(.danger) {
+  color: var(--on-dark);
+  background: transparent;
+  border-color: var(--ink-deep-line);
+  box-shadow: none;
+}
+.edbody {
+  color: var(--ink);
+  background: var(--bone-hi);
+  border-color: var(--edge);
+}
+.edbox .edfoot, .imgbox .edfoot { border-top-color: var(--edge); }
+.toast {
+  color: var(--on-dark);
+  background: var(--ink-deep);
+  border: 1px solid var(--ink-deep-line);
+  border-radius: var(--r-sm);
+  box-shadow: var(--lift-3);
+}
+
+/* 王邑字卡：纸面承载释义，左侧墨色展台托住字形。 */
+.wy2-card-wrap .wy2-card {
+  background: var(--sheet);
+  border-color: var(--edge);
+  border-radius: var(--r);
+  box-shadow: var(--lift-3);
+}
+.wy2-card-wrap .wy2-card-form {
+  padding: var(--s-3);
+  color: var(--on-dark);
+  background: var(--ink-deep);
+  border: 1px solid var(--ink-deep-line);
+  border-radius: var(--r-sm);
+}
+.wy2-card-wrap .wy2-card-glyph { color: var(--on-dark); }
+.wy2-card-wrap .wy2-card-zone { color: var(--on-dark-2); }
+.wy2-card-wrap .wy2-card-x {
+  color: var(--ink-2);
+  background: var(--sheet);
+  border-color: var(--edge);
+  border-radius: var(--r-xs);
+}
+.wy2-card-wrap .wy2-card-x:hover {
+  color: var(--cinnabar-tint);
+  border-color: var(--cinnabar-tint);
+}
+
+/* 所有可操作卡片与控件共享清楚的键盘焦点。 */
+.btn:focus-visible, .chipbtn:focus-visible,
+.scene .mode-card:focus-visible, .scene .home-card:focus-visible,
+.play-card:focus-visible, .atlas-card:focus-visible {
+  outline: var(--focus);
+  outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .edbox, .imgbox { border-radius: 0; box-shadow: none; }
+  .btn { --btn-h: 42px; }
+  .btn.sm { --btn-h: 38px; }
+  .edbox > .edhead, .imgbox > .edhead {
+    margin: calc(0px - var(--s-4)) calc(0px - var(--s-4)) var(--s-4);
+    border-radius: 0;
+  }
+  .wy2-card-wrap .wy2-card-form { padding: var(--s-2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .chipbtn, .scene .mode-card, .scene .home-card { transition: none; }
+}
+

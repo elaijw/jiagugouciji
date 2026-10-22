@@ -97,14 +97,14 @@ html.juice-frozen #juice-layer * {
   animation: juice-film 900ms ease-out forwards;
 }
 .juice-stagefilm.stage-2 {
-  background: radial-gradient(60% 55% at 50% 45%, rgba(201, 96, 44, .18), rgba(80, 30, 10, .02) 70%);
+  background: radial-gradient(70% 65% at 50% 45%, rgba(0,0,0,0) 42%, rgba(46,22,12,.22) 100%);
 }
 .juice-stagefilm.stage-3 {
-  background: radial-gradient(65% 60% at 50% 45%, rgba(70, 110, 140, .16), rgba(10, 20, 40, .03) 72%);
+  background: radial-gradient(70% 65% at 50% 45%, rgba(0,0,0,0) 40%, rgba(18,28,40,.24) 100%);
 }
 @keyframes juice-film {
   0%   { opacity: 0; }
-  18%  { opacity: 1; }
+  25%  { opacity: .55; }
   100% { opacity: 0; }
 }
 
@@ -230,8 +230,8 @@ html.juice-frozen #juice-layer * {
       rgba(253, 250, 242, 0) 100%);
   backdrop-filter: blur(3px) saturate(.62) brightness(1.06);
   -webkit-backdrop-filter: blur(3px) saturate(.62) brightness(1.06);
-  mask-image: radial-gradient(closest-side, #000 52%, rgba(0,0,0,.55) 74%, transparent 96%);
-  -webkit-mask-image: radial-gradient(closest-side, #000 52%, rgba(0,0,0,.55) 74%, transparent 96%);
+  mask-image: radial-gradient(closest-side, #000 46%, rgba(0,0,0,.5) 70%, transparent 100%);
+  -webkit-mask-image: radial-gradient(closest-side, #000 46%, rgba(0,0,0,.5) 70%, transparent 100%);
   opacity: 1;
   transition: opacity 1.2s ease, transform 1.2s ease;
 }
@@ -243,12 +243,7 @@ html.juice-frozen #juice-layer * {
   60%  { opacity: .45; }
   100% { opacity: 0;  transform: translate(-50%, -50%) scale(1.07); }
 }
-.wy2-glow.just-lit {
-  animation: wy2-lamp .95s ease-out 1;
-}
-@keyframes wy2-lamp {
-  0% { filter: brightness(.7); } 45% { filter: brightness(1.8); } 100% { filter: brightness(1); }
-}
+/* 不再做亮度脉冲；点亮交给既有的 .wy2-glow.on 过渡 */
 .wy2-finale {
   position: fixed; inset: 0; z-index: 9200;
   display: grid; place-items: center; gap: 10px;
@@ -264,7 +259,7 @@ html.juice-frozen #juice-layer * {
 @keyframes wy2-finale-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   .wy2-fog { transition: opacity .2s linear; animation: none !important; backdrop-filter: none; }
-  .wy2-glow.just-lit { animation: none; }
+  /* 无脉冲动画 */
   .wy2-finale { animation: none; }
 }
 

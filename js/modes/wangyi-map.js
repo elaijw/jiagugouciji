@@ -218,13 +218,13 @@
       copy.appendChild(App.el('p', 'wy2-kicker', '第二关 · 殷商王邑'));
       copy.appendChild(App.el('h2', 'wy2-title', '五片王邑，点一处进去'));
       copy.appendChild(App.el('p', 'wy2-lead',
-        '这是一座三千年前的王邑。五片区域任意顺序进入：点图中的实物认甲骨文，认得的字就记在这一片名下。一片学完，这一片就亮起来。'));
+        '这是一座三千年前的王邑。五片区域任意顺序进入：点图中的实物认甲骨文，认得的字就记在这一片名下。一片认完，这一片的雾就散开。'));
       head.appendChild(copy);
 
       var meter = App.el('div', 'wy2-head-meter');
       var mline = App.el('p', 'wy2-meter-line');
       mline.appendChild(App.el('strong', null, st.clear + ' / ' + st.zones));
-      mline.appendChild(App.el('span', null, ' 片已点亮'));
+      mline.appendChild(App.el('span', null, ' 片雾已散'));
       meter.appendChild(mline);
       var bar = App.el('span', 'wy2-meter');
       var fill = App.el('i', 'wy2-meter-fill');
@@ -269,8 +269,8 @@
           + (justLit ? ' dissolving' : ''));
         fog.style.left = pct(w.x, AX);
         fog.style.top = pct(w.y, AY);
-        fog.style.width = pct(w.r * 2.05, AX);
-        fog.style.height = pct(w.r * 2.05, AY);
+        fog.style.width = pct(w.r * 2.9, AX);
+        fog.style.height = pct(w.r * 2.9, AY);
         fog.setAttribute('aria-hidden', 'true');
         layer.appendChild(fog);
         if (justLit) {
@@ -287,7 +287,7 @@
         var txt = App.el('span', 'wy2-pin-txt');
         txt.appendChild(App.el('b', null, z.name));
         txt.appendChild(App.el('span', null,
-          s.clear ? '已点亮' : (s.done ? s.done + ' / ' + s.total : s.total + ' 个字')));
+          s.clear ? '雾已散' : (s.done ? '雾散中 ' + s.done + ' / ' + s.total : s.total + ' 个字')));
         pin.appendChild(txt);
         pin.setAttribute('aria-label',
           '进入' + z.name + '（' + s.done + ' / ' + s.total + ' 个字已学）');
@@ -303,7 +303,7 @@
         finaleShown = true;
         var fin = App.el('div', 'wy2-finale');
         fin.appendChild(App.el('div', 'wy2-finale-core', '五片皆明'));
-        fin.appendChild(App.el('p', 'wy2-finale-sub', '王邑的灯火，一处一处亮起来了。'));
+        fin.appendChild(App.el('p', 'wy2-finale-sub', '五片雾，一处一处散开了。'));
         var skip = App.el('button', 'btn sm wy2-finale-skip', '跳过');
         skip.type = 'button';
         skip.onclick = function () {
@@ -326,8 +326,8 @@
       guide.appendChild(mascot);
       var gcopy = App.el('div', 'wy2-guide-copy');
       if (st.clear >= st.zones && st.zones) {
-        gcopy.appendChild(App.el('b', null, '五片都亮了'));
-        gcopy.appendChild(App.el('span', null, '王邑全图复明。想再看一遍，随时点回去。'));
+        gcopy.appendChild(App.el('b', null, '五片雾都散了'));
+        gcopy.appendChild(App.el('span', null, '五片雾都散了。想再看一遍，随时点回去。'));
       } else if (st.done === 0) {
         var _gb = (App.copy && App.copy.pick) ? App.copy.pick('partner', 0) : '';
         gcopy.appendChild(App.el('b', null, _gb || '龟宝：先挑一片顺眼的'));
@@ -335,7 +335,7 @@
       } else {
         gcopy.appendChild(App.el('b', null, '龟宝：还差 ' + (st.total - st.done) + ' 个字'));
         gcopy.appendChild(App.el('span', null,
-          '已点亮 ' + st.clear + ' 片。点地图上还暗着的地方，继续认。'));
+          '已拨开 ' + st.clear + ' 片雾。点还覆着雾的地方，继续认。'));
       }
       guide.appendChild(gcopy);
       /* 演示开关与重置：两个都往右下角靠，所以先包一层带 auto 外边距的行 */
@@ -668,7 +668,7 @@
       var zhead = App.el('div', 'wy2-zone-head');
       zhead.appendChild(App.el('b', null, z.name));
       zhead.appendChild(App.el('span', null,
-        s.clear ? '这一片已学完 · 大地图已点亮'
+        s.clear ? '这一片已学完 · 大地图上的雾已散'
                 : '已学 ' + s.done + ' / ' + s.total
                   + ' · 点图上看得见的实物'));
       top.appendChild(zhead);
@@ -1271,7 +1271,7 @@
 
       if (s.clear) {
         var done = App.el('aside', 'wy2-zone-clear');
-        done.appendChild(App.el('span', 'wy2-clear-seal', '已点亮'));
+        done.appendChild(App.el('span', 'wy2-clear-seal', '雾已散'));
         done.appendChild(App.el('span', null,
           '「' + z.name + '」' + s.total + ' 个字都认过了，大地图上这一片亮了。'));
         var nxt = App.el('button', 'btn sm', '回大地图看点亮 →');
@@ -1481,7 +1481,7 @@
     id: 'wangyi-map',
     name: '殷商王邑',
     tagline: '在大地图上挑一片，点实物认甲骨文',
-    desc: '五片主题区域任意顺序进入：在分区插画上点实物认甲骨文，认得的字就记下来。一片学完，大地图上对应的那一片便亮起，最终点亮整座王邑。',
+    desc: '五片主题区域任意顺序进入：在分区插画上点实物认甲骨文，认得的字就记下来。一片认完，大地图上对应的那一片的雾便散开，最终看清整座王邑。',
     icon: '邑',
     accent: 'var(--bronze)',
     tags: ['五片任意进入', '61 个学习点', '点亮大地图'],

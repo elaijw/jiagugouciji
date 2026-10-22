@@ -125,7 +125,7 @@
     var el = target || document.querySelector('.scene') || document.body;
     if (!el) { return; }
     var a = Math.min(1, (typeof amp === 'number' ? amp : 1)) * (J.cfg.shake || 1);
-    el.style.setProperty('--juice-shake', (a * 5).toFixed(2) + 'px');
+    el.style.setProperty('--juice-shake', (a * 2).toFixed(2) + 'px');
     el.classList.remove('juice-shaking');
     /* 强制回流一次，保证连续命中也重新触发动画 */
     void el.offsetWidth;
@@ -209,7 +209,7 @@
     if (kind !== 'miss') {
       J.number(pt, text == null ? '' : String(text), kind);
       J.crack(pt, opts.size || (kind === 'cut' ? 70 : 96), kind === 'cut' ? 'cut' : 'bone');
-      J.shake(opts.target, opts.power == null ? 0.8 : opts.power, 200);
+      J.shake(opts.target, opts.power == null ? 0.6 : opts.power, 200);
       pluck(kind === 'cut' ? 0.7 : (kind === 'break' ? 1.2 : 0.9));
     } else {
       J.number(pt, '空', 'miss');
