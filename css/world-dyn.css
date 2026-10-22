@@ -1,92 +1,81 @@
 /* ============================================================
-   world-dyn.css —— 第二关大地图的"动起来"
+   world-dyn.css —— 第二关大地图：光影层
    ------------------------------------------------------------
-   静态插画的问题：它画的都是会动的东西（云影、河流、尘土），
-   画面却一格不动，读起来就是一页印刷品。
-
-   这里只加三层极轻的动效 + 一点视差，全部用 transform/opacity：
-     .wy2-sky    云影：两层大面积暖灰慢速横移（60s / 90s）
-     .wy2-river  水光：河面一带的柔光呼吸
-     .wy2-dust   浮尘：十几个小点缓慢上飘
-     视差：指针移动时三层各偏 2~8px（--wx / --wy 由 JS 写入）
-   减少动效时：三层静止、视差不启用。
+   画面本身不动，动的是光和影：
+     .wm-shadow  四团云影扫过（乘色、柔边）
+     .wm-glint   河面光斑一段段亮过去
+     .wm-smoke   炊烟
+     .wm-birds   鸟群
+     .wm-mist    雾带
+   全部只动 transform / opacity，无重排；无图像副本 → 无接缝。
    ============================================================ */
 
 .wy2-board-art { overflow: hidden; }
 
-/* 三层容器：都不吃点击 */
-.wy2-sky, .wy2-river, .wy2-dust {
-  position: absolute;
-  inset: 0;
+.wy2-paint {
+  position: absolute; inset: 0; z-index: 0;
   pointer-events: none;
-  z-index: 0;
+  transform: translate3d(calc(var(--wx, 0) * 5px), calc(var(--wy, 0) * 4px), 0);
+  transition: transform .25s ease-out;
+}
+.wm-fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* ---------- 云影：慢慢扫过 ---------- */
+.wm-shadow-1 { animation: wm-shift 52s ease-in-out infinite alternate; }
+.wm-shadow-2 { animation: wm-shift 64s ease-in-out infinite alternate-reverse; }
+.wm-shadow-3 { animation: wm-shift 58s ease-in-out infinite alternate; animation-delay: -26s; }
+.wm-shadow-4 { animation: wm-shift 72s ease-in-out infinite alternate-reverse; animation-delay: -40s; }
+@keyframes wm-shift {
+  from { transform: translateX(-180px) translateY(-20px); }
+  to   { transform: translateX(200px)  translateY(24px); }
 }
 
-/* ---------- 云影 ---------- */
-.wy2-sky::before,
-.wy2-sky::after {
-  content: "";
-  position: absolute;
-  width: 160%;
-  height: 70%;
-  left: -30%;
-  background:
-    radial-gradient(38% 55% at 30% 45%, rgba(96, 78, 56, .16), rgba(96, 78, 56, 0) 70%),
-    radial-gradient(30% 45% at 68% 55%, rgba(84, 68, 48, .13), rgba(84, 68, 48, 0) 72%);
-  mix-blend-mode: multiply;
-  transform: translate3d(calc(var(--wx, 0) * 6px), calc(var(--wy, 0) * 4px), 0);
-  animation: wy2-sky-drift 72s linear infinite;
-}
-.wy2-sky::before { top: -8%; animation-duration: 72s; }
-.wy2-sky::after {
-  top: 34%;
-  opacity: .7;
-  animation-duration: 96s;
-  animation-direction: reverse;
-}
-@keyframes wy2-sky-drift {
-  0%   { transform: translate3d(-4%, 0, 0); }
-  100% { transform: translate3d(4%, 0, 0); }
+/* ---------- 扫光：一条宽高光横扫 ---------- */
+.wm-sweep { animation: wm-sweep 26s linear infinite; }
+@keyframes wm-sweep {
+  0%   { transform: translateX(-900px); }
+  100% { transform: translateX(3400px); }
 }
 
-/* ---------- 水光：河面一带 ---------- */
-.wy2-river::before {
-  content: "";
-  position: absolute;
-  left: 18%; top: 52%;
-  width: 62%; height: 26%;
-  border-radius: 50%;
-  background:
-    radial-gradient(50% 60% at 30% 50%, rgba(255, 252, 238, .30), rgba(255, 252, 238, 0) 70%),
-    radial-gradient(40% 50% at 70% 40%, rgba(226, 236, 232, .26), rgba(226, 236, 232, 0) 72%);
-  mix-blend-mode: screen;
-  filter: blur(6px);
-  animation: wy2-river-glow 9s ease-in-out infinite;
-  transform: translate3d(calc(var(--wx, 0) * 3px), calc(var(--wy, 0) * 2px), 0);
-}
-@keyframes wy2-river-glow {
-  0%, 100% { opacity: .45; transform: translate3d(0, 0, 0) scale(1); }
-  50%      { opacity: .85; transform: translate3d(0, -1%, 0) scale(1.02); }
+/* ---------- 河面光斑 ---------- */
+.wm-glint ellipse { animation-name: wm-glint; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+@keyframes wm-glint {
+  0%   { opacity: 0;    transform: translateX(-30px) scaleX(.7); }
+  25%  { opacity: .55; }
+  55%  { opacity: .8;   transform: translateX(10px)  scaleX(1); }
+  100% { opacity: 0;    transform: translateX(46px)  scaleX(1.15); }
 }
 
-/* ---------- 浮尘 ---------- */
-.wy2-mote {
-  position: absolute;
-  width: 3px; height: 3px;
-  border-radius: 50%;
-  background: rgba(255, 246, 224, .85);
-  box-shadow: 0 0 4px rgba(255, 240, 208, .55);
-  opacity: 0;
-  animation: wy2-mote-rise linear infinite;
-}
-@keyframes wy2-mote-rise {
-  0%   { opacity: 0;   transform: translate3d(0, 8px, 0) scale(.8); }
-  18%  { opacity: .75; }
-  80%  { opacity: .45; }
-  100% { opacity: 0;   transform: translate3d(6px, -34px, 0) scale(1); }
+/* ---------- 炊烟 ---------- */
+.wm-smoke circle { animation: wm-smoke 6.2s ease-out infinite; transform-origin: center; }
+.wm-smoke-b circle { animation-duration: 7.6s; animation-delay: -2s; }
+.wm-smoke-c circle { animation-duration: 5.4s; animation-delay: -3.4s; }
+@keyframes wm-smoke {
+  0%   { transform: translateY(0) scale(.55); opacity: 0; }
+  18%  { opacity: .45; }
+  72%  { transform: translateY(-42px) scale(1.6); opacity: .18; }
+  100% { transform: translateY(-70px) scale(2.2); opacity: 0; }
 }
 
-/* 点亮的区域缓慢呼吸（不抢注意力） */
+/* ---------- 鸟群 ---------- */
+.wm-birds { animation: wm-fly 46s ease-in-out infinite alternate; }
+.wm-birds-2 { animation-duration: 60s; animation-delay: -13s; }
+@keyframes wm-fly {
+  from { transform: translate(-60px, 0); }
+  to   { transform: translate(80px, -20px); }
+}
+.wm-birds path { animation: wm-wing 1.9s ease-in-out infinite; }
+@keyframes wm-wing { 0%, 100% { opacity: .5; } 50% { opacity: .2; } }
+
+/* ---------- 雾带 ---------- */
+.wm-mist { animation: wm-mist-move 64s ease-in-out infinite alternate; }
+.wm-mist-2 { animation-duration: 88s; animation-delay: -24s; }
+@keyframes wm-mist-move {
+  from { transform: translateX(-80px); }
+  to   { transform: translateX(80px); }
+}
+
+/* ---------- 区域光晕 ---------- */
 .wy2-glow.on { animation: wy2-glow-breathe 7s ease-in-out infinite; }
 @keyframes wy2-glow-breathe {
   0%, 100% { opacity: .72; }
@@ -94,11 +83,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wy2-sky::before,
-  .wy2-sky::after,
-  .wy2-river::before,
-  .wy2-mote,
-  .wy2-glow.on { animation: none !important; }
-  .wy2-river::before { opacity: .6; }
-  .wy2-mote { opacity: .35; }
+  .wm-shadow, .wm-glint ellipse, .wm-smoke circle, .wm-birds, .wm-birds path,
+  .wm-mist, .wy2-glow.on { animation: none !important; }
+  .wy2-paint { transform: none; transition: none; }
+  .wm-glint ellipse { opacity: .35; }
 }

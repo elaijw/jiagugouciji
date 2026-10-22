@@ -239,7 +239,16 @@
          所以图片外侧的 letterbox 不会让据点漂移。 */
       var board = App.el('div', 'wy2-board');
       var art = App.el('div', 'wy2-board-art');
+      /* 重绘版：内联 SVG 场景（会动）；?map=paint 可退回原来的静态插画 */
+      /* 底图照旧用原画；上面叠一层"按区域裁切的同一张画"来做动效。
+         ?map=paint 只留静态底图（关掉动态层）。 */
       art.style.backgroundImage = 'url("' + (MAP.worldImage || MAP.bgImage) + '")';
+      var dynamicOn = !/[?&]map=paint\b/.test(location.search) && !!App.worldMap;
+      if (dynamicOn) {
+        var paint = App.el('div', 'wy2-paint');
+        paint.innerHTML = App.worldMap.html();
+        art.appendChild(paint);
+      }
       art.setAttribute('role', 'img');
       art.setAttribute('aria-label',
         '殷商王邑大地图，其上标有五个可进入的主题区域：天象、山川、草木、禽兽虫鱼、人居器物');
