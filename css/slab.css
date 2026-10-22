@@ -444,6 +444,31 @@
     opacity: .72;
   }
   .hero-relic { display: none; }
+
+  /* 骨片铺底之后，文字直接压在骨纹上 —— 中文小字在细密纹理上会"毛"。
+     这里不是把骨片调淡（那就白铺了），而是在文字那一侧盖一张渐隐的纸：
+     上实下虚，读字的地方是纸，往下才露出骨。 */
+  .hero::before {
+    content: "";
+    position: absolute; inset: 0; z-index: 1;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg,
+        var(--paper) 0%,
+        color-mix(in srgb, var(--paper) 94%, transparent) 30%,
+        color-mix(in srgb, var(--paper) 62%, transparent) 56%,
+        transparent 82%),
+      /* 下缘再留一段纸：数字条压在骨尾上会发灰 */
+      linear-gradient(0deg,
+        var(--paper) 0%,
+        color-mix(in srgb, var(--paper) 82%, transparent) 9%,
+        transparent 20%);
+  }
+  .hero-in { z-index: 2; }
+  .hero .stat-band, .hero .hero-cue, .hero .hero-credit, .hero-relic { z-index: 3; }
+
+  /* 骨面皮肤（?carved=1）整页就是那片骨，再盖一张纸就自相矛盾了 */
+  body.carved .hero::before { display: none; }
 }
 
 @media (max-width: 700px) {

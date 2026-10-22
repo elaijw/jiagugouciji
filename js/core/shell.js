@@ -352,15 +352,20 @@
   /* 实验开关：?slab=1 时整页按「一张甲骨片」呈现（只加 body 类，不改结构） */
   (function slabPageFlag() {
     try {
-      /* 字体方案：?font=youyuan|noto|kai|song，默认 mix（幼圆标题 + Noto 正文） */
+      /* 字体方案：?font=mix|song|kai|sans|youyuan|noto，默认 mix（宋标题 + 黑正文）。
+         只换 CSS 变量，不再逐条覆盖 font-family。 */
       try {
-        var fm = /[?&]font=(youyuan|noto|kai|song)\b/.exec(location.search);
+        var fm = /[?&]font=(mix|song|kai|sans|youyuan|noto)\b/.exec(location.search);
         document.body.classList.add('font-' + (fm ? fm[1] : 'mix'));
       } catch (e) {}
 
-      /* 默认「界面刻在甲骨上」；?carved=0 回纸面；?slab=1 仍是旧的两档实验 */
-      var offCarved = /[?&]carved=0\b/.test(location.search);
-      if (!offCarved) { document.body.classList.add('carved'); }
+      /* 皮肤：默认**纸面**（collab/01-design/direction.md 的定案：
+         整页是纸，深墨只用于弹层 / 拓片详情 / 关卡结算）。
+         ?carved=1 切到「整页刻在甲骨上」的展陈皮肤 —— 线下演示、大屏可用；
+         ?carved=0 仍然回纸面，老链接不会被这次改默认打翻。
+         ?slab=1 是更早的两档实验，保持原样。 */
+      var onCarved = /[?&]carved=1\b/.test(location.search);
+      if (onCarved) { document.body.classList.add('carved'); }
       var m = /[?&]slab=(1|2)\b/.exec(location.search);
       if (m) {
         document.body.classList.add('slab-page');

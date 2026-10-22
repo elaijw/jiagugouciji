@@ -1,249 +1,279 @@
 /* ============================================================================
-   字有骨气 · 字体层
+   字有骨气 · 字体层（全站唯一权威 · 最后加载）
    ----------------------------------------------------------------------------
-   站点原来只有一条字体栈（宋体）和一个 10.5~36px 的旧字号阶梯，
-   全站同一种字说话，标题和注记只靠大小区分。这一层补三件事：
+   这一层管三件事：用哪把嗓子说话、说多大声（字号）、说话时的呼吸（字距行高）。
+   它必须排在所有组件之后加载 —— 排版是最后一道工序，不该被某个组件随手改掉。
 
-     1. 字体分角色：宋体做正文与标题，楷体只留给**卜辞与题记**
-        —— 印刷排字与手写刻辞是两种语言，混用会互相削弱。
-     2. 字号重排：小字整体提一档。10.5px 的中文在投影和手机上都读不出笔画。
-     3. 中文字排：标点挤压、行首标点、大标题的字距与行高。
+   ## 四把嗓子，一条铁律
 
-   全部使用系统字体，不加载任何网络字体 —— 站点要能双击 index.html 离线跑。
-   要回退：删掉 index.html 里 type.css 那一行。
+     --font-title    楷   页面级大标题（≥28px）
+                          笔锋是圆的。宋体在大字号上"横细竖粗"像刀口，
+                          一页八字的标题会显得锋利；换楷，同一句话就软下来。
+     --font-display  宋   分区标题、图版说明、大数字、卡片名
+                          横细竖粗，是刻刀走出来的痕迹，负责"图录的骨架"。
+     --font-sans     黑   正文、按钮、表单、导航、注释
+                          界面文字不该抢戏，它只负责让人读清楚。
+     --font-kai      楷   卜辞、题记、引文
+                          「有人拿刀在骨上留了一句话」，全站只有这几处。
+
+   铁律：**一屏之内不超过两把嗓子**。
+   普通页 = 楷（标题）+ 黑（其余）；有卡片名的页面才出现第三把宋。
+   之前一页里同时出现幼圆、Noto、苹方、楷体四种族，不是丰富，是没人管。
+
+   ## 标题的三次转身（记在这里，免得再翻一次）
+
+   ① 幼圆 → 宋：幼圆是"圆润的说明文字"，让整站像儿童识字 App；
+      站点讲的是三千年前的刻辞，标题得有骨头的边。
+   ② 宋 → 楷（只在大标题）：宋体 56px 时横细如发、竖粗如柱，对比过头，
+      在纸面上像"刻"得有点狠；楷的起收笔带圆势，是"写"出来的温度，
+      和龟宝、和学生的距离更近。宋体仍留在分区标题与数字上，骨架没丢。
+   ③ 字重一律 400：600 在 Windows 上会触发伪粗，宋体一伪粗就糊成一团黑，
+      那才是"硬"和"脏"的真正来源。
+
+   想回到宋体大标题：`?font=song`（题头会一并指回宋），不用改代码。
+
+   ## 字号：小字有底线
+
+   中文的笔画密度决定了 10.5px 以下只剩"一坨灰"。
+   本层把小字底线上提到 12px，正文 15px。
+   地图针脚、角标这类受空间限制的标注仍可小，但**说明性文字一律不小于 12px**。
+
+   回退：删掉 index.html 里 type.css 那一行（会回到各组件各写各字的旧状态）。
    ============================================================================ */
 
 :root {
-  /* —— 字体角色 ——
-     宋的横细竖粗本身就是刻刀的痕迹，所以正文和标题都归它；
-     楷只给"人写的那句"，即卜辞、题记、引文。 */
-  --font-song: "Songti SC", "Noto Serif SC", "Source Han Serif SC",
-               "Source Han Serif CN", STSong, SimSun, serif;
-  --font-kai:  "Kaiti SC", "Kaiti TC", KaiTi, STKaiti, "Songti SC", serif;
+  /* ---------- 字体族：三把嗓子 ---------- */
+  --font-display: "Songti SC", "Noto Serif SC", "Source Han Serif SC",
+                  "Source Han Serif CN", STSong, SimSun, serif;
+  --font-sans:    "PingFang SC", "HarmonyOS Sans SC", "MiSans",
+                  "Source Han Sans SC", "Noto Sans SC",
+                  "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  --font-kai:     "Kaiti SC", "Kaiti TC", KaiTi, STKaiti, "Songti SC", serif;
+  /* 题头：页面级大标题用的楷（≥28px 才启用）。与 --font-kai 同源，
+     分开命名是因为两者用途不同：题头是「标题」，后者是「引文」。 */
+  --font-title:   "Kaiti SC", "STKaiti", KaiTi, "Songti SC", SimSun, serif;
 
-  /* 圆润黑体：界面与正文用。按系统可用性依次回落，
-     最后落到 sans-serif —— 全站仍然离线可用，不加载网络字体。 */
-  --font-round: "PingFang SC", "HarmonyOS Sans SC", "MiSans",
-                "Source Han Sans SC", "Noto Sans SC",
-                "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  /* 兼容旧名：别的文件还在用这几个名字，别名指过来，改一处全站生效。
+     --font-serif 是 modes.css 里 13 处「地名 / 关卡名 / 签条」在用的旧名字。 */
+  --font-song:  var(--font-display);
+  --font-serif: var(--font-display);
+  --font-round: var(--font-sans);
 
-  /* --font-serif 是 modes.css 里 13 处「地名 / 关卡名 / 签条」在用的旧名字
-     （王邑据点名、区域名、印面字、流程标题）。它从来没有定义过，
-     一直靠 `font-family` 可继承、取不到值时回落到父级来"碰巧正确"——
-     父级就是 body 的宋体栈，所以画面看不出问题，但语义是悬空的：
-     谁哪天把 body 换成非衬线，这 13 处会一起静默失守。
-     这里把它显式声明成宋体栈的别名，不改任何观感。 */
-  --font-serif: var(--font-song);
+  /* ---------- 字号阶梯 ----------
+     旧阶梯 10.5 / 11.5 / 12.5 / 14 整体上提：小字下限 12px，正文 15px。 */
+  --fs-micro: 12px;    /* 角标 / 图注：全站最小，不再往下 */
+  --fs-xs:    12.5px;  /* 注释 / 元信息 */
+  --fs-sm:    13px;    /* 次要文字 / 标签 */
+  --fs-md:    15px;    /* 正文基准 */
+  --fs-lg:    17px;    /* 导语 */
+  --fs-xl:    21px;    /* 小标题 */
+  --fs-2xl:   28px;    /* 标题 */
+  --fs-3xl:   36px;    /* 主视觉 */
 
-  /* —— 字号刻度：小字整体提一档 ——
-     原值 10.5 / 11.5 / 12.5 / 14。
-     10.5px 的中文只剩"一坨灰"，出处、角标、注记全都在这个尺寸上。
-     提 0.5~0.75px 是安全的：布局按 em 与 flex 排，不会撑破。 */
-  --fs-micro: 11px;
-  --fs-xs:    12px;
-  --fs-sm:    13px;
-  --fs-md:    14.5px;
+  /* 语义字号：按角色取，而不是按大小取 */
+  --t-display: clamp(36px, 4.3vw, 56px);   /* 首屏主标题（8 字一行，版心 480px） */
+  --t-h1:      clamp(28px, 2.6vw, 34px);   /* 页标题 */
+  --t-h2:      clamp(22px, 2.2vw, 28px);   /* 分区标题 */
+  --t-h3:      19px;                       /* 卡片标题 */
+  --t-body:    15px;
 
-  /* —— 正文行高 ——
-     1.9 对 14px 是 26.6px，一屏只能放十几行，读长段落会散。
-     1.86 只紧 0.04，投影和大屏上都更成篇，手机上也不挤。 */
+  /* ---------- 字距：中文不拉字距，西文标签才拉 ----------
+     中文是方块字，字距一开就散架；只有大字号（≥30px）才需要松开一点点，
+     那一点点是用来「透气」，不是用来「加宽」。 */
+  --tr-display: .038em;
+  --tr-h:       .02em;
+  --tr-label:   .14em;
+
   --lh-body: 1.86;
+  --lh-head: 1.34;
 }
 
 /* ----------------------------------------------------------------------------
-   1. 中文字排的地基
+   1. 地基
    ---------------------------------------------------------------------------- */
 body {
-  font-family: var(--font-round);
-  /* 行首标点半角 + 行尾标点悬挂：中文两端对齐时，标点占满一整格
-     会在行末留出大洞，这两条让标点"溢出到页边"而不是撑开行。 */
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+  /* 行首标点半角 + 行尾标点悬挂：中文两端对齐时标点不吃掉一个字的位置 */
   text-spacing-trim: space-first;
   hanging-punctuation: allow-end;
   font-kerning: normal;
   font-feature-settings: "palt" 1;
+  text-rendering: optimizeLegibility;
 }
 
 /* ----------------------------------------------------------------------------
    2. 标题：宋体不靠字重，靠字号、字距与行高
    ----------------------------------------------------------------------------
-   Windows 上"Songti SC"不存在，会落到 SimSun。SimSun 的伪粗（合成粗体）
-   在大字号下会糊成一团黑，所以这里明确禁止字重合成：
-   要粗就用真 Bold（SimSun 有），要"重"就靠字号，不靠算法加粗。
+   Windows 上 "Songti SC" 不存在，会落到 Noto Serif SC（可变字体，真 600）；
+   再缺就落到 SimSun —— SimSun 的伪粗在大字号下会糊成一团黑，
+   所以这里禁掉字重合成：宁可细，不要糊。
    ---------------------------------------------------------------------------- */
-h1, h2, h3, .hero-title, .sec-h, .lv-title, .bb-teach-title, .cp-title, .as-title {
+h1, h2, h3, h4,
+.hero-title, .sec-h, .lv-title, .as-title, .cp-title,
+.bb-teach-title, .sheet-title, .modes-title {
+  font-family: var(--font-display);
+  font-weight: 400;
   font-synthesis-weight: none;
-  font-family: var(--font-round);
+}
+
+/* 页面级大标题：换楷。宋体的横细竖粗在大字号上"锋利"，
+   楷的笔锋是圆的，同一句话读起来就软下来了。 */
+h1, .hero-title, .lv-title, .as-title, .cp-title,
+.sheet-title, .modes-title,
+.wy2-title, .wy-world-title, .bb-cover-title {
+  font-family: var(--font-title);
+}
+
+h1, .hero-title {
+  font-size: var(--t-display);
+  line-height: 1.22;
+  letter-spacing: var(--tr-display);
+}
+
+h2, .sec-h, .sheet-title {
+  font-size: var(--t-h2);
+  line-height: var(--lh-head);
+  letter-spacing: var(--tr-h);
+}
+
+/* 页标题（选关页「从认字形，到挑战终局」、图鉴页大标题）：
+   比分区标题大一档，但让步比首屏多 */
+.lv-title, .as-title {
+  font-size: clamp(30px, 3.8vw, 50px);
+  line-height: 1.26;
+  letter-spacing: var(--tr-display);
+}
+
+h3 { font-size: var(--t-h3); line-height: 1.4; letter-spacing: var(--tr-h); }
+h4 { font-size: var(--fs-lg); letter-spacing: 0; }
+
+/* 卡片标题：宋体在小字号上笔画会糊，所以只给 19px 以上转宋 */
+.pc-title h3,
+.lv-name,
+.as-name,
+.bb-teach-title {
+  font-family: var(--font-display);
   font-weight: 600;
 }
-/* 大标题：字距略放（刻辞是一字一格，不是密排），行高收紧 */
-.hero-title {
-  /* 黑体不需要"一字一格"的字距，收一点更像游戏标题 */
-  letter-spacing: .012em;
-  line-height: 1.18;
-}
-.sec-h, .lv-title, h2 {
-  letter-spacing: .008em;
-  line-height: 1.34;
-}
-/* 小标题不必加字距：字距是"气质"，只在大字号上有意义 */
-h3, h4 { letter-spacing: 0; }
 
 /* ----------------------------------------------------------------------------
-   3. 小字：补回一点字距
+   3. 正文与小字：把"说明文字"拉回可读
    ----------------------------------------------------------------------------
-   12~13px 的中文如果字距为零，笔画会贴在一起；+0.012em 只是"松开",
-   不是"拉开"，肉眼几乎看不出字距，但清楚一档。
+   全站有 230 处字号写死在 12px 以下，多数压在骨面与深墨面上。
+   这里只挑**说明性文字**收口（图注 / 描述 / 元信息 / 引导语），
+   地图针脚、贴纸角标这类受空间限制的标注保持原尺寸 —— 那是图形，不是正文。
    ---------------------------------------------------------------------------- */
+.lv-desc,
+.pc-desc,
+.pc-tagline,
+.lv-cap,
+.lv-step,
+.hero-trust,
+.as-meta,
 .foot-p,
 .foot-col li,
-.hero-trust,
-.pc-tagline,
-.pc-desc,
-.ac-note,
-.as-meta,
-.wy-pin-name {
-  letter-spacing: .012em;
+.wy2-credit,
+.hint,
+.obnote,
+.pc-art-note {
+  font-size: max(12px, 1em);
 }
 
-/* 全大写的西文标签：字距必须放开，否则全挤成一块 */
-.hero-kicker,
-.ac-kicker,
-.rw-kicker,
-.sec-kicker,
-.pc-step,
-.hc-name {
-  letter-spacing: .18em;
-  text-transform: none;
+.lv-desc, .pc-desc, .as-meta, .foot-p, .foot-col li { font-size: 13px; line-height: 1.75; }
+.lv-cap, .pc-tagline, .pc-art-note, .lv-step, .hero-trust { font-size: 12px; }
+/* 小标签：11px 的中文只剩灰点，统一提到 12px */
+.hero-kicker, .sec-kicker, .lv-kicker, .pc-step { font-size: 12px; }
+
+/* ----------------------------------------------------------------------------
+   4. 导语：比正文大、比标题轻，行高放宽一档
+   ---------------------------------------------------------------------------- */
+.hero-lead, .lv-lead, .sec-lead, .as-sub {
+  font-size: var(--fs-lg);
+  line-height: 1.9;
 }
 
 /* ----------------------------------------------------------------------------
-   4. 楷体：只给"人写的那一句"
-   ----------------------------------------------------------------------------
-   卜辞（「贞：今日其雨？」）、页脚题记（「字刻在骨上，所以字有骨气。」）
-   —— 这两处是"有人拿刀在骨上留了句话"，用楷才对。
-   其余一律不用楷：楷体一多，整站就像一份手抄稿。
+   5. 楷：只给"人写的那一句"
    ---------------------------------------------------------------------------- */
-.rw-line,
-.rw-note,
-.foot-motto,
-.bb-teach-line,
-.ac-verse {
+.rw-line, .rw-note, .foot-motto, .bb-teach-line, .ac-verse,
+.bb-evidence-src, .rw-bone-line {
   font-family: var(--font-kai);
   letter-spacing: .03em;
 }
-/* 卜辞要比正文大一点：它是奖励，不是附注 */
-.rw-line {
-  font-size: 17px;
-  line-height: 1.7;
-  letter-spacing: .06em;
-}
+.rw-line { font-size: 18px; line-height: 1.75; letter-spacing: .05em; }
 
 /* ----------------------------------------------------------------------------
-   5. 数字：一律等宽
-   ----------------------------------------------------------------------------
-   统计条、进度、关卡号会滚动变化，比例数字每变一位整行就抖一下。
+   6. 西文标签：大写字母必须放开字距，否则挤成一块
    ---------------------------------------------------------------------------- */
-.stat-cell b,
-.pc-progtext,
-.as-meta b,
-.rw-chip b,
-.wy2-meter-line strong,
-.lv-no {
+.hero-kicker, .ac-kicker, .rw-kicker, .sec-kicker,
+.pc-step, .hc-name, .lv-kicker {
+  letter-spacing: var(--tr-label);
+}
+/* 这些标签里混着中文（「甲骨文互动叙事 / CULTURAL GAME LAB」），
+   对中文 .14em 太散，所以整体收到 .06em —— 西文段靠大写本身就分得开。 */
+.hero-kicker, .sec-kicker, .lv-kicker { letter-spacing: .06em; }
+
+/* ----------------------------------------------------------------------------
+   7. 数字：一律等宽
+   ---------------------------------------------------------------------------- */
+.stat-cell b, .pc-progtext, .as-meta b, .rw-chip b,
+.wy2-meter-line strong, .lv-no, .lv-prog {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
 
 /* ----------------------------------------------------------------------------
-   6. 窄屏：小字再让一档
+   8. 窄屏：小字不再缩，反而要提
    ----------------------------------------------------------------------------
-   手机上 11px 的中文必须提到 11.5 以上，否则一屏全是灰点。
+   手机上 12px 中文已经到极限；再小就不是"精致"，是"看不清"。
    ---------------------------------------------------------------------------- */
 @media (max-width: 700px) {
   :root {
-    --fs-micro: 11.5px;
+    --fs-micro: 12px;
     --fs-xs: 12.5px;
-    --fs-sm: 13.5px;
+    --fs-sm: 13px;
+    --fs-md: 15px;
+    --t-display: clamp(30px, 8.6vw, 40px);
+    --t-h2: 24px;
   }
   body { line-height: 1.82; }
-  .hero-title { letter-spacing: .028em; }
+  .hero-title { letter-spacing: .04em; }
+  .lv-title, .as-title { font-size: clamp(24px, 6.6vw, 32px); }
 }
 
-/* ----------------------------------------------------------------------------
-   5. 文物语汇：这些地方仍然用衬线
+/* ============================================================================
+   9. 字体方案切换（?font=…）
    ----------------------------------------------------------------------------
-   正文改成黑体以后，"刻辞、题记、引文、出处"若也跟着变，就丢了唯一的历史质感。
-   这里把它们显式拉回宋体/楷体，形成"界面是现代的、材料是古代的"对比。
-   ---------------------------------------------------------------------------- */
-/* 只有"人写的那句"用衬线：卜辞与字卡例句。
-   页脚、出处、元信息属于界面文字，必须跟正文同一种字。 */
-.bb-evidence-src,
-.rw-bone-line,
-.rw-line {
-  font-family: var(--font-kai);
-}
-.foot-p,
-.foot-col li,
-.as-meta,
-.wy2-credit,
-.cite {
-  font-family: var(--font-round);
-}
-
-/* ----------------------------------------------------------------------------
-   6. 字体方案切换（?font=youyuan|noto|kai|song）
-   ----------------------------------------------------------------------------
-   本机实测可用：幼圆 SimYou（圆润）、Noto Sans SC（干净）、楷体 SimKai、宋体 SimSun。
-   默认 = 幼圆标题 + Noto 正文：圆润但不幼稚，小字也稳。
-   ---------------------------------------------------------------------------- */
+   和上一版的区别：**不再写一条 font-family 覆盖**，
+   只换 :root 里的两个变量。所有规则都引用变量，所以换方案不需要 !important，
+   也不会漏掉某个角落还是旧字体。
+   ============================================================================ */
 :root {
   --font-youyuan: "SimYou", "YouYuan", "Yuanti SC", "PingFang SC", sans-serif;
   --font-noto: "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei UI",
                "Microsoft YaHei", sans-serif;
 }
 
-/* A：全站幼圆（最圆、最软） */
-body.font-youyuan,
-body.font-youyuan h1,
-body.font-youyuan h2,
-body.font-youyuan h3,
-body.font-youyuan .hero-title,
-body.font-youyuan .sec-h,
-body.font-youyuan .lv-title {
-  font-family: var(--font-youyuan) !important;
+/* 默认：宋标题 + 黑正文（最稳，也最像一本图录） */
+body.font-mix { --font-display: "Songti SC", "Noto Serif SC", "Source Han Serif SC",
+                  "Source Han Serif CN", STSong, SimSun, serif; }
+/* 全宋：正文也换成宋，适合线下大屏展陈，不适合小屏。
+   同时把题头指回宋 —— 也就是说 ?font=song 可以得到「宋体大标题」的旧样子。 */
+body.font-song { --font-sans: var(--font-display); --font-title: var(--font-display); }
+
+/* 全楷：更古，但气势弱、小字糊，只作备选 */
+body.font-kai {
+  --font-display: var(--font-kai);
+  --font-sans: var(--font-kai);
 }
 
-/* B：幼圆标题 + Noto 正文（默认） */
-body,
-body.font-mix {
-  font-family: var(--font-noto);
-}
-body.font-mix h1,
-body.font-mix h2,
-body.font-mix h3,
-body.font-mix .hero-title,
-body.font-mix .sec-h,
-body.font-mix .lv-title,
-body.font-mix .lv-name,
-body.font-mix .bb-teach-title {
-  font-family: var(--font-youyuan) !important;
-  letter-spacing: .01em;
-}
+/* 全黑：最"应用"，标题也用无衬线，适合强调可读性的场合 */
+body.font-sans { --font-display: var(--font-sans); --font-title: var(--font-sans); }
 
-/* C：全站楷体（最柔，但气势弱） */
-body.font-kai,
-body.font-kai h1,
-body.font-kai h2,
-body.font-kai h3,
-body.font-kai .hero-title {
-  font-family: var(--font-kai) !important;
-  letter-spacing: .02em;
-}
+/* 幼圆标题：留作对照（旧默认），不再推荐 */
+body.font-youyuan { --font-display: var(--font-youyuan); }
 
-/* D：全站 Noto（最干净，最"应用"） */
-body.font-noto,
-body.font-noto h1,
-body.font-noto h2,
-body.font-noto h3,
-body.font-noto .hero-title {
-  font-family: var(--font-noto) !important;
-}
+/* Noto 标题：介于黑与圆之间 */
+body.font-noto { --font-display: var(--font-noto); }
