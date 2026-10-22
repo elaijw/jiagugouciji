@@ -352,6 +352,12 @@
   /* 实验开关：?slab=1 时整页按「一张甲骨片」呈现（只加 body 类，不改结构） */
   (function slabPageFlag() {
     try {
+      /* 字体方案：?font=youyuan|noto|kai|song，默认 mix（幼圆标题 + Noto 正文） */
+      try {
+        var fm = /[?&]font=(youyuan|noto|kai|song)\b/.exec(location.search);
+        document.body.classList.add('font-' + (fm ? fm[1] : 'mix'));
+      } catch (e) {}
+
       /* 默认「界面刻在甲骨上」；?carved=0 回纸面；?slab=1 仍是旧的两档实验 */
       var offCarved = /[?&]carved=0\b/.test(location.search);
       if (!offCarved) { document.body.classList.add('carved'); }

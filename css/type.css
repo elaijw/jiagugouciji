@@ -188,3 +188,62 @@ h3, h4 { letter-spacing: 0; }
 .cite {
   font-family: var(--font-round);
 }
+
+/* ----------------------------------------------------------------------------
+   6. 字体方案切换（?font=youyuan|noto|kai|song）
+   ----------------------------------------------------------------------------
+   本机实测可用：幼圆 SimYou（圆润）、Noto Sans SC（干净）、楷体 SimKai、宋体 SimSun。
+   默认 = 幼圆标题 + Noto 正文：圆润但不幼稚，小字也稳。
+   ---------------------------------------------------------------------------- */
+:root {
+  --font-youyuan: "SimYou", "YouYuan", "Yuanti SC", "PingFang SC", sans-serif;
+  --font-noto: "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei UI",
+               "Microsoft YaHei", sans-serif;
+}
+
+/* A：全站幼圆（最圆、最软） */
+body.font-youyuan,
+body.font-youyuan h1,
+body.font-youyuan h2,
+body.font-youyuan h3,
+body.font-youyuan .hero-title,
+body.font-youyuan .sec-h,
+body.font-youyuan .lv-title {
+  font-family: var(--font-youyuan) !important;
+}
+
+/* B：幼圆标题 + Noto 正文（默认） */
+body,
+body.font-mix {
+  font-family: var(--font-noto);
+}
+body.font-mix h1,
+body.font-mix h2,
+body.font-mix h3,
+body.font-mix .hero-title,
+body.font-mix .sec-h,
+body.font-mix .lv-title,
+body.font-mix .lv-name,
+body.font-mix .bb-teach-title {
+  font-family: var(--font-youyuan) !important;
+  letter-spacing: .01em;
+}
+
+/* C：全站楷体（最柔，但气势弱） */
+body.font-kai,
+body.font-kai h1,
+body.font-kai h2,
+body.font-kai h3,
+body.font-kai .hero-title {
+  font-family: var(--font-kai) !important;
+  letter-spacing: .02em;
+}
+
+/* D：全站 Noto（最干净，最"应用"） */
+body.font-noto,
+body.font-noto h1,
+body.font-noto h2,
+body.font-noto h3,
+body.font-noto .hero-title {
+  font-family: var(--font-noto) !important;
+}

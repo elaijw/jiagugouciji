@@ -264,3 +264,10 @@ body.carved .chip,
 body.carved .ba-label {
   color: #3d2a15 !important;
 }
+
+/* 按钮是 <a> 的情况下，去掉默认下划线（截图里那两道横线） */
+body.carved a.btn,
+body.carved .btn,
+body.carved a.hero-guide {
+  text-decoration: none !important;
+}
