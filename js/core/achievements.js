@@ -72,7 +72,7 @@
     { id: 'light1',  icon: '点', name: '第一处灯火',
       desc: '在王邑图卷上点亮 1 处', need: 1, get: function (s) { return s.objDone; } },
     { id: 'light10', icon: '明', name: '图卷初明',
-      desc: '点亮 10 处', need: 10, get: function (s) { return s.objDone; } },
+      desc: '拨开 10 处雾', need: 10, get: function (s) { return s.objDone; } },
     { id: 'lightAll', icon: '城', name: '满城灯火',
       desc: '点亮整幅王邑图卷', need: 'objTotal', get: function (s) { return s.objDone; } },
 

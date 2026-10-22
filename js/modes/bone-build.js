@@ -227,7 +227,8 @@
       copy.appendChild(start);
       cover.appendChild(copy);
       var portrait = U.el('div', 'bb-cover-portrait');
-      portrait.appendChild(guideArt('bb-guibao-cover', '背着行囊的龟宝，甲骨文入门向导'));
+      var _cov = guideArt('bb-guibao-cover mood-think', '背着行囊的龟宝，甲骨文入门向导');
+      portrait.appendChild(_cov);
       portrait.appendChild(U.el('span', 'bb-portrait-seal', '甲骨小向导'));
       cover.appendChild(portrait);
       root.appendChild(cover);
@@ -418,7 +419,7 @@
 
       var panel = U.el('section', 'bb-teach-panel');
       var portrait = U.el('div', 'bb-teach-portrait');
-      portrait.appendChild(guideArt('bb-teach-guibao', '龟宝正在为你讲解甲骨文'));
+      portrait.appendChild(guideArt('bb-teach-guibao mood-explain', '龟宝正在为你讲解甲骨文'));
       portrait.appendChild(U.el('span', 'bb-portrait-seal', '学会一个字'));
       panel.appendChild(portrait);
 
@@ -462,7 +463,7 @@
       clear();
       var finish = U.el('section', 'bb-course-finish');
       var portrait = U.el('div', 'bb-finish-portrait');
-      portrait.appendChild(guideArt('bb-guibao-finish', '完成入门课的龟宝'));
+      portrait.appendChild(guideArt('bb-guibao-finish mood-cheer', '完成入门课的龟宝'));
       finish.appendChild(portrait);
       var copy = U.el('div', 'bb-finish-copy');
       copy.appendChild(U.el('p', 'bb-eyebrow', '第一关 · 完成'));

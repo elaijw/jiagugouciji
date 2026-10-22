@@ -379,8 +379,67 @@
 /* ----------------------------------------------------------------------------
    8. 减少动效：不抬起，但要保留"可点"的反馈（换成影子加深）
    ---------------------------------------------------------------------------- */
+
+/* 2026-10-22 · 关卡展签：02 王邑是主展项，但仍是一片骨，不翻成深色卡。 */
+.modes-scene .lv-center {
+  background-color: var(--bone-hi);
+  background-image:
+    linear-gradient(172deg, color-mix(in srgb, var(--bone-white) 34%, transparent), transparent 62%),
+    url("../assets/bone-surface.png"), var(--fiber);
+  background-size: auto, 232px 232px, 220px 220px;
+  background-position: 0 0, var(--bx, -96px) var(--by, -128px), 0 0;
+  background-repeat: no-repeat, repeat, repeat;
+  background-blend-mode: normal, normal, multiply;
+}
+.modes-scene .lv-center::after {
+  inset: 15% 7% 32%;
+  border: 0;
+  background: url("../assets/wangyi-atlas.svg") 52% 42% / 112% auto no-repeat;
+  opacity: .10;
+  mix-blend-mode: multiply;
+}
+.modes-scene .lv-center .lv-no,
+.modes-scene .lv-center .lv-step { color: var(--cinnabar-tint); }
+.modes-scene .lv-center .lv-art::before { display: none; }
+.modes-scene .lv-center .lv-tag { color: var(--cinnabar-tint); }
+.modes-scene .lv-center .lv-desc { color: var(--ink-2); }
+.modes-scene .lv-center .lv-cap { color: var(--ink-2); }
+.modes-scene .lv-center .lv-cta { color: var(--cinnabar); }
+.modes-scene .lv-center .lv-chain {
+  background: color-mix(in srgb, var(--bone-hi) 88%, transparent);
+  border-color: color-mix(in srgb, var(--edge) 88%, transparent);
+  box-shadow: var(--lift-1);
+}
+.modes-scene .lv-center .lv-ping { color: var(--ink-2); }
+.modes-scene .lv-center .lv-seal {
+  color: var(--bone-white);
+  background: var(--solid);
+  border-color: var(--solid);
+}
+.modes-scene .lv-center:hover .lv-cta,
+.modes-scene .lv-center:focus-visible .lv-cta { color: var(--solid-hi); }
+
+@media (min-width: 1051px) {
+  .modes-scene .lv-row {
+    grid-template-columns: minmax(0, .92fr) minmax(0, 1.16fr) minmax(0, .92fr);
+  }
+  .modes-scene .lv-slot:nth-child(2) { transform: rotate(.35deg) translateY(-8px); }
+  .modes-scene .lv-slot:nth-child(2):hover,
+  .modes-scene .lv-slot:nth-child(2):focus-within { transform: rotate(0deg) translateY(-11px); }
+}
+
+@media (max-width: 1050px) and (min-width: 761px) {
+  .modes-scene .lv-center::after { inset: 18% 9% 37%; }
+}
+@media (max-width: 760px) {
+  .modes-scene .lv-center::after { inset: 8% 26% 45%; opacity: .07; }
+  .modes-scene .lv-slot:nth-child(2) { transform: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .modes-scene .lv-slot { transition: none; }
   .modes-scene .lv-slot:hover,
-  .modes-scene .lv-slot:focus-within { transform: none; }
+  .modes-scene .lv-slot:focus-within,
+  .modes-scene .lv-slot:nth-child(2):hover,
+  .modes-scene .lv-slot:nth-child(2):focus-within { transform: none; }
 }

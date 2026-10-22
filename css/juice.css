@@ -276,3 +276,41 @@ html.juice-frozen #juice-layer * {
     filter: blur(10px);
   }
 }
+
+/* ---------- 龟宝姿态（P1，纯 CSS，不改角色本体） ----------
+   think   ：好奇歪头，缓慢呼吸
+   explain ：讲课时轻微前倾
+   cheer   ：完成时一个小跳
+   与战斗里既有的 mood-success / mood-gentle 并存，不冲突。 */
+.bb-guibao-cover.mood-think,
+.bb-teach-guibao.mood-explain {
+  transform-origin: 50% 88%;
+  animation: gb-breathe 3.2s ease-in-out infinite alternate;
+}
+.bb-guibao-cover.mood-think { animation-name: gb-tilt; animation-duration: 4s; }
+.bb-teach-guibao.mood-explain { animation-name: gb-lean; animation-duration: 3.6s; }
+.bb-guibao-finish.mood-cheer { animation: gb-cheer .72s cubic-bezier(.3,.7,.2,1) both; }
+
+@keyframes gb-breathe {
+  from { transform: scale(1); }
+  to   { transform: scale(1.012); }
+}
+@keyframes gb-tilt {
+  from { transform: rotate(-1.1deg) translateY(0); }
+  to   { transform: rotate(1.1deg) translateY(-2px); }
+}
+@keyframes gb-lean {
+  from { transform: translateY(0) scale(1); }
+  to   { transform: translateY(-3px) scale(1.008); }
+}
+@keyframes gb-cheer {
+  0%   { transform: translateY(0) scale(1); }
+  35%  { transform: translateY(-7px) scale(1.02); }
+  70%  { transform: translateY(1px) scale(.995); }
+  100% { transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bb-guibao-cover.mood-think,
+  .bb-teach-guibao.mood-explain,
+  .bb-guibao-finish.mood-cheer { animation: none; }
+}

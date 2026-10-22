@@ -25,17 +25,15 @@
      1 = 原来的速度；1.7 约等于整段 4.3s。 */
   --sf-tempo: 1.7;
 
-  /* 原值：radial-gradient(...) , #12100e —— 纯黑兜底 */
+  /* 远景山影与薄雾压在纸面底下，真实卜骨仍是前景主体。 */
   background:
-    /* 右上方的暖白受光：光从窗外来，落在案面与骨片之上 */
-    radial-gradient(ellipse 112% 96% at 78% 34%,
-      rgba(255, 252, 243, .92) 0%, rgba(255, 250, 238, 0) 62%),
-    /* 左下角的沉影，给案面厚度 */
-    radial-gradient(ellipse 96% 78% at 4% 104%,
-      rgba(150, 122, 76, .20) 0%, rgba(150, 122, 76, 0) 64%),
-    /* 案面本体：骨白偏暖，不是白纸 */
-    linear-gradient(166deg, #fbf6e8 0%, #f4ead6 44%, #e9dcc0 100%);
-  /* 深色面上的文字色换回墨色 —— 这一行漏了，整屏字会看不见 */
+    radial-gradient(ellipse 54% 17% at 78% 76%, color-mix(in srgb, var(--bone-hi) 76%, transparent) 0%, transparent 74%),
+    radial-gradient(ellipse 76% 15% at 92% 87%, color-mix(in srgb, var(--bone-hi) 66%, transparent) 0%, transparent 74%),
+    radial-gradient(ellipse 58% 41% at 96% 119%, color-mix(in srgb, var(--bronze) 11%, var(--bone-lo)) 0 53%, transparent 54%),
+    radial-gradient(ellipse 72% 34% at 67% 121%, color-mix(in srgb, var(--patina) 7%, var(--bone-lo)) 0 54%, transparent 55%),
+    radial-gradient(ellipse 52% 29% at 112% 111%, color-mix(in srgb, var(--ink-2) 6%, var(--bone-lo)) 0 55%, transparent 56%),
+    linear-gradient(166deg, var(--bone-hi) 0%, var(--bone) 44%, var(--bone-lo) 100%);
+  /* 首屏保持纸面底色；正文与刻痕用深墨，保持与骨片和案面的对比 */
   color: var(--ink-carve);
   min-height: max(660px, calc(100svh - 58px));
   /* 内容整体居中偏上：骨片的中心就在视口中心，字要落在这片骨上 */
@@ -251,7 +249,7 @@
 .hero-body { max-width: min(480px, 39vw); }
 
 .hero-kicker {
-  color: #8a5a3c;
+  color: var(--bronze-tint);
   font-size: 11px;
   letter-spacing: 3.2px;
   margin-bottom: 18px;
@@ -264,7 +262,7 @@
 }
 
 .hero-title {
-  color: #2b1f12;
+  color: var(--ink-carve);
   font-size: clamp(36px, 4.1vw, 56px);
   font-weight: 500;
   letter-spacing: .035em;
@@ -295,7 +293,7 @@
 }
 
 .hero-lead {
-  color: #57452c;
+  color: var(--ink-2);
   font-size: clamp(14.5px, 1.24vw, 17px);
   line-height: 1.9;
   max-width: 30em;
@@ -305,37 +303,32 @@
 
 /* 主按钮：朱砂在骨白上是最跳的一点，保留渐变，把投影换成暖褐 */
 .hero .hero-main {
-  color: #fff8ee;
-  background: linear-gradient(150deg, #bd5139, #8d2d24);
-  border: 1px solid rgba(120, 40, 28, .55);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 226, 208, .30),
-    inset 0 -2px 0 rgba(74, 20, 14, .34),
-    0 10px 20px -8px rgba(120, 40, 28, .52);
+  color: var(--bone-white);
+  background: linear-gradient(150deg, var(--solid-hi), var(--solid));
+  border: 1px solid color-mix(in srgb, var(--solid-hi) 68%, var(--ink-carve));
+  box-shadow: var(--lift-1);
 }
 .hero .hero-main:hover {
-  background: linear-gradient(150deg, #d2603f, #a5382b);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 232, 216, .36),
-    inset 0 -2px 0 rgba(74, 20, 14, .30),
-    0 16px 30px -10px rgba(120, 40, 28, .58);
+  color: var(--bone-white);
+  background: var(--solid-hi);
+  box-shadow: var(--lift-2);
   transform: translateY(-2px);
 }
 /* 次按钮：从"暗底玻璃"改成"案面上的描边按钮" */
 .hero .hero-ghost {
-  color: #5b4630;
-  background: rgba(255, 252, 244, .62);
-  border: 1px solid rgba(122, 96, 58, .42);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--bone-white) 78%, transparent);
+  border: 1px solid var(--edge);
+  box-shadow: var(--lift-1);
 }
 .hero .hero-ghost:hover {
-  color: #33240f;
-  background: rgba(255, 253, 247, .92);
+  color: var(--ink);
+  background: var(--bone-white);
   border-color: var(--cinnabar);
   transform: translateY(-2px);
 }
 .hero-trust {
-  color: #7a664a;
+  color: var(--ink-2);
   font-size: 11px;
   letter-spacing: 2.2px;
   text-shadow: none;
@@ -343,23 +336,23 @@
 
 /* 龟宝入口：从"暗色玻璃条"改成"案上的一张签" */
 .hero-guide {
-  color: #3b2c18;
-  background: linear-gradient(100deg, rgba(255, 253, 246, .88), rgba(250, 243, 229, .58));
-  border: 1px solid rgba(140, 110, 66, .30);
+  color: var(--ink);
+  background: linear-gradient(100deg, color-mix(in srgb, var(--bone-hi) 94%, transparent), color-mix(in srgb, var(--bone-lo) 62%, transparent));
+  border: 1px solid var(--edge);
   border-radius: var(--r);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 2px 8px -3px rgba(96, 72, 40, .18);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--bone-white) 90%, transparent), var(--lift-1);
 }
 .hero-guide:hover {
-  background: linear-gradient(100deg, rgba(255, 253, 246, .98), rgba(253, 242, 230, .82));
-  border-color: color-mix(in srgb, var(--cinnabar) 52%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .95), 0 8px 18px -8px rgba(120, 68, 40, .34);
+  background: var(--bone-white);
+  border-color: color-mix(in srgb, var(--cinnabar) 52%, var(--edge));
+  box-shadow: var(--lift-2);
 }
-.hero-guide-copy b { color: #3b2c18; }
-.hero-guide-copy span { color: #7d6a50; }
+.hero-guide-copy b { color: var(--ink); }
+.hero-guide-copy span { color: var(--ink-2); }
 .hero-guide-arrow { color: var(--cinnabar); }
 .hero-guide-glyph { color: #6a5536; }
 .hero-guide-mascot {
-  filter: drop-shadow(0 3px 6px rgba(96, 72, 40, .28));
+  filter: drop-shadow(0 3px 6px color-mix(in srgb, var(--ink) 28%, transparent));
 }
 
 /* ----------------------------------------------------------------------------
@@ -381,13 +374,13 @@
 /* 印章的边框：实线方框 + 内侧一道细线 */
 .hero-relic::before {
   inset: 0;
-  border: 2.5px solid rgba(158, 52, 38, .78);
+  border: 2px solid color-mix(in srgb, var(--cinnabar-tint) 78%, transparent);
   border-radius: 3px;
-  box-shadow: inset 0 0 0 1.5px rgba(255, 250, 240, .30);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bone-white) 30%, transparent);
 }
 .hero-relic::after {
   inset: 7px;
-  border: 1px solid rgba(158, 52, 38, .40);
+  border: 1px solid color-mix(in srgb, var(--cinnabar-tint) 42%, transparent);
   border-radius: 1px;
   opacity: 1;
 }
@@ -398,12 +391,12 @@
   box-shadow: none;
   animation: none;
   background: radial-gradient(circle at 50% 42%,
-    rgba(166, 62, 47, .10), rgba(166, 62, 47, .02) 62%, transparent 78%);
+    color-mix(in srgb, var(--cinnabar) 10%, transparent), color-mix(in srgb, var(--cinnabar) 2%, transparent) 62%, transparent 78%);
 }
 .hero-rune {
   width: 66%;
   height: 66%;
-  color: #9a3b2a;
+  color: var(--cinnabar-tint);
   filter: none;
   animation: none;
   opacity: .88;
@@ -411,7 +404,7 @@
 .hero-relic-mark {
   bottom: -22px;
   padding: 0;
-  color: #9a3b2a;
+  color: var(--cinnabar-tint);
   background: none;
   border: 0;
   font-size: 9.5px;
@@ -424,14 +417,14 @@
    6. 案沿：数字条 / 下滑提示 / 署名
    ---------------------------------------------------------------------------- */
 .hero .stat-band {
-  border-top-color: rgba(120, 94, 56, .26);
+  border-top-color: var(--edge);
 }
-.hero .stat-cell b { color: #7c4a2e; }
-.hero .stat-cell span { color: #7d6a50; }
-.hero .hero-credit .hc-name { color: #7a6448; }
-.hero .hero-credit .hc-src { color: #93815f; }
+.hero .stat-cell b { color: var(--cinnabar-tint); }
+.hero .stat-cell span { color: var(--ink-2); }
+.hero .hero-credit .hc-name { color: var(--ink-2); }
+.hero .hero-credit .hc-src { color: var(--ink-2); }
 .hero .hero-cue {
-  color: #7a6448;
+  color: var(--ink-2);
   border: 0;
   background: transparent;
 }
