@@ -1329,6 +1329,13 @@
       if (spec.summary || m.desc) {
         body.appendChild(App.el('p', 'lv-desc', spec.summary || m.desc));
       }
+      /* 展览式入口：进关故事默认收起，悬停或键盘聚焦时展开 */
+      if (chap && chap.enter) {
+        var story = App.el('p', 'lv-story');
+        story.appendChild(App.el('span', 'lv-story-tag', '进关'));
+        story.appendChild(App.el('span', null, chap.enter));
+        body.appendChild(story);
+      }
       card.appendChild(body);
 
       /* —— 脚：出处小注 + 进入 —— */

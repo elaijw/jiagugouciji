@@ -1,0 +1,51 @@
+/* ============================================================
+   lv-exhibit.css —— 三关入口的"展览式"展开
+   ------------------------------------------------------------
+   卡片静止时保持现有排版；悬停或键盘聚焦时：
+     · 整卡轻抬 4px
+     · 进关故事从下方展开（max-height 过渡，不跳版）
+   只动 transform / max-height / opacity，减少动效时全部关闭。
+   ============================================================ */
+
+.lv {
+  transition: transform .22s ease, box-shadow .22s ease;
+  will-change: transform;
+}
+.lv:hover,
+.lv:focus-visible {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(60, 42, 24, .14);
+}
+
+.lv-story {
+  margin: 0;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-2, #6b6153);
+  transition: max-height .28s ease, opacity .2s ease, margin-top .28s ease;
+}
+.lv:hover .lv-story,
+.lv:focus-visible .lv-story {
+  max-height: 120px;
+  opacity: 1;
+  margin-top: 8px;
+}
+.lv-story-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--cinnabar, #a63e2f);
+  border-radius: 3px;
+  color: var(--cinnabar, #a63e2f);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv { transition: none; }
+  .lv:hover, .lv:focus-visible { transform: none; }
+  .lv-story { transition: none; }
+}
