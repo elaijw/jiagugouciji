@@ -9,17 +9,17 @@
 | 2 | 按钮/卡片/弹层统一 | WorkBuddy | `css/ui.css` 改动 + 说明 | 待做 |
 | 3 | 首页纵深改造 | WorkBuddy | `js/core/shell.js`（`sceneHome` 结构，已获授权）+ `01-design/home-structure-*.md` | 待做 |
 | 4 | 三关展览式入口 | WorkBuddy | `css/modes.css` + `01-design/` 说明 | 待做 |
-| 5 | 三关叙事文案 | GPT6luna | `02-copy/chapters.json` | 待验收 |
-| 6 | 龟宝三阶段台词 | GPT6luna | `02-copy/guibao.json` | 待验收 |
-| 7 | 首页文案 | GPT6luna | `02-copy/home.json` | 待验收 |
-| 8 | 视觉规范 + 素材清单 | GPT6luna | `02-copy/*.md` | 待验收 |
-| 9 | P0 收尾（阶段/斩笔） | DSH | `js/modes/boss-raid.js` | 进行中 |
-| 10 | P1 刻字/裂纹 | DSH | `js/modes/bone-build.js` | 进行中 |
-| 11 | 刻痕显现 / 拓印 | DSH | `js/core/juice.js` + `css/juice.css` | 待做 |
-| 12 | 进关过渡 | DSH | `js/core/motion.js` | 待做 |
-| 13 | 三方合并验收 | DSH | `04-verify/report-*.md` | 待做 |
+| 5 | 三关叙事文案 | GPT6luna | `02-copy/chapters.json` | **通过** |
+| 6 | 龟宝三阶段台词 | GPT6luna | `02-copy/guibao.json` | **通过** |
+| 7 | 首页文案 | GPT6luna | `02-copy/home.json` | **通过** |
+| 8 | 视觉规范 + 素材清单 | GPT6luna | `02-copy/*.md` | **通过** |
+| 9 | P0 收尾（阶段/斩笔） | DSH | `js/modes/boss-raid.js` | **通过**（代码挂载，未逐帧截图） |
+| 10 | P1 刻字/裂纹 | DSH | `js/modes/bone-build.js` | **通过**（crack=1 / dasharray=999px） |
+| 11 | P2 王邑薄雾/点灯 | DSH | `js/modes/wangyi-map.js` | **通过**（5 full → 2 off） |
+| 12 | 进关过渡 | DSH | `js/core/motion.js` | 未做（远端已有 life.js 过渡） |
+| 13 | 三方合并验收 | DSH | `04-verify/report-20261022-final.md` | **通过** |
 
-| 14 | 文案接入页面（首页/三关/龟宝） | DSH | `js/core/shell.js` 等 | 待做 |
+| 14 | 文案接入页面（首页/三关/龟宝） | DSH | `js/core/shell.js` 等 | **通过** |
 
 ## 打回记录
 
