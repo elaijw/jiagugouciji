@@ -1,0 +1,108 @@
+/* ============================================================
+   hero-depth.css —— 首屏纵深（前景碎片 / 中景骨片 / 远景雾山）
+   ------------------------------------------------------------
+   守现在的视觉方向：骨白纸面 + 朱砂 + 真实骨片影像，不做水墨幻想。
+   纵深只用"已有的两张照片 + 雾与模糊"实现：
+     远景：遗址土色 + 雾气（CSS 渐变 + 骨片照片重度模糊、极低不透明度）
+     中景：真实骨片（hero-slab 不动）
+     前景：两角失焦的骨屑残片（同一张照片，裁切 + 模糊 + 上缘渐隐）
+   全部 pointer-events:none，不挡点击；减少动效时静止。
+   ============================================================ */
+
+.hero {
+  position: relative;
+  isolation: isolate;
+}
+
+/* ---------- 远景：遗址与雾 ---------- */
+.hero-depth-back {
+  position: absolute;
+  inset: -6% -4% auto;
+  height: 118%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.hero-depth-back::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(70% 60% at 22% 18%, rgba(168, 150, 118, .20), rgba(0,0,0,0) 62%),
+    radial-gradient(60% 50% at 82% 30%, rgba(140, 128, 104, .16), rgba(0,0,0,0) 60%),
+    radial-gradient(120% 80% at 50% 100%, rgba(120, 106, 84, .14), rgba(0,0,0,0) 70%);
+}
+.hero-depth-back img {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 150%;
+  max-width: none;
+  transform: translate(-50%, -50%) scale(1.04);
+  opacity: .16;
+  filter: blur(20px) saturate(.55) sepia(.15);
+  mix-blend-mode: multiply;
+}
+
+/* ---------- 前景：两角失焦的残片 ---------- */
+.hero-depth-front {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+}
+.hero-frag {
+  position: absolute;
+  width: clamp(120px, 16vw, 260px);
+  aspect-ratio: 4 / 3;
+  background-image: url("../assets/oracle-slab.jpg");
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(6px) saturate(.72) brightness(1.02);
+  opacity: .55;
+  border-radius: 40% 46% 38% 52% / 44% 38% 52% 42%;
+  mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 70%);
+}
+.hero-frag-l {
+  left: -4%;
+  bottom: -6%;
+  background-position: 32% 58%;
+  transform: rotate(-6deg);
+}
+.hero-frag-r {
+  right: -5%;
+  bottom: -8%;
+  background-position: 68% 56%;
+  transform: rotate(7deg) scaleX(-1);
+  opacity: .45;
+}
+
+/* 前景层不要盖住按钮与文字：给 hero-in 更高层级 */
+.hero-in { position: relative; z-index: 4; }
+
+/* 统计条与下滑提示压在前景之上 */
+.hero-cue, .hero-stats, .hero-foot { position: relative; z-index: 5; }
+.hero .hero-cue {
+  position: absolute;
+  left: 4.5%;
+  right: auto;
+  bottom: 10%;
+  transform: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(250, 245, 233, .72);
+  border: 1px solid rgba(120, 96, 66, .26);
+  color: #3d2a15;
+  backdrop-filter: blur(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-depth-back img,
+  .hero-frag { filter: none; }
+}
+@media (max-width: 620px) {
+  .hero-frag { opacity: .26; width: 140px; }
+  .hero-depth-back img { opacity: .07; }
+}

@@ -391,6 +391,15 @@
        是从这张照片分割出的轮廓），摆在骨白的案面上，只保留一圈背光的暗边当厚度。
        然后再做商代占卜真正的四个动作：钻凿 → 灼 → 兆（裂） → 刻。
        来源 Gary Todd，CC0 1.0 公有领域（法律上无需署名，仍照标）。 */
+    /* ---- 纵深三层：远景遗址雾 / 中景骨片（下面 slab）/ 前景残片 ---- */
+    var dback = App.el('div', 'hero-depth-back');
+    var dbImg = App.el('img');
+    dbImg.src = 'assets/oracle-bone.webp';
+    dbImg.alt = '';
+    dbImg.setAttribute('aria-hidden', 'true');
+    dback.appendChild(dbImg);
+    hero.appendChild(dback);
+
     var slab = App.el('div', 'hero-slab');
     /* clipPath 必须内联在本文档里 —— CSS 的 clip-path 引用外部 SVG 的
        #fragment 不生效（浏览器只认同文档内的）。轮廓数据在 slab-shape.js。 */
@@ -416,14 +425,6 @@
     slab.appendChild(fire);
     hero.appendChild(slab);
 
-    var relic = App.el('div', 'hero-relic');
-    relic.setAttribute('aria-hidden', 'true');
-    relic.appendChild(App.el('span', 'hero-relic-ring'));
-    var relicGlyph = glyphSvgNode('虎', 'hero-rune');
-    if (relicGlyph) { relic.appendChild(relicGlyph); }
-    relic.appendChild(App.el('span', 'hero-relic-mark', '虎 · 甲骨字形'));
-    hero.appendChild(relic);
-
     var hb = App.el('div', 'hero-body');
     hb.appendChild(App.el('p', 'hero-kicker', '甲骨文互动叙事　/　CULTURAL GAME LAB'));
     var h1 = App.el('h1', 'hero-title');
@@ -443,7 +444,6 @@
     b2.href = '#/atlas';
     cta.appendChild(b2);
     hb.appendChild(cta);
-    hb.appendChild(App.el('p', 'hero-trust', '辨形 → 构字 → 拨雾见邑 → 迎战 Boss'));
     var guide = App.el('a', 'hero-guide');
     guide.href = '#/play/bone-build';
     guide.setAttribute('aria-label', '跟龟宝从第一关认识甲骨字形与构件');
@@ -460,6 +460,13 @@
     hin.appendChild(hb);
 
     hero.appendChild(hin);
+
+    /* 前景：两角失焦的残片，只做景深，不参与交互 */
+    var dfront = App.el('div', 'hero-depth-front');
+    dfront.setAttribute('aria-hidden', 'true');
+    dfront.appendChild(App.el('span', 'hero-frag hero-frag-l'));
+    dfront.appendChild(App.el('span', 'hero-frag hero-frag-r'));
+    hero.appendChild(dfront);
 
     /* 下滑提示：点了平滑滚到「选择你的玩法」，
        与"自己往下滚"是同一件事的两个入口。 */

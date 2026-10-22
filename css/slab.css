@@ -356,64 +356,6 @@
 }
 
 /* ----------------------------------------------------------------------------
-   5. 朱砂印：把原来那个"发光圆环 + 浮动甲骨字"改成一方印
-   ----------------------------------------------------------------------------
-   原来那一组是"博物馆展签"的语言（虚线圆环、光晕、浮动），
-   放在骨片旁边像另一个界面的东西。印是同一套语言里的：
-   朱砂、方形、压在骨片上，正好呼应"篆刻"。
-   ---------------------------------------------------------------------------- */
-.hero-relic {
-  /* 压在骨片右下角，留出一截骨面当"边白"，印才像盖上去的而不是贴上去的 */
-  top: auto;
-  right: clamp(88px, 9.2vw, 232px);
-  bottom: clamp(136px, 24vh, 250px);
-  width: clamp(84px, 7vw, 104px);
-  transform: rotate(-2.5deg);
-  place-items: center;
-}
-/* 印章的边框：实线方框 + 内侧一道细线 */
-.hero-relic::before {
-  inset: 0;
-  border: 2px solid color-mix(in srgb, var(--cinnabar-tint) 78%, transparent);
-  border-radius: 3px;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bone-white) 30%, transparent);
-}
-.hero-relic::after {
-  inset: 7px;
-  border: 1px solid color-mix(in srgb, var(--cinnabar-tint) 42%, transparent);
-  border-radius: 1px;
-  opacity: 1;
-}
-.hero-relic-ring {
-  inset: 0;
-  border: 0;
-  border-radius: 3px;
-  box-shadow: none;
-  animation: none;
-  background: radial-gradient(circle at 50% 42%,
-    color-mix(in srgb, var(--cinnabar) 10%, transparent), color-mix(in srgb, var(--cinnabar) 2%, transparent) 62%, transparent 78%);
-}
-.hero-rune {
-  width: 66%;
-  height: 66%;
-  color: var(--cinnabar-tint);
-  filter: none;
-  animation: none;
-  opacity: .88;
-}
-.hero-relic-mark {
-  bottom: -22px;
-  padding: 0;
-  color: var(--cinnabar-tint);
-  background: none;
-  border: 0;
-  font-size: 9.5px;
-  letter-spacing: 3px;
-  opacity: .74;
-  white-space: nowrap;
-}
-
-/* ----------------------------------------------------------------------------
    6. 案沿：数字条 / 下滑提示 / 署名
    ---------------------------------------------------------------------------- */
 .hero .stat-band {
@@ -443,7 +385,6 @@
     width: 118vw;
     opacity: .72;
   }
-  .hero-relic { display: none; }
 
   /* 骨片铺底之后，文字直接压在骨纹上 —— 中文小字在细密纹理上会"毛"。
      这里不是把骨片调淡（那就白铺了），而是在文字那一侧盖一张渐隐的纸：
