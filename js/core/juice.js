@@ -22,6 +22,23 @@
     ? window.matchMedia('(prefers-reduced-motion: reduce)')
     : { matches: false, addEventListener: null };
 
+  /* 效果开关（三层，优先级从高到低）：
+       ① URL：?fx=0 关 / ?fx=1 开（便于排查"是不是动效导致的卡"）
+       ② 本地存储：App.store('fx')
+       ③ 默认开
+     系统「减少动态效果」永远优先于以上开关（在 on() 里单独判断）。 */
+  var FX_KEY = 'fx';
+  function savedFx() {
+    try { return (App.store && App.store.get) ? App.store.get(FX_KEY, null) : null; }
+    catch (e) { return null; }
+  }
+  function urlFx() {
+    try {
+      var m = /[?&]fx=(0|1)\b/.exec(location.search || '');
+      return m ? m[1] === '1' : null;
+    } catch (e) { return null; }
+  }
+
   var J = App.juice = {
     cfg: {
       enabled: true,
@@ -43,6 +60,7 @@
   function reduced() { return J.reduced; }
   function on(key) {
     if (!J.cfg.enabled) { return false; }
+    if (document.hidden) { return false; }
     if (key === 'shake' && (reduced() || !J.cfg.shake)) { return false; }
     if (key === 'hitstop' && (reduced() || !J.cfg.hitstop)) { return false; }
     if (key === 'cracks' && !J.cfg.cracks) { return false; }
@@ -50,6 +68,26 @@
     if (key === 'stageFx' && reduced()) { return false; }
     return true;
   }
+
+  /* 初始化开关 + 暴露设置接口（控制台/设置页都可用） */
+  (function initFx() {
+    var v = urlFx();
+    if (v === null) { v = savedFx(); }
+    if (v === false) { J.cfg.enabled = false; }
+  })();
+
+  J.setEnabled = function (on) {
+    J.cfg.enabled = !!on;
+    try { if (App.store && App.store.set) { App.store.set(FX_KEY, J.cfg.enabled); } }
+    catch (e) {}
+    if (!J.cfg.enabled && J.layer) { J.layer.innerHTML = ''; }
+    return J.cfg.enabled;
+  };
+
+  /* 后台标签页不做粒子/数字，回来再继续（省电、防卡顿） */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && J.layer) { J.layer.innerHTML = ''; }
+  });
 
   if (reduceQ.addEventListener) {
     reduceQ.addEventListener('change', function (e) {
