@@ -126,10 +126,17 @@
   function save(p) { App.store.set(STORE_KEY, p); }
   function doneList(p, zid) { return p.done[zid] || []; }
   function isDone(p, zid, ch) { return doneList(p, zid).indexOf(ch) >= 0; }
+  /* P2：刚点亮的区域只播一次雾散；收尾只播一次 */
+  var fogLitOnce = {};
+  var finaleShown = false;
+
   function markDone(zid, ch) {
     var p = progress();
     if (!p.done[zid]) { p.done[zid] = []; }
-    if (p.done[zid].indexOf(ch) < 0) { p.done[zid].push(ch); save(p); }
+    if (p.done[zid].indexOf(ch) < 0) {
+      p.done[zid].push(ch); save(p);
+      fogLitOnce[zid] = true;      /* 回大地图时这一片播雾散 */
+    }
     return p;
   }
   function zoneStat(p, z) {
@@ -254,6 +261,23 @@
         glow.style.height = pct(w.r * 2, AY);
         layer.appendChild(glow);
 
+        /* P2：薄雾覆盖。未探索=浓雾；学了一部分=薄雾；学完=散尽 */
+        var justLit = !!fogLitOnce[z.id];
+        if (justLit) { delete fogLitOnce[z.id]; }
+        var fog = App.el('span', 'wy2-fog'
+          + (s.clear ? ' off' : (s.done ? ' thin' : ''))
+          + (justLit ? ' dissolving' : ''));
+        fog.style.left = pct(w.x, AX);
+        fog.style.top = pct(w.y, AY);
+        fog.style.width = pct(w.r * 2.05, AX);
+        fog.style.height = pct(w.r * 2.05, AY);
+        fog.setAttribute('aria-hidden', 'true');
+        layer.appendChild(fog);
+        if (justLit) {
+          glow.className += ' just-lit';
+          if (App.sound && App.sound.pluck) { App.sound.pluck(1.1); }
+        }
+
         var pin = App.el('button', 'wy2-pin' + (s.clear ? ' lit' : '')
           + (w.x > AX * 0.62 ? ' flip' : ''));
         pin.type = 'button';
@@ -273,6 +297,25 @@
 
       board.appendChild(art);
       el.appendChild(board);
+
+      /* P2：五片皆明收尾——短、可跳过、只播一次 */
+      if (st.zones && st.clear >= st.zones && !finaleShown) {
+        finaleShown = true;
+        var fin = App.el('div', 'wy2-finale');
+        fin.appendChild(App.el('div', 'wy2-finale-core', '五片皆明'));
+        fin.appendChild(App.el('p', 'wy2-finale-sub', '王邑的灯火，一处一处亮起来了。'));
+        var skip = App.el('button', 'btn sm wy2-finale-skip', '跳过');
+        skip.type = 'button';
+        skip.onclick = function () {
+          if (fin.parentNode) { fin.parentNode.removeChild(fin); }
+        };
+        fin.appendChild(skip);
+        el.appendChild(fin);
+        if (App.sound && App.sound.pluck) { App.sound.pluck(1.2); }
+        setTimeout(function () {
+          if (fin.parentNode) { fin.parentNode.removeChild(fin); }
+        }, 2600);
+      }
 
       /* 龟宝只做轻向导：占一行文字位，绝不压在地图上 */
       var guide = App.el('aside', 'wy2-guide');

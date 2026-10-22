@@ -32,3 +32,15 @@ desktop.ini
 
 # 旧版原型（保留在本地，不进新仓库）
 _历史版本/
+
+# 草稿与备份（不进仓库）
+_backup_*/
+_shots/
+out/
+_probe*/
+js/core/_data.js.bak
+dev/_*.js
+dev/_*.py
+tools/specs_*.json
+tools/comfy_*.py
+tools/gen_*.py
