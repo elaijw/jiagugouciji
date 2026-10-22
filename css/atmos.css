@@ -202,56 +202,16 @@ html::after {
 .wy-card { border-radius: var(--r-lg); clip-path: none; }
 
 /* ============================================================================
-   4. 厚度：按钮
+   4. 厚度：按钮 —— 【已迁出】
    ----------------------------------------------------------------------------
-   按钮是最能体现"游戏感 vs 网页感"的零件。
-   网页按钮：平色 + 圆角 + hover 变色。游戏按钮：有一层顶光、一层底影，
-   按下去会真的往下走 1.5px，而且朱砂面是渐变的（上亮下暗 = 受光方向）。
+   这一段原来在这里给 .btn / .btn.primary / .btn.danger 定义渐变、顶光、
+   底影与按压位移。问题不是写得不好，而是**放错了位置**：
+   atmos.css 在 <link> 里排在 ui.css 之后，于是它悄悄盖掉了 ui.css 的
+   按钮层级——想改主按钮颜色的人改 ui.css 不生效，改 theme.css 也不生效。
+   2026-10-22 起，整套材质（受光三段、lip、接触影）作为令牌
+   （--grad-solid / --lip-solid / --sh-solid，见 theme.css :root）
+   在 ui.css 的「WB-3」段统一使用。本文件不再碰 .btn。
    ============================================================================ */
-.btn {
-  border-radius: var(--r-sm);
-  box-shadow: var(--lip-hi), var(--lip-lo), var(--sh-1);
-  transition: background var(--t-fast) var(--ease),
-              border-color var(--t-fast) var(--ease),
-              box-shadow var(--t-fast) var(--ease),
-              transform var(--t-fast) var(--ease);
-}
-.btn:active {
-  transform: translateY(1.5px);
-  box-shadow: inset 0 2px 5px rgba(41, 35, 30, .20);
-}
-
-/* 主按钮：朱砂渐变 + 顶部高光 + 底部暗边，像一枚压过的手印 */
-.btn.primary {
-  background: linear-gradient(180deg, #bb4d38 0%, var(--cinnabar) 54%, #8f3325 100%);
-  border-color: #7e2d21;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 214, 196, .40),
-    inset 0 -1px 0 rgba(0, 0, 0, .22),
-    0 2px 4px -1px rgba(120, 40, 28, .40),
-    0 10px 20px -10px rgba(120, 40, 28, .55);
-  text-shadow: 0 1px 0 rgba(80, 20, 12, .42);
-}
-.btn.primary:hover {
-  background: linear-gradient(180deg, #ca5a43 0%, var(--cinnabar-hi) 54%, #9a3929 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 220, 205, .46),
-    inset 0 -1px 0 rgba(0, 0, 0, .20),
-    0 3px 6px -1px rgba(120, 40, 28, .42),
-    0 14px 26px -12px rgba(120, 40, 28, .60);
-}
-.btn.primary:active {
-  background: linear-gradient(180deg, #a8402c 0%, #98372a 100%);
-  box-shadow: inset 0 2px 6px rgba(60, 12, 8, .45);
-}
-
-.btn.danger {
-  background: linear-gradient(180deg, #7d2c22 0%, #602019 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 200, 180, .22), var(--sh-1);
-}
-.btn.sm { padding-inline: var(--s-4); }
-.btn.ghost { box-shadow: none; }
-.btn.ghost:active { box-shadow: none; }
 
 /* ============================================================================
    4.5 标题断行

@@ -449,21 +449,7 @@ img { max-width: 100%; }
   margin-bottom: var(--s-3);
 }
 .atlas-tabs { display: flex; gap: var(--s-1); flex-wrap: wrap; }
-.chipbtn {
-  font-family: inherit; font-size: var(--fs-sm); line-height: 1;
-  padding: var(--s-2) var(--s-3);
-  color: var(--ink-2); background: var(--bone-hi);
-  border: 1px solid var(--edge); border-radius: var(--r-pill);
-  cursor: pointer;
-  transition: background var(--t-fast) var(--ease),
-              border-color var(--t-fast) var(--ease),
-              color var(--t-fast) var(--ease);
-}
-.chipbtn:hover { border-color: color-mix(in srgb, var(--bronze) 55%, var(--edge)); color: var(--ink); }
-.chipbtn.on {
-  color: #fdf4ea; background: var(--cinnabar);
-  border-color: color-mix(in srgb, var(--cinnabar) 70%, #000);
-}
+/* .chipbtn 的样式统一在文件末尾「WB-3」段，这里不再定义（曾有两份互相覆盖） */
 .atlas-search { margin-left: auto; min-width: 220px; flex: 1 1 220px; max-width: 320px; }
 .atlas-count { margin: 0 0 var(--s-3); font-size: var(--fs-sm); color: var(--ink-soft); }
 
@@ -1863,49 +1849,106 @@ html.js-motion .mo-now { transition: none !important; }
   .home-scene .play-card { transition: none; }
 }
 
-/* WB-3：统一按钮、卡片与弹层的视觉语法 */
-/* 操作层级：朱砂主操作、描边次操作、描边危险操作、文字弱操作。 */
+/* ============================================================================
+   WB-3：按钮 / 卡片 / 弹层 —— 三类组件的唯一权威
+   ----------------------------------------------------------------------------
+   【为什么这一整段在 ui.css，而不是 theme.css】
+   theme.css 只留结构（盒子、排列、尺寸档、禁用态），
+   颜色与材质集中在这里。2026-10-22 之前同一枚 .btn 在四个文件里各写一遍
+   （app.css / theme.css / ui.css / atmos.css），谁生效取决于 <link> 顺序——
+   「在 theme.css 里改了主按钮颜色却纹丝不动」就是这么来的，
+   而且危险按钮被三个文件各给了一种红。收权之后：
+     theme.css  → 结构 + 令牌
+     ui.css     → 视觉与状态（本段）
+     atmos.css  → 不再碰 .btn（原来的"厚度"已整段搬到这里）
+
+   【四个层级，靠**形态**区分，不靠同一件衣服换个深浅】
+     主操作   .btn.primary      朱砂实底 + 受光三段          一屏只允许一个
+     次操作   .btn              透明底 + 骨线 + 厚度         默认
+     强烈动作 .btn.danger       朱砂再压深一档（质问！）      同族，深一档
+     破坏操作 .btn.destructive  骨面 + 危险色描边，悬停才填实  形态与主操作相反
+     弱操作   .btn.ghost        无底无框（密集排布里的次要项）
+   破坏操作为什么要与主操作"形态相反"：白字压朱砂(#cc523b, 4.17)与白字压
+   深朱砂在 390px 屏上只剩明度差；读者以中小学生为主，明度差会被读成
+   「两个都很重要」。实底 vs 描边是**结构差异**，扫一眼就分得开。 */
 .btn {
   --btn-h: 38px;
   min-height: var(--btn-h);
   padding-inline: var(--s-4);
-  border: 1px solid var(--edge);
-  border-radius: var(--r-xs);
+  color: var(--ink);
   background: transparent;
-  box-shadow: none;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-sm);
+  box-shadow: var(--lip-hi), var(--lip-lo), var(--lift-1);
   font-weight: 600;
-  transition: transform var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
+  transition: background var(--t-fast) var(--ease),
+              border-color var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease),
+              transform var(--t-fast) var(--ease);
 }
-.btn.sm { --btn-h: 34px; }
+.btn.sm { --btn-h: 34px; padding-inline: var(--s-4); }
 .btn.lg { --btn-h: 44px; }
-.btn:not(.primary):not(.danger):not(.ghost):hover {
+.btn:not(.primary):not(.danger):not(.destructive):not(.ghost):hover {
   background: color-mix(in srgb, var(--bronze) 8%, var(--bone-white));
   border-color: color-mix(in srgb, var(--bronze) 58%, var(--edge));
 }
+/* 按下去要真的往下走 1.5px，并把厚度换成内凹——这是"物件"与"网页 div"的分界 */
+.btn:active {
+  transform: translateY(1.5px);
+  box-shadow: inset 0 2px 5px color-mix(in srgb, var(--ink) 20%, transparent);
+}
+
+/* 主操作：朱砂实底 + 顶部受光 + 底部暗边，像一枚压过的手印 */
 .btn.primary {
-  color: var(--bone-white);
-  background: var(--solid);
-  border-color: var(--solid);
-  box-shadow: var(--lift-1);
+  color: var(--on-solid);
+  background: var(--grad-solid);
+  border-color: var(--solid-edge);
+  box-shadow: var(--lip-solid), var(--sh-solid);
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--solid-edge) 82%, transparent);
 }
 .btn.primary:hover {
-  color: var(--bone-white);
-  background: var(--solid-hi);
-  border-color: var(--solid-hi);
-  box-shadow: var(--lift-1);
+  background: var(--grad-solid-hi);
+  box-shadow: var(--lip-solid), var(--sh-solid-hi);
 }
+.btn.primary:active {
+  background: var(--grad-solid-dn);
+  box-shadow: var(--sh-solid-dn);
+}
+
+/* 强烈动作（质问！）：与主操作同一套材质，只压深一档。
+   注意语义——它**不是**破坏性操作，所以不改形态，只改明度。 */
 .btn.danger {
-  color: var(--bone-white);
-  background: var(--danger);
-  border-color: var(--danger);
-  box-shadow: var(--lift-1);
+  color: var(--on-solid);
+  background: var(--grad-alert);
+  border-color: var(--solid-edge);
+  box-shadow: var(--lip-alert), var(--lift-1);
 }
 .btn.danger:hover {
-  color: var(--bone-white);
-  background: var(--danger-hi);
+  color: var(--on-solid);
+  background: var(--grad-alert);
   border-color: var(--danger-hi);
-  box-shadow: var(--lift-1);
+  box-shadow: var(--lip-alert), var(--lift-2);
 }
+.btn.danger:active { transform: translateY(1.5px); box-shadow: var(--sh-solid-dn); }
+
+/* 破坏操作（重置 / 删档 / 离开未保存）：描边 + 危险色文字，悬停才填实。
+   与主操作的实底形成**结构差异**，不必靠"暗一点"去提示危险。
+   待接入：boss-raid.js 的「清空通关记录」目前是 .btn.sm.ghost，
+   改成 .btn.sm.destructive 即生效（一行，归 DSH 的 js 权限）。 */
+.btn.destructive {
+  color: var(--danger);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 52%, var(--edge));
+  box-shadow: var(--lip-hi), var(--lip-lo), var(--lift-1);
+}
+.btn.destructive:hover {
+  color: var(--on-solid);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.btn.destructive:active { transform: translateY(1.5px); box-shadow: var(--sh-solid-dn); }
+
+/* 弱操作：无底色无描边，用在密集排布的次要项 */
 .btn.ghost {
   color: var(--ink-2);
   background: transparent;
@@ -1917,18 +1960,46 @@ html.js-motion .mo-now { transition: none !important; }
   background: color-mix(in srgb, var(--bronze) 8%, transparent);
   border-color: color-mix(in srgb, var(--bronze) 24%, transparent);
 }
-.btn:active { transform: translateY(1px); }
 .btn:disabled, .btn[aria-disabled="true"] {
   opacity: .45;
   box-shadow: none;
   transform: none;
 }
 
-/* 分类筛选沿用次操作；选中态以淡朱砂标识，避免与主按钮争抢。 */
+/* 深色标题栏里的次操作：反白描边。写在这里而不是各页各写一遍，
+   因为 .edhead 是弹层唯一的标题栏。 */
+.edbox > .edhead .btn:not(.primary):not(.danger):not(.destructive),
+.imgbox > .edhead .btn:not(.primary):not(.danger):not(.destructive) {
+  color: var(--on-dark);
+  background: transparent;
+  border-color: var(--ink-deep-line);
+  box-shadow: none;
+}
+
+/* 分类筛选：它是**缩小的展签**，不是按钮，所以不参与按钮收权，
+   只借用次操作的描边语言。选中态用"淡朱砂底 + 朱砂字"，
+   而不是实底反白——实底反白会与主操作抢眼，一屏两个"最重要"等于没有最重要。
+   （原来这段在 .atlas-tabs 附近还有一份基础样式，两份相距 1500 行，
+   先定义后被覆盖，改一次要改两处。现已合并到这里一处。） */
 .chipbtn {
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1;
   min-height: 36px;
+  padding: var(--s-2) var(--s-3);
+  color: var(--ink-2);
+  background: var(--bone-hi);
+  border: 1px solid var(--edge);
   border-radius: var(--r-pill);
-  transition: transform var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease),
+              border-color var(--t-fast) var(--ease),
+              color var(--t-fast) var(--ease),
+              transform var(--t-fast) var(--ease);
+}
+.chipbtn:hover {
+  border-color: color-mix(in srgb, var(--bronze) 55%, var(--edge));
+  color: var(--ink);
 }
 .chipbtn.on {
   color: var(--solid);
@@ -1994,13 +2065,7 @@ html.js-motion .mo-now { transition: none !important; }
 }
 .edbox > .edhead h3, .imgbox > .edhead h3 { color: var(--on-dark); }
 .edbox > .edhead .as-kind { color: var(--on-dark-2); background: transparent; border-color: var(--ink-deep-line); }
-.edbox > .edhead .btn:not(.primary):not(.danger),
-.imgbox > .edhead .btn:not(.primary):not(.danger) {
-  color: var(--on-dark);
-  background: transparent;
-  border-color: var(--ink-deep-line);
-  box-shadow: none;
-}
+/* 深色标题栏里的次操作按钮：规则已上移到按钮总表（.edhead .btn），此处不再重复 */
 .edbody {
   color: var(--ink);
   background: var(--bone-hi);

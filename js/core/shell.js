@@ -351,6 +351,9 @@
   /* 实验开关：?slab=1 时整页按「一张甲骨片」呈现（只加 body 类，不改结构） */
   (function slabPageFlag() {
     try {
+      /* 默认「界面刻在甲骨上」；?carved=0 回纸面；?slab=1 仍是旧的两档实验 */
+      var offCarved = /[?&]carved=0\b/.test(location.search);
+      if (!offCarved) { document.body.classList.add('carved'); }
       var m = /[?&]slab=(1|2)\b/.exec(location.search);
       if (m) {
         document.body.classList.add('slab-page');

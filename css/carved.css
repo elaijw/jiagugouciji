@@ -1,0 +1,199 @@
+/* ============================================================
+   carved.css —— 「整个界面刻在甲骨上」
+   ------------------------------------------------------------
+   不是"骨片当背景"，而是界面元素本身就是刻痕：
+     · 面板 = 骨面本身，没有白色卡片，只有一圈刻出来的凹槽
+     · 文字 = 凹刻（下缘一道亮边、上缘一道暗边）
+     · 按钮 = 刻进骨里的槽，主按钮是槽里填了朱砂
+     · 分隔 = 一道刻痕，不是阴影
+   默认开启；地址加 ?carved=0 回到纸面版（整层可退）。
+   ============================================================ */
+
+body.carved {
+  background-color: #ddd0b4;
+  background-image: url("../assets/oracle-slab.jpg");
+  background-size: cover;
+  background-position: center top;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  color: #2a1d10;
+  text-shadow: 0 1px 0 rgba(255, 251, 242, .42);
+}
+
+/* 骨面压一层暖光，保证读数；四周暗角做出片子的厚度 */
+body.carved::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(247, 241, 228, .66), rgba(247, 241, 228, .52) 45%, rgba(247, 241, 228, .68)),
+    radial-gradient(125% 95% at 50% 42%, rgba(0,0,0,0) 48%, rgba(52, 34, 18, .30) 100%);
+}
+body.carved .app-shell { position: relative; z-index: 1; }
+
+/* ---------- 顶栏：骨的一部分 ---------- */
+body.carved .topbar,
+body.carved.nav-top .topbar {
+  background: rgba(244, 237, 222, .72);
+  backdrop-filter: blur(5px);
+  border-bottom: 1px solid rgba(90, 66, 40, .22);
+  box-shadow: 0 1px 0 rgba(255, 252, 245, .5) inset;
+}
+
+/* ---------- 凹刻文字 ---------- */
+body.carved h1,
+body.carved h2,
+body.carved h3,
+body.carved .sec-h,
+body.carved .lv-title,
+body.carved .hero-title,
+body.carved .lv-name {
+  color: #241a0e;
+  text-shadow:
+    0 1px 0 rgba(255, 253, 246, .55),
+    0 -1px 1px rgba(46, 28, 12, .30);
+}
+body.carved p,
+body.carved li,
+body.carved span,
+body.carved b {
+  text-shadow: 0 1px 0 rgba(255, 252, 244, .38);
+}
+
+/* ---------- 面板：没有白色卡片，只有凹槽 ---------- */
+body.carved .home-scene > section,
+body.carved .home-scene > div,
+body.carved .lv,
+body.carved .lv-body,
+body.carved .bb-lesson-panel,
+body.carved .bb-teach-panel,
+body.carved .bb-intro-cover,
+body.carved .bb-course-finish,
+body.carved .wy2-guide,
+body.carved .bd-hero-bubble {
+  background: rgba(241, 233, 215, .62) !important;
+  border: 0 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(90, 66, 40, .20),
+    inset 0 1px 0 rgba(255, 253, 245, .40),
+    inset 0 -2px 6px rgba(80, 54, 28, .10) !important;
+  border-radius: 10px;
+}
+
+/* 卡片内部那些小色块也拉平 */
+body.carved .lv-art,
+body.carved .lv-chapter,
+body.carved .pc-tag,
+body.carved .lv-tag,
+body.carved .chip {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* ---------- 按钮：刻进骨里的槽 ---------- */
+body.carved .btn:not(.primary):not(.danger) {
+  background: rgba(250, 245, 233, .30) !important;
+  border: 1px solid rgba(90, 66, 40, .30) !important;
+  color: #2a1d10 !important;
+  box-shadow:
+    inset 0 2px 5px rgba(80, 54, 28, .22),
+    inset 0 -1px 0 rgba(255, 252, 244, .45);
+  text-shadow: 0 1px 0 rgba(255, 252, 244, .45);
+}
+body.carved .btn.primary {
+  background: rgba(163, 58, 42, .90) !important;
+  border: 1px solid rgba(120, 34, 22, .55) !important;
+  color: #fff6e9 !important;
+  box-shadow:
+    inset 0 2px 6px rgba(70, 16, 8, .45),
+    0 1px 0 rgba(255, 250, 240, .30);
+  text-shadow: 0 1px 1px rgba(80, 20, 10, .45);
+}
+body.carved .btn:hover { filter: brightness(1.03); }
+
+/* ---------- 分隔：一道刻痕 ---------- */
+body.carved .sec-h,
+body.carved .lv-title {
+  border-bottom: 1px solid rgba(90, 66, 40, .38);
+  padding-bottom: 8px;
+}
+
+/* ---------- 首屏：骨片本体留在画面里，但不要重影 ---------- */
+body.carved .hero-slab { display: none; }
+body.carved .hero { background: transparent !important; }
+
+/* ---------- 输入 / 下拉 ---------- */
+body.carved input,
+body.carved select,
+body.carved textarea {
+  background: rgba(250, 245, 233, .35) !important;
+  border: 1px solid rgba(90, 66, 40, .35) !important;
+  box-shadow: inset 0 2px 4px rgba(80, 54, 28, .18);
+  color: #2a1d10;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.carved .topbar { backdrop-filter: none; }
+}
+@media (max-width: 620px) {
+  body.carved { background-attachment: scroll; }
+  body.carved::before { backdrop-filter: none; }
+}
+
+/* 正文对比：骨面比纸面浅，字要压深一档，否则小字发虚 */
+body.carved,
+body.carved p,
+body.carved li,
+body.carved .hero-lead,
+body.carved .hero-trust,
+body.carved .lv-desc,
+body.carved .lv-tag,
+body.carved .foot-p,
+body.carved .foot-col li,
+body.carved .as-meta,
+body.carved .pc-desc,
+body.carved small {
+  color: #2b1c0d !important;
+  text-shadow: none;
+}
+body.carved .hero-kicker,
+body.carved .sec-kicker,
+body.carved .lv-step,
+body.carved .value,
+body.carved .unit {
+  color: #4a3218 !important;
+}
+
+/* ---------- 大容器（三关页的 sheet / 首屏引导卡）也刻进骨里 ---------- */
+body.carved .sheet {
+  background: rgba(241, 233, 215, .55) !important;
+  border: 0 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(90, 66, 40, .22),
+    inset 0 1px 0 rgba(255, 253, 245, .45) !important;
+}
+body.carved .hero-guide {
+  background: rgba(250, 245, 233, .28) !important;
+  border: 1px solid rgba(90, 66, 40, .28) !important;
+  box-shadow: inset 0 2px 5px rgba(80, 54, 28, .16);
+}
+body.carved .modes-scene .lv::before,
+body.carved .lv::before {
+  background: none !important;
+  border: 0 !important;
+}
+body.carved .modes-scene .lv {
+  background: rgba(243, 235, 218, .58) !important;
+}
+/* 提示条、气泡也去掉白底 */
+body.carved .toast,
+body.carved .app-toast,
+body.carved .wy2-flow,
+body.carved .bd-figure-fx {
+  background: rgba(250, 245, 233, .34) !important;
+  border: 1px solid rgba(90, 66, 40, .25) !important;
+  box-shadow: inset 0 1px 3px rgba(80, 54, 28, .15);
+  color: #2a1d10 !important;
+}

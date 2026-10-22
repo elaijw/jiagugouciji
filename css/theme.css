@@ -234,19 +234,26 @@
   --danger-hi:   #a13a2c;
   --danger-tint: #7d2a20;   /* 危险类文字 / 错误提示 · 骨底 8.34 ✅ */
 
-  /* —— 主操作的受光三段 ——
-     上亮 / 本体 / 下暗，是**同一种朱砂的三档**，不是三种颜色。
-     单独给名字只为一件事：材质写在 CSS 里时不必再写死十六进制。
-     来源：atmos.css 原来的 #bb4d38 / #8f3325 / #7e2d21（2026-10-22 收进令牌）。 */
-  --solid-top:  #c1553e;
-  --solid-bot:  #8f3325;
-  --solid-edge: #7e2d21;
+  /* —— 主操作的材质：受光三段 + 两档接触影 ——
+     一个按钮的"能按下去"不是靠投影，是靠**上亮下暗的一条渐变**
+     加一层顶边受光、一层底边压暗。这四样是**同一件东西**，
+     所以整条渐变作为一个令牌给出，而不是拆成三种红让人各取所需。
+     来源：atmos.css 原来的 #bb4d38/#8f3325/#7e2d21（2026-10-22 收进令牌）。
+     业务 CSS 里不要再出现这几个十六进制。 */
+  --grad-solid:    linear-gradient(180deg, #bb4d38 0%, var(--cinnabar) 54%, #8f3325 100%);
+  --grad-solid-hi: linear-gradient(180deg, #ca5a43 0%, var(--cinnabar-hi) 54%, #9a3929 100%);
+  --grad-solid-dn: linear-gradient(180deg, #a8402c 0%, #98372a 100%);
+  --lip-solid:  inset 0 1px 0 rgba(255, 214, 196, .40), inset 0 -1px 0 rgba(0, 0, 0, .22);
+  --sh-solid:   0 2px 4px -1px rgba(120, 40, 28, .40), 0 10px 20px -10px rgba(120, 40, 28, .55);
+  --sh-solid-hi: 0 3px 6px -1px rgba(120, 40, 28, .42), 0 14px 26px -12px rgba(120, 40, 28, .60);
+  --sh-solid-dn: inset 0 2px 6px rgba(60, 12, 8, .45);
+  --solid-edge:  #7e2d21;   /* 主操作的轮廓：比本体深一档，像压过的手印边 */
 
   /* —— 强烈动作：质问！ / 终局确认 ——
-     与主操作同族、只深一档。它**不是**破坏性操作，
-     破坏性操作用 --danger 走"描边反向"那套（见 ui.css WB-3）。 */
-  --alert-top: #7d2c22;
-  --alert-bot: #602019;
+     与主操作同族、只深一档。它**不是**破坏性操作；
+     破坏性操作走 --danger 的"描边反向"那套（见 ui.css WB-3）。 */
+  --grad-alert: linear-gradient(180deg, #7d2c22 0%, #602019 100%);
+  --lip-alert:  inset 0 1px 0 rgba(255, 200, 180, .22);
 
   /* 实底上的字：与深墨面正文同值，合并成一个名字，免得再写 #fdf4ea */
   --on-solid: var(--on-dark);
@@ -524,7 +531,7 @@ input[type="range"]::-moz-range-thumb {
   bottom: calc(var(--s-6) + env(safe-area-inset-bottom));
   z-index: var(--z-toast);
   color: var(--bone-hi);
-  background: color-mix(in srgb, var(--ink) 92%, #000);
+  background: var(--ink-deep);
   font-size: var(--fs-md); line-height: 1.6;
   padding: var(--s-3) var(--s-5);
   border-radius: var(--r);
@@ -549,11 +556,10 @@ input[type="range"]::-moz-range-thumb {
 .okmsg { color: var(--green-tint); font-size: var(--fs-sm); }
 .prob  { color: var(--cinnabar-tint); font-size: var(--fs-sm); }
 .lead  { font-size: var(--fs-md); color: var(--ink-2); line-height: 1.8; max-width: 46em; }
-.overlay, .imgpanel { background: color-mix(in srgb, var(--bone-lo) 82%, transparent); }
-.edbox, .imgbox {
-  background: var(--bone-hi); border: 1px solid var(--edge);
-  border-radius: var(--r); box-shadow: var(--sh-2);
-}
+/* 弹层与提示条的颜色在这里**不再定义**（2026-10-22）：
+   原来这一段与文件末尾的 §6 各写了一份 .overlay/.edbox 背景，
+   再加上 ui.css 的第三份，三层叠三层。现在只在 §6 留结构，
+   颜色统一由 ui.css 的 WB-3 段给（遮罩 --veil / 册页 --sheet / 投影 --lift-3）。 */
 
 /* ============================================================================
    4. 状态提示（加载 / 空 / 错误）
