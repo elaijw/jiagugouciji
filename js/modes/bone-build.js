@@ -196,6 +196,14 @@
       return img;
     }
 
+
+    /* 文案接入：取龟宝台词，缺 copy.js 时返回空串（不渲染，不破版） */
+    function gbLine(state, i) {
+      try {
+        return (App.copy && App.copy.pick) ? (App.copy.pick(state, i) || '') : '';
+      } catch (e) { return ''; }
+    }
+
     function renderCover() {
       clear();
       var cover = U.el('section', 'bb-intro-cover');
@@ -204,6 +212,8 @@
       copy.appendChild(U.el('h1', 'bb-cover-title', '和龟宝一起，\n读懂第一片甲骨'));
       copy.appendChild(U.el('p', 'bb-cover-lead',
         '从龟甲、兽骨和占卜记录开始，亲手拼出几个常见字的构件。答错可以再试，龟宝会给你线索。'));
+      var _g1 = gbLine('curious', 0);
+      if (_g1) { copy.appendChild(U.el('p', 'bb-guibao-line', _g1)); }
       var promise = U.el('div', 'bb-course-promise');
       ['5 次轻松练习', '没有倒计时', '每题都有知识讲解'].forEach(function (label, i) {
         var item = U.el('span', 'bb-promise-item');
@@ -436,6 +446,8 @@
       copy.appendChild(U.el('h1', 'bb-cover-title', '你已经会看构件了'));
       copy.appendChild(U.el('p', 'bb-cover-lead',
         '龟宝带你认识了甲骨文的材料与记录方式，也一起拼了 ' + state.deck.length + ' 个字形。接下来可以去第二关，在王邑小地图里继续探索。'));
+      var _g2 = gbLine('partner', 1);
+      if (_g2) { copy.appendChild(U.el('p', 'bb-guibao-line bb-guibao-finish', _g2)); }
       copy.appendChild(U.el('p', 'bb-finish-summary', '本地已收集 ' + learnedCount() + ' 个构字字形'));
       var nextMap = U.el('a', 'btn primary bb-start', '进入第二关 · 点亮王邑 →');
       nextMap.href = '#/play/wangyi-map';

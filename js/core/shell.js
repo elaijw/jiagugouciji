@@ -336,6 +336,18 @@
   }
 
   /* ---------- 场景：首页 ---------- */
+
+  /* 文案接入：优先用 js/core/copy.js（互斥替代硬编码），缺则回落到原字符串 */
+  function copyText(path, fallback) {
+    try {
+      var c = App.copy;
+      if (!c) { return fallback; }
+      var v = c;
+      String(path).split('.').forEach(function (k) { v = v && v[k]; });
+      return (typeof v === 'string' && v) ? v : fallback;
+    } catch (e) { return fallback; }
+  }
+
   function sceneHome() {
     var wrap = App.el('div', 'scene home-scene');
     var st = App.atlas.stats();
@@ -389,16 +401,16 @@
     var hb = App.el('div', 'hero-body');
     hb.appendChild(App.el('p', 'hero-kicker', '甲骨文互动叙事　/　CULTURAL GAME LAB'));
     var h1 = App.el('h1', 'hero-title');
-    carveTitle(h1, '从一片卜骨，\n读懂汉字的来处');
+    carveTitle(h1, copyText('home.title', '从一片卜骨，\n读懂汉字的来处'));
     hb.appendChild(h1);
-    hb.appendChild(App.el('p', 'hero-lead',
+    hb.appendChild(App.el('p', 'hero-lead', copyText('home.subtitle',
       '亲手拼出甲骨字形，点亮殷商王邑，最后迎战构件 Boss。把三千年前的文字，'
-      + '从展柜里的知识，变成一场可以亲自参与的探索。'));
+      + '从展柜里的知识，变成一场可以亲自参与的探索。')));
 
     var cta = App.el('div', 'hero-cta');
     var b1 = App.el('a', 'btn primary lg hero-main');
     b1.href = '#/modes';
-    b1.appendChild(App.el('span', null, '进入甲骨世界'));
+    b1.appendChild(App.el('span', null, copyText('home.cta', '进入甲骨世界')));
     b1.appendChild(App.el('span', 'hero-arrow', '→'));
     cta.appendChild(b1);
     var b2 = App.el('a', 'btn lg hero-ghost', '翻阅字形档案');
@@ -1156,6 +1168,15 @@
     return out;
   }
 
+
+  /* 章节文案：按模式顺序取 chapters[i]，缺则返回 null（不加行，不破坏排版） */
+  function copyChapter(i) {
+    try {
+      var arr = App.copy && App.copy.chapters;
+      return (arr && arr[i]) ? arr[i] : null;
+    } catch (e) { return null; }
+  }
+
   function sceneModes() {
     var wrap = App.el('div', 'scene modes-scene');
     var sh = sheet();
@@ -1179,8 +1200,9 @@
     guide.appendChild(guideMark);
     var guideCopy = App.el('div', 'lv-guide-copy');
     guideCopy.appendChild(App.el('span', 'lv-guide-name', '龟宝 · 甲骨小向导'));
-    guideCopy.appendChild(App.el('p', 'lv-guide-note',
-      '先上入门课，再进入五幅主题小地图；学会一片，王邑大地图就亮起一域。'));
+    var _lvLine = (App.copy && App.copy.pick) ? App.copy.pick('partner', 0) : '';
+    guideCopy.appendChild(App.el('p', 'lv-guide-note', _lvLine
+      || '先上入门课，再进入五幅主题小地图；学会一片，王邑大地图就亮起一域。'));
     guide.appendChild(guideCopy);
     intro.appendChild(guide);
     host.appendChild(intro);
@@ -1262,6 +1284,13 @@
 
       /* —— 底部：玩法名 + 一句话 + 说明 —— */
       var body = App.el('div', 'lv-body');
+      var chap = copyChapter(i);
+      if (chap && chap.name) {
+        var chip = App.el('p', 'lv-chapter');
+        chip.appendChild(App.el('span', 'lv-chapter-name', chap.name));
+        if (chap.role) { chip.appendChild(App.el('span', 'lv-chapter-role', chap.role)); }
+        body.appendChild(chip);
+      }
       body.appendChild(App.el('h3', 'lv-name', m.name));
       if (m.tagline) { body.appendChild(App.el('p', 'lv-tag', m.tagline)); }
       if (spec.summary || m.desc) {

@@ -21,6 +21,14 @@
                "Source Han Serif CN", STSong, SimSun, serif;
   --font-kai:  "Kaiti SC", "Kaiti TC", KaiTi, STKaiti, "Songti SC", serif;
 
+  /* --font-serif 是 modes.css 里 13 处「地名 / 关卡名 / 签条」在用的旧名字
+     （王邑据点名、区域名、印面字、流程标题）。它从来没有定义过，
+     一直靠 `font-family` 可继承、取不到值时回落到父级来"碰巧正确"——
+     父级就是 body 的宋体栈，所以画面看不出问题，但语义是悬空的：
+     谁哪天把 body 换成非衬线，这 13 处会一起静默失守。
+     这里把它显式声明成宋体栈的别名，不改任何观感。 */
+  --font-serif: var(--font-song);
+
   /* —— 字号刻度：小字整体提一档 ——
      原值 10.5 / 11.5 / 12.5 / 14。
      10.5px 的中文只剩"一坨灰"，出处、角标、注记全都在这个尺寸上。

@@ -196,3 +196,19 @@ html.juice-frozen #juice-layer * {
   .reveal.juice-engrave svg line { animation: none; stroke-dasharray: none; }
 }
 
+/* ---------- 三关入口：章节名 + 身份（文案接入） ---------- */
+.lv-chapter {
+  display: flex; align-items: baseline; gap: 8px;
+  margin: 0 0 6px; font-size: 12px; letter-spacing: .06em;
+  color: var(--ink-2, #6b6153);
+}
+.lv-chapter-name { color: var(--cinnabar, #a63e2f); font-weight: 600; }
+.lv-chapter-role { opacity: .8; }
+
+/* ---------- 入门课：龟宝台词行（文案接入） ---------- */
+.bb-guibao-line {
+  margin: 10px 0 4px; padding-left: 10px;
+  border-left: 2px solid var(--cinnabar, #a63e2f);
+  color: var(--ink-2, #6b6153); font-size: 13px; line-height: 1.7;
+}
+.bb-guibao-finish { margin-top: 12px; }

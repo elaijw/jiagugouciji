@@ -651,6 +651,10 @@
       if (S.phase === 2) { return '构件混同了，改用笔画'; }
       if (fx && fx.kind === 'miss') { return '这块不在它的构形里'; }
       if (fx && fx.kind === 'break') { return '拆下一块，继续'; }
+      if (S.phase >= 3 && App.copy && App.copy.pick) {
+        var gline = App.copy.pick('guardian', 0);
+        if (gline) { return gline; }
+      }
       return isCompound() ? '看它由哪几块拼成' : '点一笔试着拆';
     }
 

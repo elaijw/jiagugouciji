@@ -498,7 +498,10 @@ h1, .lv-title, .sec-h, .bb-cover-title, .bb-question-title, .bb-teach-title,
   background:
     radial-gradient(ellipse at 18% 10%, #fffefa 0%, rgba(255, 254, 250, 0) 58%),
     linear-gradient(158deg, #fffdf7 0%, #fbf4e7 58%, #f7edda 100%);
-  border-color: color-mix(in srgb, var(--edge) 88%, var(--patina));
+  /* 这里要的是"骨上褐斑"那一档。--patina 在新令牌里已改指青铜绿
+     （褐斑改名 --speck），继续沿用旧名会让这条边框在移植后莫名发青。
+     取 --speck，并带旧褐值兜底，老令牌下也照常。 */
+  border-color: color-mix(in srgb, var(--edge) 88%, var(--speck, #b9a480));
 }
 /* 「正在打的那一阶」原来是 border-left: 3px 朱砂。
    上了圆角后，左边框会在上下两头收成斜角，像贴了一条胶带。

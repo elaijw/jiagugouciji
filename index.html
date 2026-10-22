@@ -20,15 +20,15 @@
 <link rel="stylesheet" href="css/theme.css?v=20261020-2">
 <link rel="stylesheet" href="css/ui.css?v=20261020-2">
 <link rel="stylesheet" href="css/modes.css?v=20261021-15">
-<link rel="stylesheet" href="css/juice.css?v=20261022-2">
+<link rel="stylesheet" href="css/juice.css?v=20261022-3">
 <!-- 灵动层：纯增量的交互反馈，必须排在最后（同权重选择器后者胜） -->
 <link rel="stylesheet" href="css/life.css?v=20261020-2">
 <!-- 骨片层：图鉴的拓黑方块 → 骨片；删掉这一行即回退 -->
 <link rel="stylesheet" href="css/oracle.css?v=20261020-6">
 <!-- 考绩层：认字攒契 / 开卜骨；删掉这一行即回退成纯进度统计 -->
 <link rel="stylesheet" href="css/reward.css?v=20261020-5">
-<link rel="stylesheet" href="css/atmos.css?v=20261020-10">
-<link rel="stylesheet" href="css/type.css?v=20261020-1">
+<link rel="stylesheet" href="css/atmos.css?v=20261022-1">
+<link rel="stylesheet" href="css/type.css?v=20261022-1">
 <link rel="stylesheet" href="css/slab.css?v=20261020-8">
 <!-- 选关层：三张深色卡 → 案上摊开的三片卜骨；删掉这一行即回退 -->
 <link rel="stylesheet" href="css/slab-modes.css?v=20261020-9">
@@ -115,6 +115,7 @@
 <!-- 声音层：背景古筝 + 点关卡时的骨板声。两段都是 assets/ 里的真实录音
      （Freesound CC0），不是实时合成 —— 合成那套已在 audio.js 里降级为兜底 -->
 <script src="js/core/audio.js?v=20261021-11"></script>
+<script src="js/core/copy.js?v=20261022-1"></script>
 <script src="js/core/juice.js?v=20261022-1"></script>
 <script src="js/core/slab-shape.js?v=20261020-1"></script>
 <script src="js/core/slab-card-shape.js?v=20261020-1"></script>
@@ -123,11 +124,11 @@
 <!-- 构件台六片小甲骨的外形（六条 clipPath，加载即挂到 body）。
      形状本身由 dev/_slab_chippath.py 生成，删掉这一行则六个构件格退回无轮廓 -->
 <script src="js/core/slab-chip-shape.js?v=20261021-3"></script>
-<script src="js/core/shell.js?v=20261021-3"></script>
+<script src="js/core/shell.js?v=20261022-3"></script>
 
-<script src="js/modes/bone-build.js?v=20261022-1"></script>
-<script src="js/modes/wangyi-map.js?v=20261021-10"></script>
-<script src="js/modes/boss-raid.js?v=20261022-1"></script>
+<script src="js/modes/bone-build.js?v=20261022-2"></script>
+<script src="js/modes/wangyi-map.js?v=20261022-2"></script>
+<script src="js/modes/boss-raid.js?v=20261022-2"></script>
 
 <script src="js/core/build.js?v=20261020-1"></script>
 <!-- 灵动层：订阅 route 事件补交互反馈；放在 build.js 之后，首次渲染由它自己补一次 -->

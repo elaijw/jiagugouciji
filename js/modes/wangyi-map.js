@@ -286,7 +286,8 @@
         gcopy.appendChild(App.el('b', null, '五片都亮了'));
         gcopy.appendChild(App.el('span', null, '王邑全图复明。想再看一遍，随时点回去。'));
       } else if (st.done === 0) {
-        gcopy.appendChild(App.el('b', null, '龟宝：先挑一片顺眼的'));
+        var _gb = (App.copy && App.copy.pick) ? App.copy.pick('partner', 0) : '';
+        gcopy.appendChild(App.el('b', null, _gb || '龟宝：先挑一片顺眼的'));
         gcopy.appendChild(App.el('span', null, '五个区域都能进。进去后点图上看得见的东西。'));
       } else {
         gcopy.appendChild(App.el('b', null, '龟宝：还差 ' + (st.total - st.done) + ' 个字'));
