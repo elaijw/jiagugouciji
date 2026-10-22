@@ -376,6 +376,51 @@
     } catch (e) {}
   })();
 
+
+  /* 今日目标卡：三条日目标，达成可领契。没有 motivate.js 时整块不渲染 */
+  function motivateCard() {
+    if (!App.motivate) { return null; }
+    try { App.motivate.sync(); App.motivate.checkMiles(); } catch (e) {}
+    var gs = App.motivate.goals();
+    var box = App.el('section', 'motivate-card');
+    var head = App.el('div', 'mt-head');
+    head.appendChild(App.el('h2', 'sec-h', '今日目标'));
+    head.appendChild(App.el('span', 'mt-note', '完成即可领契（每天重置）'));
+    box.appendChild(head);
+    var row = App.el('div', 'mt-rows');
+    gs.forEach(function (g) {
+      var item = App.el('div', 'mt-row' + (g.done ? ' done' : ''));
+      item.appendChild(App.el('span', 'mt-name', g.name));
+      item.appendChild(App.el('span', 'mt-prog', g.got + ' / ' + g.need));
+      var btn = App.el('button', 'btn sm mt-claim',
+        g.claimed ? '已领取' : ('领 ' + g.qi + ' 契'));
+      btn.type = 'button';
+      btn.disabled = g.claimed || !g.done;
+      btn.onclick = function () {
+        if (App.motivate.claim(g.id)) {
+          btn.textContent = '已领取';
+          btn.disabled = true;
+          item.className += ' done';
+        }
+      };
+      item.appendChild(btn);
+      row.appendChild(item);
+    });
+    box.appendChild(row);
+
+    /* 里程碑进度：只展示最近一个未达成的 */
+    var f = App.motivate.facts();
+    var next = null;
+    App.motivate.MILES.forEach(function (m) { if (!next && f.learned < m.at) { next = m; } });
+    if (next) {
+      box.appendChild(App.el('p', 'mt-mile',
+        '里程碑：' + next.name + '（再认 ' + (next.at - f.learned) + ' 个字得 ' + next.qi + ' 契）'));
+    } else {
+      box.appendChild(App.el('p', 'mt-mile', '里程碑已全部达成。'));
+    }
+    return box;
+  }
+
   function sceneHome() {
     var wrap = App.el('div', 'scene home-scene');
     var st = App.atlas.stats();
@@ -512,6 +557,9 @@
 
     /* ================= 核心玩法 ================= */
     var sec1 = App.el('section', 'home-sec');
+    var mt = motivateCard();
+    if (mt) { wrap.appendChild(mt); }
+
     sec1.id = 'playSection';
     sec1.appendChild(sectionHead('三步，开启甲骨探索',
       '从认字形，到拨雾见邑，再迎战 Boss 终局',

@@ -454,6 +454,7 @@
         });
         if (!ok) {
           state.streak = 0;
+      if (App.motivate && App.motivate.resetStreak) { App.motivate.resetStreak('intro'); }
           renderQuestion({ kind: 'no', text: '还差一点。你可以调整构件，或请龟宝给一条线索。' });
           juiceIntroMiss(lesson);
           return;
@@ -486,6 +487,7 @@
         if (tip.parentNode) { tip.parentNode.removeChild(tip); }
       }, 1800);
       if (App.sound && App.sound.pluck) { App.sound.pluck(1.0 + Math.min(n, 5) * 0.08); }
+      if (App.motivate && App.motivate.streak) { App.motivate.streak(n, 'intro'); }
     }
 
     function juiceIntroMiss(el) {
