@@ -111,10 +111,11 @@
   function brandNode() {
     var brand = App.el('a', 'top-brand');
     brand.href = '#/home';
-    var img = App.el('img', 'brand-glyph');
-    img.alt = ''; img.setAttribute('aria-hidden', 'true');
-    img.src = App.brandGlyphURI || '';
-    brand.appendChild(img);
+    /* 朱砂印：一枚刻在骨上的方印，边角有刻崩的缺口 */
+    var seal = App.el('span', 'brand-seal');
+    seal.setAttribute('aria-hidden', 'true');
+    seal.appendChild(App.el('span', 'brand-seal-ch', '字'));
+    brand.appendChild(seal);
     var art = App.el('span', 'brand-art');
     art.setAttribute('aria-hidden', 'true');
     ['字', '有', '骨', '气'].forEach(function (ch) { art.appendChild(App.el('span', 'ch', ch)); });
