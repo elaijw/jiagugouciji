@@ -46,8 +46,11 @@
   function load() {
     var s = App.store.get(KEY, null);
     if (!s || typeof s !== 'object') { s = {}; }
+    /* 两本账：累计 earned 决定开卜骨；余额 qi 可花（买配饰）。
+       迁移：老存档没有 earned 时按余额补齐，骨片不回退。 */
     var out = {
       qi: Number(s.qi) || 0,
+      earned: Number(s.earned != null ? s.earned : s.qi) || 0,
       bones: Math.min(Number(s.bones) || 0, BONES.length),
       day: s.day || '',
       seenAuth: !!s.seenAuth
@@ -55,7 +58,7 @@
     /* 自愈：契已经够、骨片却没开（手改存档 / 版本升级都会撞上），
        静默补齐。不然总览里会出现"还差 -120 契"这种鬼话。 */
     var fixed = false;
-    while (out.bones < BONES.length && out.qi >= BONES[out.bones].at) {
+    while (out.bones < BONES.length && out.earned >= BONES[out.bones].at) {
       out.bones++; fixed = true;
     }
     if (fixed) { App.store.set(KEY, out); }
@@ -106,9 +109,10 @@
 
     gain *= mult;
     s.qi += gain;
+    s.earned = (s.earned || 0) + gain;
 
     var opened = [];
-    while (s.bones < BONES.length && s.qi >= BONES[s.bones].at) {
+    while (s.bones < BONES.length && s.earned >= BONES[s.bones].at) {
       opened.push(BONES[s.bones]);
       s.bones++;
     }
@@ -361,7 +365,9 @@
       if (now) {
         s.qi = now.learned * RATE.char + now.obj * RATE.obj +
                now.boss * RATE.boss + now.perfect * RATE.perfect;
-        while (s.bones < BONES.length && s.qi >= BONES[s.bones].at) { s.bones++; }
+        /* 首次折算只补余额，别把累计 earned 压低（配饰花掉的钱不该被"找回"） */
+        s.earned = Math.max(Number(s.earned) || 0, s.qi);
+        while (s.bones < BONES.length && s.earned >= BONES[s.bones].at) { s.bones++; }
       }
       s.seenAuth = true;
       save(s);
@@ -375,14 +381,26 @@
     /* 调试用：直接加契，验界面 */
     grant: function (n) {
       var s = load(); s.qi += Number(n) || 0;
+      s.earned = (s.earned || 0) + (Number(n) || 0);
       var opened = [];
-      while (s.bones < BONES.length && s.qi >= BONES[s.bones].at) {
+      while (s.bones < BONES.length && s.earned >= BONES[s.bones].at) {
         opened.push(BONES[s.bones]); s.bones++;
       }
       save(s);
       uiQueue.push({ gain: Number(n) || 0, mult: 1, chars: 0, opened: opened });
       flush();
       return s.qi;
+    },
+    /* 花契：只扣余额，不动 earned */
+    spend: function (n) {
+      var cost = Number(n) || 0;
+      if (cost <= 0) { return true; }
+      var st = load();
+      if (st.qi < cost) { return false; }
+      st.qi -= cost;
+      save(st);
+      mountChip();
+      return true;
     },
     reset: function () { App.store.del(KEY); mountChip(); }
   };

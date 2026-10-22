@@ -1,0 +1,54 @@
+/* ============================================================
+   charms.css —— 龟宝配饰（首页挂饰 + 档案页商店）
+   视觉只用骨白/朱砂/铜：配饰是"记事的结与坠"，不是装备。
+   ============================================================ */
+
+/* ---------- 首页：已佩戴的配饰 ---------- */
+.gb-charms {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin-top: 10px;
+}
+.gb-charms-k { font-size: 11px; letter-spacing: .12em; color: var(--ink-2, #6b6153); }
+.gb-charm {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px 3px 4px;
+  border: 1px solid rgba(120, 96, 66, .28);
+  border-radius: 999px;
+  background: rgba(255, 252, 244, .7);
+  font-size: 12px;
+  color: var(--ink, #29231e);
+}
+.gb-charm-glyph {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, #b8503a, #8f3324);
+  color: #fff3e2; font-size: 12px; line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 190, .5), 0 1px 2px rgba(60, 20, 10, .25);
+}
+
+/* ---------- 档案页：装扮格 ---------- */
+.ar-charms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.ar-charm {
+  padding: 12px;
+  border: 1px solid var(--edge, rgba(120, 96, 66, .22));
+  border-radius: 12px;
+  background: rgba(255, 253, 246, .55);
+  display: grid; gap: 5px;
+  opacity: .78;
+}
+.ar-charm.owned { opacity: 1; }
+.ar-charm.on { border-color: var(--cinnabar, #a63e2f); }
+.ar-charm-glyph {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, #b8503a, #8f3324);
+  color: #fff3e2; font-size: 15px;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 190, .5), 0 1px 3px rgba(60, 20, 10, .25);
+}
+.ar-charm b { font-size: 14px; }
+.ar-charm-note { font-size: 12px; line-height: 1.6; color: var(--ink-2, #6b6153); }
+.ar-charm-btn { justify-self: start; margin-top: 2px; }

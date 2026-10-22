@@ -421,6 +421,25 @@
     return box;
   }
 
+
+  /* 龟宝配饰条：只显示已佩戴的，没有就整块不出现 */
+  function charmsStrip() {
+    if (!App.charms) { return null; }
+    var items = [];
+    try { items = App.charms.equippedItems(); } catch (e) { items = []; }
+    if (!items.length) { return null; }
+    var box = App.el('div', 'gb-charms');
+    box.appendChild(App.el('span', 'gb-charms-k', '龟宝的配饰'));
+    items.forEach(function (it) {
+      var chip = App.el('span', 'gb-charm', '');
+      chip.appendChild(App.el('span', 'gb-charm-glyph', it.glyph));
+      chip.appendChild(App.el('span', 'gb-charm-name', it.name));
+      chip.title = it.note;
+      box.appendChild(chip);
+    });
+    return box;
+  }
+
   function sceneHome() {
     var wrap = App.el('div', 'scene home-scene');
     var st = App.atlas.stats();
@@ -504,6 +523,8 @@
     guide.appendChild(guideCopy);
     guide.appendChild(App.el('span', 'hero-guide-arrow', '→'));
     hb.appendChild(guide);
+    var cs = charmsStrip();
+    if (cs) { hb.appendChild(cs); }
     hin.appendChild(hb);
 
     hero.appendChild(hin);
@@ -1163,6 +1184,42 @@
       sec2.appendChild(agrid);
     }
     wrap.appendChild(sec2);
+
+    /* 龟宝装扮：契的消耗口 */
+    var sec4 = App.el('section', 'ar-sec');
+    var h4 = App.el('div', 'ar-sec-head');
+    h4.appendChild(App.el('h2', 'sec-h', '龟宝装扮'));
+    h4.appendChild(App.el('span', 'ar-sec-note', kao ? ('余额 ' + kao.qi + ' 契') : ''));
+    sec4.appendChild(h4);
+    var cwrap = App.el('div', 'ar-charms');
+    (App.charms ? App.charms.ITEMS : []).forEach(function (it) {
+      var own = App.charms.owned().indexOf(it.id) >= 0;
+      var on = App.charms.equipped().indexOf(it.id) >= 0;
+      var cell = App.el('div', 'ar-charm' + (own ? ' owned' : '') + (on ? ' on' : ''));
+      cell.appendChild(App.el('span', 'ar-charm-glyph', it.glyph));
+      cell.appendChild(App.el('b', null, it.name));
+      cell.appendChild(App.el('span', 'ar-charm-note', it.note));
+      var act = App.el('button', 'btn sm ar-charm-btn');
+      act.type = 'button';
+      if (!own) {
+        act.textContent = it.cost + ' 契';
+        act.disabled = !kao || kao.qi < it.cost;
+        act.onclick = function () {
+          var r = App.charms.buy(it.id);
+          if (!r.ok && App.toast) {
+            App.toast(r.why === 'poor' ? '契不够，还差 ' + (r.need || '') + ' 契' : '已经拥有了');
+          }
+          if (App.router && App.router.render) { App.router.render(); }
+        };
+      } else {
+        act.textContent = on ? '已佩戴' : '戴上';
+        act.onclick = function () { App.charms.toggleEquip(it.id); if (App.router && App.router.render) { App.router.render(); } };
+      }
+      cell.appendChild(act);
+      cwrap.appendChild(cell);
+    });
+    sec4.appendChild(cwrap);
+    wrap.appendChild(sec4);
 
     /* 印记：已开的卜骨 */
     var sec3 = App.el('section', 'ar-sec');
