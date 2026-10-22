@@ -5,7 +5,7 @@
 | # | 任务 | 归属 | 交付物 | 状态 |
 |---|---|---|---|---|
 | 0 | 视觉方向定稿（A 为主 / B 穿插） | WorkBuddy | `01-design/direction.md` | **通过**（见 04-verify/report-20261022.md） |
-| 1 | 设计 token 定稿 | WorkBuddy | `01-design/tokens-20261022.css` | **有条件通过**：交付合格，落地未做（去 data-theme 块 + 清 221 处硬编码） |
+| 1 | 设计 token 定稿 | WorkBuddy | `01-design/tokens-20261022.css` + `landing-report-20261022.md` | **待验收**：已在新基线落地（30 处，`_merge_tokens --check` 22 项 PASS，对比度 0 处不足 3） |
 | 2 | 按钮/卡片/弹层统一 | WorkBuddy | `css/ui.css` 改动 + 说明 | 待做 |
 | 3 | 首页纵深改造 | WorkBuddy | `js/core/shell.js`（`sceneHome` 结构，已获授权）+ `01-design/home-structure-*.md` | 待做 |
 | 4 | 三关展览式入口 | WorkBuddy | `css/modes.css` + `01-design/` 说明 | 待做 |
@@ -26,6 +26,7 @@
 | 日期 | 任务 | 原因 | 谁改 |
 |---|---|---|---|
 | 2026-10-22 | WB-2 令牌 | 未落地：theme.css 未替换、两处 data-theme 覆盖块仍在、field-notebook 221 处硬编码 | WorkBuddy |
+| ↳ 处理 | WB-2 令牌 | **已结**：合并后重落（`_merge_tokens.py`）。field-notebook 整文件已下线（硬编码随之消失）；`theme.css` 的 data-theme 块已删，只剩 1 个 `:root`；色板 32 项 = tokens。详见 `01-design/landing-report-20261022.md` | WorkBuddy |
 
 ## 协作约定（避免互相覆盖）
 
