@@ -167,7 +167,7 @@
       { title: '先看构件，再看今字', body: '拼字时留意部件的形状与关系。不同字形有变化，现代字只是对照入口。' },
       { title: '什么是“组合示意”？', body: '本课用字形数据中已收录的真构件做拼合练习；合体字的拼合图不冒充原甲骨上的完整刻形。' }
     ];
-    var state = { deck: [], index: 0, selected: [], choices: [], choiceIndex: -1, hint: false };
+    var state = { deck: [], index: 0, selected: [], choices: [], choiceIndex: -1, hint: false, divine: {} };
     /* 题面是否同时给甲骨字形；想退回"只给今字"就改成 false */
     var SHOW_OB_FACE = true;
 
@@ -270,6 +270,75 @@
       return box;
     }
 
+
+    /* ---------- 卜问兆纹 ----------
+       用真实卜辞数据（App.data.DIVINE）问一句，再用一道"卜"字形的兆纹回应。
+       兆纹只做表现；信息部分是一条真提示：指出一个还没选的正确构件。
+       不参与计分、不改变答案判定。 */
+    function divineFor(need) {
+      var i, k, g;
+      for (i = 0; i < DIVINE.length; i++) {
+        g = String(DIVINE[i].gain || '').split(/\s+/);
+        for (k = 0; k < need.length; k++) {
+          if (g.indexOf(need[k]) >= 0) { return DIVINE[i]; }
+        }
+      }
+      return DIVINE.length ? DIVINE[0] : null;
+    }
+
+    function openDivine(card, need, host) {
+      var d = divineFor(need);
+      var box = document.querySelector('.bb-divine');
+      if (box && box.parentNode) { box.parentNode.removeChild(box); }
+
+      box = U.el('section', 'bb-divine');
+      var head = U.el('div', 'bb-divine-head');
+      head.appendChild(U.el('span', 'bb-divine-kicker', '灼骨问兆'));
+      head.appendChild(U.el('b', null, d ? d.q : '贞：其雨？'));
+      box.appendChild(head);
+
+      /* 兆纹：一道竖裂 + 两处横枝，用 dash 生长出来 */
+      var wrap = U.el('div', 'bb-divine-bone');
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 240 96');
+      svg.setAttribute('class', 'bb-divine-svg');
+      var paths = [
+        'M120 4 L120 92',
+        'M120 28 L62 54 L42 78',
+        'M120 60 L176 40 L198 22'
+      ];
+      paths.forEach(function (dd, i) {
+        var pa = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pa.setAttribute('d', dd);
+        pa.setAttribute('class', 'bb-divine-crack');
+        pa.style.animationDelay = (0.18 * i) + 's';
+        svg.appendChild(pa);
+      });
+      wrap.appendChild(svg);
+      box.appendChild(wrap);
+
+      var missing = need.filter(function (n) { return state.selected.indexOf(n) < 0; })[0];
+      var res = U.el('div', 'bb-divine-res');
+      if (missing) {
+        res.appendChild(U.el('b', null, '兆曰：' + (d ? d.ok : '吉')));
+        res.appendChild(U.el('span', null,
+          '裂纹在这一支分得开，主「' + missing + '」。把它加进构件槽试试。'));
+        if (state.selected.length < need.length) { state.selected.push(missing); }
+      } else {
+        res.appendChild(U.el('b', null, '兆曰：' + (d ? d.ok : '吉')));
+        res.appendChild(U.el('span', null, '构件已经够了，直接拼好提交。'));
+      }
+      box.appendChild(res);
+
+      var close = U.el('button', 'btn sm bb-divine-close', '收起兆纹');
+      close.onclick = function () { if (box.parentNode) { box.parentNode.removeChild(box); } };
+      box.appendChild(close);
+
+      host.appendChild(box);
+      if (App.sound && App.sound.pluck) { App.sound.pluck(1.35); }
+      box.scrollIntoView && box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
     function renderQuestion(message, scrollTop) {
       clear();
       var card = state.deck[state.index];
@@ -365,6 +434,19 @@
         renderQuestion({ kind: 'note', text: '龟宝提示：其中一个构件是「' + name + '」，可以把它加进构件槽。' });
       };
       actions.appendChild(hint);
+
+      /* 卜问兆纹：每道题可问一次，问完给一条真提示（不参与计分） */
+      var divBtn = U.el('button', 'btn bb-divine-btn', '卜问兆纹');
+      if (state.divine[state.index]) { divBtn.disabled = true; divBtn.textContent = '卜已问过'; }
+      divBtn.onclick = function () {
+        if (state.divine[state.index]) { return; }
+        state.divine[state.index] = true;
+        openDivine(card, need, lesson);
+        divBtn.disabled = true;
+        divBtn.textContent = '卜已问过';
+      };
+      actions.appendChild(divBtn);
+
       var submitBtn = U.el('button', 'btn primary', '拼好，听龟宝讲解');
       submitBtn.onclick = function () {
         var ok = state.selected.length === need.length && need.every(function (n) {
