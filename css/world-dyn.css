@@ -1,60 +1,69 @@
 /* ============================================================
-   world-dyn.css —— 第二关大地图：光影层
+   world-dyn.css —— 第二关大地图（重绘版）的动画
    ------------------------------------------------------------
-   画面本身不动，动的是光和影：
-     .wm-shadow  四团云影扫过（乘色、柔边）
-     .wm-glint   河面光斑一段段亮过去
-     .wm-smoke   炊烟
-     .wm-birds   鸟群
-     .wm-mist    雾带
-   全部只动 transform / opacity，无重排；无图像副本 → 无接缝。
+   场景本体在 js/modes/wangyi-world.js（全矢量 SVG）。
+   这里只负责让它动：云漂、水流、波光、炊烟、鸟飞、雾移、
+   树群轻摆、日轮呼吸。全部 transform / stroke-dashoffset / opacity。
    ============================================================ */
 
 .wy2-board-art { overflow: hidden; }
 
+/* 场景层：铺满图片区域，在据点与雾之下；随指针轻微视差 */
 .wy2-paint {
   position: absolute; inset: 0; z-index: 0;
   pointer-events: none;
   transform: translate3d(calc(var(--wx, 0) * 5px), calc(var(--wy, 0) * 4px), 0);
   transition: transform .25s ease-out;
 }
-.wm-fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.wm-svg { display: block; width: 100%; height: 100%; }
 
-/* ---------- 云影：慢慢扫过 ---------- */
-.wm-shadow-1 { animation: wm-shift 52s ease-in-out infinite alternate; }
-.wm-shadow-2 { animation: wm-shift 64s ease-in-out infinite alternate-reverse; }
-.wm-shadow-3 { animation: wm-shift 58s ease-in-out infinite alternate; animation-delay: -26s; }
-.wm-shadow-4 { animation: wm-shift 72s ease-in-out infinite alternate-reverse; animation-delay: -40s; }
-@keyframes wm-shift {
-  from { transform: translateX(-180px) translateY(-20px); }
-  to   { transform: translateX(200px)  translateY(24px); }
+/* ---------- 日轮呼吸 ---------- */
+.wm-sun { animation: wm-sun 11s ease-in-out infinite; transform-origin: 1350px 150px; }
+@keyframes wm-sun {
+  0%, 100% { opacity: .85; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.05); }
 }
 
-/* ---------- 扫光：一条宽高光横扫 ---------- */
-.wm-sweep { animation: wm-sweep 26s linear infinite; }
-@keyframes wm-sweep {
-  0%   { transform: translateX(-900px); }
-  100% { transform: translateX(3400px); }
+/* ---------- 云漂 ---------- */
+.wm-cloud-1 { animation: wm-drift 58s ease-in-out infinite alternate; }
+.wm-cloud-2 { animation: wm-drift 78s ease-in-out infinite alternate-reverse; }
+.wm-cloud-3 { animation: wm-drift 46s ease-in-out infinite alternate; animation-delay: -9s; }
+@keyframes wm-drift {
+  from { transform: translateX(-80px); }
+  to   { transform: translateX(90px); }
 }
 
-/* ---------- 河面光斑 ---------- */
-.wm-glint ellipse { animation-name: wm-glint; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+/* ---------- 水流：两条流线反向错开 ---------- */
+.wm-flow {
+  stroke-dasharray: 64 96;
+  animation: wm-flow 7s linear infinite;
+}
+.wm-flow-2 {
+  stroke-dasharray: 32 140;
+  animation: wm-flow 5s linear infinite reverse;
+}
+@keyframes wm-flow {
+  from { stroke-dashoffset: 320; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* ---------- 河面波光 ---------- */
+.wm-glint { animation-name: wm-glint; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
 @keyframes wm-glint {
-  0%   { opacity: 0;    transform: translateX(-30px) scaleX(.7); }
-  25%  { opacity: .55; }
-  55%  { opacity: .8;   transform: translateX(10px)  scaleX(1); }
-  100% { opacity: 0;    transform: translateX(46px)  scaleX(1.15); }
+  0%   { opacity: 0;   transform: translateX(-26px) scaleX(.6); }
+  30%  { opacity: .55; }
+  60%  { opacity: .8;  transform: translateX(8px) scaleX(1); }
+  100% { opacity: 0;   transform: translateX(42px) scaleX(1.12); }
 }
 
 /* ---------- 炊烟 ---------- */
-.wm-smoke circle { animation: wm-smoke 6.2s ease-out infinite; transform-origin: center; }
-.wm-smoke-b circle { animation-duration: 7.6s; animation-delay: -2s; }
-.wm-smoke-c circle { animation-duration: 5.4s; animation-delay: -3.4s; }
+.wm-smoke circle { animation: wm-smoke 6.4s ease-out infinite; transform-origin: center; }
+.wm-smoke:nth-of-type(3n+2) circle { animation-duration: 7.8s; animation-delay: -2.1s; }
 @keyframes wm-smoke {
-  0%   { transform: translateY(0) scale(.55); opacity: 0; }
+  0%   { transform: translateY(0) scale(.5); opacity: 0; }
   18%  { opacity: .45; }
-  72%  { transform: translateY(-42px) scale(1.6); opacity: .18; }
-  100% { transform: translateY(-70px) scale(2.2); opacity: 0; }
+  70%  { transform: translateY(-44px) scale(1.6); opacity: .18; }
+  100% { transform: translateY(-74px) scale(2.3); opacity: 0; }
 }
 
 /* ---------- 鸟群 ---------- */
@@ -62,7 +71,7 @@
 .wm-birds-2 { animation-duration: 60s; animation-delay: -13s; }
 @keyframes wm-fly {
   from { transform: translate(-60px, 0); }
-  to   { transform: translate(80px, -20px); }
+  to   { transform: translate(84px, -20px); }
 }
 .wm-birds path { animation: wm-wing 1.9s ease-in-out infinite; }
 @keyframes wm-wing { 0%, 100% { opacity: .5; } 50% { opacity: .2; } }
@@ -75,7 +84,16 @@
   to   { transform: translateX(80px); }
 }
 
-/* ---------- 区域光晕 ---------- */
+/* ---------- 树群轻摆：绕各自根部，几乎看不出来但有"活" ---------- */
+.wm-forest-a { animation: wm-sway 7.5s ease-in-out infinite; transform-origin: 300px 1150px; }
+.wm-forest-b { animation: wm-sway 9s ease-in-out infinite reverse; transform-origin: 2050px 1310px; }
+.wm-forest-c { animation: wm-sway 8.2s ease-in-out infinite; animation-delay: -2s; transform-origin: 1750px 720px; }
+@keyframes wm-sway {
+  from { transform: rotate(-.5deg); }
+  to   { transform: rotate(.5deg); }
+}
+
+/* ---------- 区域光晕呼吸 ---------- */
 .wy2-glow.on { animation: wy2-glow-breathe 7s ease-in-out infinite; }
 @keyframes wy2-glow-breathe {
   0%, 100% { opacity: .72; }
@@ -83,8 +101,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wm-shadow, .wm-glint ellipse, .wm-smoke circle, .wm-birds, .wm-birds path,
-  .wm-mist, .wy2-glow.on { animation: none !important; }
+  .wm-sun, .wm-cloud, .wm-flow, .wm-glint, .wm-smoke circle,
+  .wm-birds, .wm-birds path, .wm-mist, .wm-forest-a, .wm-forest-b,
+  .wm-forest-c, .wy2-glow.on { animation: none !important; }
   .wy2-paint { transform: none; transition: none; }
-  .wm-glint ellipse { opacity: .35; }
+  .wm-flow { stroke-dashoffset: 0; }
+  .wm-glint { opacity: .35; }
 }

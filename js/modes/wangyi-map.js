@@ -239,41 +239,18 @@
          所以图片外侧的 letterbox 不会让据点漂移。 */
       var board = App.el('div', 'wy2-board');
       var art = App.el('div', 'wy2-board-art');
-      /* 重绘版：内联 SVG 场景（会动）；?map=paint 可退回原来的静态插画 */
-      /* 底图照旧用原画；上面叠一层"按区域裁切的同一张画"来做动效。
-         ?map=paint 只留静态底图（关掉动态层）。 */
-      art.style.backgroundImage = 'url("' + (MAP.worldImage || MAP.bgImage) + '")';
+      /* 重绘版：整张地图就是 SVG 场景（会动），不再垫 JPG 底图。?map=paint 退回静态插画。 */
       var dynamicOn = !/[?&]map=paint\b/.test(location.search) && !!App.worldMap;
       if (dynamicOn) {
         var paint = App.el('div', 'wy2-paint');
         paint.innerHTML = App.worldMap.html();
         art.appendChild(paint);
+      } else {
+        art.style.backgroundImage = 'url("' + (MAP.worldImage || MAP.bgImage) + '")';
       }
       art.setAttribute('role', 'img');
       art.setAttribute('aria-label',
         '殷商王邑大地图，其上标有五个可进入的主题区域：天象、山川、草木、禽兽虫鱼、人居器物');
-      /* 动态层：云影 / 水光 / 浮尘，全部在图片之上、据点之下 */
-      var sky = App.el('div', 'wy2-sky');
-      sky.setAttribute('aria-hidden', 'true');
-      art.appendChild(sky);
-
-      var river = App.el('div', 'wy2-river');
-      river.setAttribute('aria-hidden', 'true');
-      art.appendChild(river);
-
-      var dust = App.el('div', 'wy2-dust');
-      dust.setAttribute('aria-hidden', 'true');
-      for (var mi = 0; mi < 12; mi++) {
-        var mote = App.el('span', 'wy2-mote');
-        mote.style.left = (8 + Math.random() * 84) + '%';
-        mote.style.top = (14 + Math.random() * 74) + '%';
-        mote.style.animationDuration = (9 + Math.random() * 8).toFixed(1) + 's';
-        mote.style.animationDelay = (-Math.random() * 9).toFixed(1) + 's';
-        mote.style.opacity = '0';
-        dust.appendChild(mote);
-      }
-      art.appendChild(dust);
-
       /* 指针视差：只写两个 CSS 变量，交给 transform；不做逐帧布局 */
       var reduced = false;
       try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
