@@ -182,7 +182,10 @@ html.juice-frozen #juice-layer * {
 /* ---------- 拼对：把组出的甲骨形"刻"一遍（P1） ---------- */
 .reveal.juice-engrave svg path,
 .reveal.juice-engrave svg polyline,
-.reveal.juice-engrave svg line {
+.reveal.juice-engrave svg line,
+.bb-teach-panel.juice-engrave svg path,
+.bb-teach-panel.juice-engrave svg polyline,
+.bb-teach-panel.juice-engrave svg line {
   stroke-dasharray: 999;
   animation: juice-engrave 720ms ease-out both;
 }

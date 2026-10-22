@@ -371,16 +371,39 @@
         });
         if (!ok) {
           renderQuestion({ kind: 'no', text: '还差一点。你可以调整构件，或请龟宝给一条线索。' });
+          juiceIntroMiss(lesson);
           return;
         }
         markLearned(card.g);
         renderTeach(card, need);
+        juiceIntroCarve();
       };
       actions.appendChild(submitBtn);
       lesson.appendChild(verdict);
       lesson.appendChild(actions);
       root.appendChild(lesson);
       if (scrollTop) window.scrollTo(0, 0);
+    }
+
+
+    /* ---------- DSH：入门课答错一道细裂纹 / 答对刻一遍（不改判定与计分） ---------- */
+    function juiceIntroMiss(el) {
+      if (!App.juice) { return; }
+      App.juice.crack(el || root, 64, 'bone');
+      if (App.sound && App.sound.pluck) { App.sound.pluck(0.3); }
+    }
+    function juiceIntroCarve() {
+      if (!App.juice) { return; }
+      var svg = root.querySelector('.bb-teach-panel svg') || document.querySelector('.bb-teach-panel svg');
+      if (svg && App.oracle && App.oracle.carve) {
+        try { App.oracle.carve(svg, 0); } catch (e) {}
+      }
+      if (App.sound && App.sound.pluck) { App.sound.pluck(0.9); }
+      var panel = document.querySelector('.bb-teach-panel');
+      if (panel) {
+        panel.classList.add('juice-engrave');
+        setTimeout(function () { panel.classList.remove('juice-engrave'); }, 900);
+      }
     }
 
     function renderTeach(card, need) {
