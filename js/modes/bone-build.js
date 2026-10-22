@@ -437,6 +437,47 @@
         composition.appendChild(part);
       });
       content.appendChild(composition);
+
+      /* ① 构件逐个说明：类别来自数据（pieces[].c），不编释义 */
+      var CAT = { natural: '自然', body: '人身', life: '生灵', object: '器物' };
+      var partsBox = U.el('div', 'bb-teach-parts');
+      partsBox.appendChild(U.el('span', 'bb-compose-label', '这两块各是什么'));
+      var plist = U.el('ul', 'bb-parts-list');
+      need.forEach(function (name) {
+        var pcs = pieces.filter(function (p) { return p.n === name; })[0] || {};
+        var li = U.el('li', 'bb-part-row');
+        var icon = U.el('span', 'bb-part-glyph');
+        var g = glyph(name, 'bb-part-svg');
+        if (g) { icon.appendChild(g); } else { icon.textContent = name; }
+        li.appendChild(icon);
+        var txt = U.el('span', 'bb-part-txt');
+        txt.appendChild(U.el('b', null, name));
+        txt.appendChild(U.el('span', null,
+          (CAT[pcs.c] ? '· ' + CAT[pcs.c] + '类构件' : '· 构件')));
+        li.appendChild(txt);
+        plist.appendChild(li);
+      });
+      partsBox.appendChild(plist);
+      content.appendChild(partsBox);
+
+      /* ② 材料里的例子：字卡自带卜辞例句与释读口径，原样展示 */
+      if (card.src || card.lv) {
+        var ev = U.el('aside', 'bb-teach-evidence');
+        ev.appendChild(U.el('b', null, '材料里的例子'));
+        if (card.src) {
+          ev.appendChild(U.el('p', 'bb-evidence-src', '「' + card.src + '」'));
+        }
+        if (card.lv) {
+          ev.appendChild(U.el('span', 'bb-evidence-lv',
+            '释读口径：' + card.lv + '（本课按此讲；学术界可能另有讨论）'));
+        }
+        content.appendChild(ev);
+      }
+
+      /* ③ 龟宝收个尾：一句口语化的连接，不改事实 */
+      var _gbEnd = (App.copy && App.copy.pick) ? App.copy.pick('partner', state.index + 2) : '';
+      if (_gbEnd) { content.appendChild(U.el('p', 'bb-teach-guibao-line', _gbEnd)); }
+
       var note = U.el('aside', 'bb-teach-fact');
       note.appendChild(U.el('b', null, fact.title));
       note.appendChild(U.el('p', null, fact.body));

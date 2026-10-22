@@ -328,3 +328,24 @@ html.juice-frozen #juice-layer * {
 .scene.wy2-zone-plant { --wy2-tone: rgba(168, 196, 154, .09); }
 .scene.wy2-zone-beast { --wy2-tone: rgba(201, 162, 122, .10); }
 .scene.wy2-zone-life  { --wy2-tone: rgba(185, 160, 122, .09); }
+
+/* ---------- 第一关讲解：构件表 / 例句 / 口径 ---------- */
+.bb-teach-parts { margin: 14px 0 6px; }
+.bb-parts-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.bb-part-row { display: flex; align-items: center; gap: 10px; }
+.bb-part-glyph { width: 34px; height: 34px; display: grid; place-items: center;
+  border: 1px solid var(--edge, rgba(120,96,66,.35)); border-radius: 6px; }
+.bb-part-svg { width: 26px; height: 26px; }
+.bb-part-txt { display: flex; align-items: baseline; gap: 6px; font-size: 13.5px;
+  color: var(--ink-2, #6b6153); }
+.bb-part-txt b { color: var(--ink, #29231e); font-size: 14px; }
+
+.bb-teach-evidence { margin: 14px 0 4px; padding: 10px 12px;
+  border-left: 2px solid var(--bronze, #8c8066); background: rgba(140, 128, 102, .06); }
+.bb-teach-evidence b { font-size: 12.5px; letter-spacing: .06em; color: var(--ink-2, #6b6153); }
+.bb-evidence-src { margin: 6px 0 4px; font-size: 14px; color: var(--ink, #29231e); }
+.bb-evidence-lv { font-size: 12px; color: var(--ink-2, #6b6153); opacity: .85; }
+
+.bb-teach-guibao-line { margin: 12px 0 0; padding-left: 10px;
+  border-left: 2px solid var(--cinnabar, #a63e2f);
+  font-size: 13px; color: var(--ink-2, #6b6153); }
