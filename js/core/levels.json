@@ -7,7 +7,7 @@
   "subtitle": "点击实物，认出甲骨文",
   "intro": "这是一座三千年前的王邑。五个区域可以任意顺序进入，每认得一个实物，那一处就亮起来；一个区域学完，大地图上对应的那一片就点亮。",
   "viewBox": "0 0 2624 1472",
-  "bgImage": "assets/level2-world.jpg",
+  "bgImage": "assets/level2-world.jpg?v=20261022-2",
   "bgCredit": "大地图与五张分区插画：本项目原创学习示意图（Agnes AI 生成），非考古复原，无第三方水印。",
   "hint": "点大地图上的五个区域进入小地图；点实物认甲骨文。",
   "dimFilter": "grayscale(1) brightness(.72) contrast(.92)",
@@ -50,7 +50,7 @@
       "form": "象火之形：一簇上腾的火焰，两旁有火星。"
      }
     ],
-    "art": "assets/level2-01-sky.jpg",
+    "art": "assets/level2-01-sky.jpg?v=20261022-1",
     "world": {
      "x": 1350,
      "y": 150,
@@ -135,7 +135,7 @@
       "form": "象田之形：一块方田，中间纵横的田埂划出阡陌。"
      }
     ],
-    "art": "assets/level2-02-land.jpg",
+    "art": "assets/level2-02-land.jpg?v=20261022-1",
     "world": {
      "x": 1800,
      "y": 480,
@@ -196,7 +196,7 @@
       "form": "象草之形：一株刚出土的草，只有两片叶。"
      }
     ],
-    "art": "assets/level2-03-plant.jpg",
+    "art": "assets/level2-03-plant.jpg?v=20261022-1",
     "world": {
      "x": 300,
      "y": 1150,
@@ -281,7 +281,7 @@
       "form": "象鸟之形：短尾的鸟，「隹」与「鸟」本是一类。"
      }
     ],
-    "art": "assets/level2-04-beast.jpg",
+    "art": "assets/level2-04-beast.jpg?v=20261022-1",
     "world": {
      "x": 2200,
      "y": 1160,
@@ -558,7 +558,7 @@
       "form": "从「口」从「止」：连着小腿的整只脚。"
      }
     ],
-    "art": "assets/level2-05-life.jpg",
+    "art": "assets/level2-05-life.jpg?v=20261022-1",
     "world": {
      "x": 1400,
      "y": 1250,
@@ -720,7 +720,7 @@
    ]
   },
   "_version": "7.0",
-  "worldImage": "assets/level2-world.jpg",
+  "worldImage": "assets/level2-world.jpg?v=20261022-2",
   "artSpace": "2624×1472",
   "worldPins": {
    "sky": {

@@ -406,7 +406,7 @@
         transparent 20%);
   }
   .hero-in { z-index: 2; }
-  .hero .stat-band, .hero .hero-cue, .hero .hero-credit, .hero-relic { z-index: 3; }
+  .hero .stat-band, .hero .hero-cue, .hero .hero-credit { z-index: 3; }
 
   /* 骨面皮肤（?carved=1）整页就是那片骨，再盖一张纸就自相矛盾了 */
   body.carved .hero::before { display: none; }

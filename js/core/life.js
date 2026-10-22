@@ -44,29 +44,10 @@
     } catch (e) { /* 忽略 */ }
   }
 
-  /* ---------- 2. 首屏：字形按笔顺刻一遍 ---------- */
-  var carvedOnce = false;
-
-  function carveHero(root) {
-    if (reduce || carvedOnce) { return; }
-    var svg = root.querySelector('.hero-rune');
-    if (!svg || !svg.animate) { return; }
-    carvedOnce = true;
-
-    var paths = svg.querySelectorAll('path');
-    for (var i = 0; i < paths.length; i++) {
-      var p = paths[i], L = 0;
-      try { L = p.getTotalLength(); } catch (e) { L = 0; }
-      if (!L) { continue; }
-      try {
-        p.animate(
-          [{ strokeDasharray: L + ' ' + L, strokeDashoffset: L },
-           { strokeDasharray: L + ' ' + L, strokeDashoffset: 0 }],
-          { duration: 620, delay: 180 + i * 55, easing: EASE, fill: 'none' }
-        );
-      } catch (e) { /* 忽略 */ }
-    }
-  }
+  /* ---------- 2. （已移除）首屏印章字形的「按笔顺刻一遍」 ----------
+     原来这里有 carveHero()，给右下角那枚「虎」印章做刻字动画，
+     目标节点 .hero-rune 已随印章一并删除（2026-10-22），函数与调用同时撤掉。
+     段号保留，避免后面引用注释编号对不上。 */
 
   /* ---------- 3. 数字滚动 ---------- */
   function countUp(root) {
@@ -165,7 +146,6 @@
 
     pageIn(root);
     if (name === 'home') {
-      carveHero(root);
       countUp(root);
       bindGlow(root);
     }
