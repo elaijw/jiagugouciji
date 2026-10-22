@@ -243,6 +243,51 @@
       art.setAttribute('role', 'img');
       art.setAttribute('aria-label',
         '殷商王邑大地图，其上标有五个可进入的主题区域：天象、山川、草木、禽兽虫鱼、人居器物');
+      /* 动态层：云影 / 水光 / 浮尘，全部在图片之上、据点之下 */
+      var sky = App.el('div', 'wy2-sky');
+      sky.setAttribute('aria-hidden', 'true');
+      art.appendChild(sky);
+
+      var river = App.el('div', 'wy2-river');
+      river.setAttribute('aria-hidden', 'true');
+      art.appendChild(river);
+
+      var dust = App.el('div', 'wy2-dust');
+      dust.setAttribute('aria-hidden', 'true');
+      for (var mi = 0; mi < 12; mi++) {
+        var mote = App.el('span', 'wy2-mote');
+        mote.style.left = (8 + Math.random() * 84) + '%';
+        mote.style.top = (14 + Math.random() * 74) + '%';
+        mote.style.animationDuration = (9 + Math.random() * 8).toFixed(1) + 's';
+        mote.style.animationDelay = (-Math.random() * 9).toFixed(1) + 's';
+        mote.style.opacity = '0';
+        dust.appendChild(mote);
+      }
+      art.appendChild(dust);
+
+      /* 指针视差：只写两个 CSS 变量，交给 transform；不做逐帧布局 */
+      var reduced = false;
+      try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+      if (!reduced && window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
+        var raf = 0, nx = 0, ny = 0;
+        art.addEventListener('pointermove', function (ev) {
+          var r = art.getBoundingClientRect();
+          if (!r.width || !r.height) { return; }
+          nx = ((ev.clientX - r.left) / r.width - 0.5) * 2;
+          ny = ((ev.clientY - r.top) / r.height - 0.5) * 2;
+          if (raf) { return; }
+          raf = requestAnimationFrame(function () {
+            raf = 0;
+            art.style.setProperty('--wx', nx.toFixed(3));
+            art.style.setProperty('--wy', ny.toFixed(3));
+          });
+        });
+        art.addEventListener('pointerleave', function () {
+          art.style.setProperty('--wx', '0');
+          art.style.setProperty('--wy', '0');
+        });
+      }
+
       var layer = App.el('div', 'wy2-board-layer');
       art.appendChild(layer);
 

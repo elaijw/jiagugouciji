@@ -1,0 +1,104 @@
+/* ============================================================
+   world-dyn.css —— 第二关大地图的"动起来"
+   ------------------------------------------------------------
+   静态插画的问题：它画的都是会动的东西（云影、河流、尘土），
+   画面却一格不动，读起来就是一页印刷品。
+
+   这里只加三层极轻的动效 + 一点视差，全部用 transform/opacity：
+     .wy2-sky    云影：两层大面积暖灰慢速横移（60s / 90s）
+     .wy2-river  水光：河面一带的柔光呼吸
+     .wy2-dust   浮尘：十几个小点缓慢上飘
+     视差：指针移动时三层各偏 2~8px（--wx / --wy 由 JS 写入）
+   减少动效时：三层静止、视差不启用。
+   ============================================================ */
+
+.wy2-board-art { overflow: hidden; }
+
+/* 三层容器：都不吃点击 */
+.wy2-sky, .wy2-river, .wy2-dust {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---------- 云影 ---------- */
+.wy2-sky::before,
+.wy2-sky::after {
+  content: "";
+  position: absolute;
+  width: 160%;
+  height: 70%;
+  left: -30%;
+  background:
+    radial-gradient(38% 55% at 30% 45%, rgba(96, 78, 56, .16), rgba(96, 78, 56, 0) 70%),
+    radial-gradient(30% 45% at 68% 55%, rgba(84, 68, 48, .13), rgba(84, 68, 48, 0) 72%);
+  mix-blend-mode: multiply;
+  transform: translate3d(calc(var(--wx, 0) * 6px), calc(var(--wy, 0) * 4px), 0);
+  animation: wy2-sky-drift 72s linear infinite;
+}
+.wy2-sky::before { top: -8%; animation-duration: 72s; }
+.wy2-sky::after {
+  top: 34%;
+  opacity: .7;
+  animation-duration: 96s;
+  animation-direction: reverse;
+}
+@keyframes wy2-sky-drift {
+  0%   { transform: translate3d(-4%, 0, 0); }
+  100% { transform: translate3d(4%, 0, 0); }
+}
+
+/* ---------- 水光：河面一带 ---------- */
+.wy2-river::before {
+  content: "";
+  position: absolute;
+  left: 18%; top: 52%;
+  width: 62%; height: 26%;
+  border-radius: 50%;
+  background:
+    radial-gradient(50% 60% at 30% 50%, rgba(255, 252, 238, .30), rgba(255, 252, 238, 0) 70%),
+    radial-gradient(40% 50% at 70% 40%, rgba(226, 236, 232, .26), rgba(226, 236, 232, 0) 72%);
+  mix-blend-mode: screen;
+  filter: blur(6px);
+  animation: wy2-river-glow 9s ease-in-out infinite;
+  transform: translate3d(calc(var(--wx, 0) * 3px), calc(var(--wy, 0) * 2px), 0);
+}
+@keyframes wy2-river-glow {
+  0%, 100% { opacity: .45; transform: translate3d(0, 0, 0) scale(1); }
+  50%      { opacity: .85; transform: translate3d(0, -1%, 0) scale(1.02); }
+}
+
+/* ---------- 浮尘 ---------- */
+.wy2-mote {
+  position: absolute;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 246, 224, .85);
+  box-shadow: 0 0 4px rgba(255, 240, 208, .55);
+  opacity: 0;
+  animation: wy2-mote-rise linear infinite;
+}
+@keyframes wy2-mote-rise {
+  0%   { opacity: 0;   transform: translate3d(0, 8px, 0) scale(.8); }
+  18%  { opacity: .75; }
+  80%  { opacity: .45; }
+  100% { opacity: 0;   transform: translate3d(6px, -34px, 0) scale(1); }
+}
+
+/* 点亮的区域缓慢呼吸（不抢注意力） */
+.wy2-glow.on { animation: wy2-glow-breathe 7s ease-in-out infinite; }
+@keyframes wy2-glow-breathe {
+  0%, 100% { opacity: .72; }
+  50%      { opacity: .92; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wy2-sky::before,
+  .wy2-sky::after,
+  .wy2-river::before,
+  .wy2-mote,
+  .wy2-glow.on { animation: none !important; }
+  .wy2-river::before { opacity: .6; }
+  .wy2-mote { opacity: .35; }
+}
