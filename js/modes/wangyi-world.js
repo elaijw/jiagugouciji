@@ -159,7 +159,7 @@
     return out;
   }
 
-  function html() {
+  function vector() {
     return '' +
 '<svg class="wm-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid slice" role="img" ' +
 'aria-label="殷商王邑大地图：远山、一条大河、农田村舍与树林；北面天象、东面山川、西南草木、东南禽兽、南面人居">' +
@@ -239,5 +239,39 @@
 '</svg>';
   }
 
-  App.worldMap = { html: html, W: W, H: H };
+
+  /* 通用动效层：只做「光和影、鸟与烟、雾」，位置对任意底图都成立。
+     与 AI 新画的底图叠加使用；?map=vector 才是全矢量场景。 */
+  function overlay() {
+    return '' +
+    '<svg class="wm-fx" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' +
+      '<defs>' +
+        '<filter id="wm-soft" x="-30%" y="-30%" width="160%" height="160%">' +
+          '<feGaussianBlur stdDeviation="46"/></filter>' +
+      '</defs>' +
+      '<g filter="url(#wm-soft)" opacity=".18">' +
+        '<ellipse class="wm-shadow wm-shadow-1" cx="500" cy="300" rx="620" ry="230" fill="#4a3a24"/>' +
+        '<ellipse class="wm-shadow wm-shadow-2" cx="1750" cy="420" rx="720" ry="260" fill="#43331f"/>' +
+        '<ellipse class="wm-shadow wm-shadow-3" cx="1100" cy="900" rx="680" ry="240" fill="#4a3a24"/>' +
+        '<ellipse class="wm-shadow wm-shadow-4" cx="2200" cy="1150" rx="520" ry="200" fill="#3f3020"/>' +
+      '</g>' +
+      '<g class="wm-sweep" filter="url(#wm-soft)" opacity=".26">' +
+        '<rect x="-500" y="-200" width="900" height="1900" fill="#fff6e2" transform="rotate(-14)"/>' +
+      '</g>' +
+      '<g class="wm-smoke" transform="translate(1400,1180)"><circle r="10" fill="#f8f1e2"/></g>' +
+      '<g class="wm-smoke" transform="translate(1300,1210)"><circle r="8" fill="#f8f1e2"/></g>' +
+      '<g class="wm-smoke" transform="translate(1520,1170)"><circle r="11" fill="#f8f1e2"/></g>' +
+      '<g class="wm-birds wm-birds-1" transform="translate(1900,240)">' +
+        '<path d="M-36 0 q12 -11 24 0 q12 -11 24 0" fill="none" stroke="#46361f" stroke-width="3.4" opacity=".5"/>' +
+        '<path d="M-8 18 q12 -11 24 0 q12 -11 24 0" fill="none" stroke="#46361f" stroke-width="3.4" opacity=".44"/>' +
+        '<path d="M22 34 q12 -11 24 0 q12 -11 24 0" fill="none" stroke="#46361f" stroke-width="3" opacity=".38"/>' +
+      '</g>' +
+      '<g class="wm-mist wm-mist-1" filter="url(#wm-soft)">' +
+        '<ellipse cx="900" cy="900" rx="920" ry="74" fill="#fdf8ea" opacity=".16"/></g>' +
+      '<g class="wm-mist wm-mist-2" filter="url(#wm-soft)">' +
+        '<ellipse cx="1900" cy="760" rx="840" ry="62" fill="#fdf8ea" opacity=".13"/></g>' +
+    '</svg>';
+  }
+
+  App.worldMap = { overlay: overlay, vector: vector, W: W, H: H };
 })(window.App = window.App || {});

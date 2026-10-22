@@ -108,3 +108,19 @@
   .wm-flow { stroke-dashoffset: 0; }
   .wm-glint { opacity: .35; }
 }
+
+/* ---------- 通用动效层（配 AI 插画底图）：云影与扫光 ---------- */
+.wm-shadow-1 { animation: wm-shift 52s ease-in-out infinite alternate; }
+.wm-shadow-2 { animation: wm-shift 64s ease-in-out infinite alternate-reverse; }
+.wm-shadow-3 { animation: wm-shift 58s ease-in-out infinite alternate; animation-delay: -26s; }
+.wm-shadow-4 { animation: wm-shift 72s ease-in-out infinite alternate-reverse; animation-delay: -40s; }
+@keyframes wm-shift {
+  from { transform: translateX(-180px) translateY(-20px); }
+  to   { transform: translateX(200px)  translateY(24px); }
+}
+.wm-sweep { animation: wm-sweep 26s linear infinite; }
+@keyframes wm-sweep {
+  0%   { transform: translateX(-900px); }
+  100% { transform: translateX(3400px); }
+}
+.wm-fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }

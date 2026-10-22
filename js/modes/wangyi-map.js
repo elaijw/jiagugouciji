@@ -239,14 +239,23 @@
          所以图片外侧的 letterbox 不会让据点漂移。 */
       var board = App.el('div', 'wy2-board');
       var art = App.el('div', 'wy2-board-art');
-      /* 重绘版：整张地图就是 SVG 场景（会动），不再垫 JPG 底图。?map=paint 退回静态插画。 */
-      var dynamicOn = !/[?&]map=paint\b/.test(location.search) && !!App.worldMap;
-      if (dynamicOn) {
+      /* 三模式：
+           ?map=paint  纯静态（新 AI 插画，不动）
+           ?map=vector 全矢量重绘场景（会动，无照片）
+           默认        新 AI 插画 + 通用动效层（云影/扫光/炊烟/鸟/雾） */
+      var mapMode = /[?&]map=(paint|vector)\b/.exec(location.search);
+      mapMode = mapMode ? mapMode[1] : 'live';
+      if (mapMode === 'vector' && App.worldMap) {
         var paint = App.el('div', 'wy2-paint');
-        paint.innerHTML = App.worldMap.html();
+        paint.innerHTML = App.worldMap.vector();
         art.appendChild(paint);
       } else {
         art.style.backgroundImage = 'url("' + (MAP.worldImage || MAP.bgImage) + '")';
+        if (mapMode === 'live' && App.worldMap) {
+          var fx = App.el('div', 'wy2-paint');
+          fx.innerHTML = App.worldMap.overlay();
+          art.appendChild(fx);
+        }
       }
       art.setAttribute('role', 'img');
       art.setAttribute('aria-label',
