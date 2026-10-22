@@ -1036,6 +1036,7 @@
         setVerdict('ok', '✔ 拼成！正解 <b>' + need.join('＋') + '</b>　' +
           (fast ? '快答奖励 ＋1，' : '') + '共 ＋' + gain + ' 分');
         revealComposed(c);
+        juiceCarve();
         afterCorrect();
       } else {
         P().wrong += 1; P().timeMs += used;
@@ -1059,6 +1060,7 @@
         setVerdict('no', S.mode === 'solo'
           ? '✘ 不对。' + partial + '答案留到复盘时统一公布。'
           : '✘ 不对（−1）。' + partial);
+        juiceMiss();
         nextTurn();
       }
     }
@@ -1078,6 +1080,30 @@
       /* 双人：开放抢答窗口 */
       if (S.mode === 'pvp' && S.winSec > 0) { openChallengeWindow(); return; }
       nextTurn();
+    }
+
+
+    /* ---------- DSH：答对刻字 / 答错细裂纹（不改任何判定与计分） ---------- */
+    function juiceCarve() {
+      if (!App.juice) { return; }
+      var wrap = document.querySelector('.reveal');
+      var svg = wrap && wrap.querySelector('svg');
+      /* 优先用站内既有的 oracle.js 按笔顺刻出来 */
+      if (svg && App.oracle && App.oracle.carve) {
+        try { App.oracle.carve(svg, 0); } catch (e) { /* 失败就退回静态展示 */ }
+      }
+      if (App.sound && App.sound.pluck) { App.sound.pluck(0.9); }
+      if (wrap) {
+        wrap.classList.add('juice-engrave');
+        setTimeout(function () { wrap.classList.remove('juice-engrave'); }, 900);
+      }
+    }
+    function juiceMiss() {
+      if (!App.juice) { return; }
+      var v = document.getElementById('mpVerdict') || document.body;
+      /* 一道细裂纹后自动淡去；不用红屏，不打断作答 */
+      App.juice.crack(v, 64, 'bone');
+      if (App.sound && App.sound.pluck) { App.sound.pluck(0.3); }
     }
 
     function setVerdict(kind, html) {
