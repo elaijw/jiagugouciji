@@ -197,3 +197,44 @@ body.carved .bd-figure-fx {
   box-shadow: inset 0 1px 3px rgba(80, 54, 28, .15);
   color: #2a1d10 !important;
 }
+
+/* ============================================================
+   WB-3 补丁：刻痕皮肤下"漏网"的纸面零件（2026-10-22 补）
+   ------------------------------------------------------------
+   本层把面板、按钮、输入都刻进骨里了，但三类组件里还有几件停在纸面：
+   筛选片（.chipbtn）在图鉴页是 7 个近白色的胶囊，压在骨底上像贴上去的贴纸。
+   下面按同一套凹槽语言补齐。
+
+   做法上刻意**不写 !important**：用 body.carved 前缀（0,2,0）
+   就足以压过 ui.css 里 .chipbtn（0,1,0），不必动 !important 这把大锤。
+   ============================================================ */
+
+/* 把这套材质收成五个变量，供本文件后续规则复用。
+   上面已有规则里的 49 处 rgba 暂不回头改——那边可能正在被同时编辑，
+   逐条替换会造成无谓冲突；新规则一律引用这五个变量。 */
+body.carved {
+  --carve-face:  rgba(250, 245, 233, .30);   /* 骨面：半透明，让底下的片子纹理透出来 */
+  --carve-line:  rgba(90, 66, 40, .30);      /* 刻线 */
+  --carve-inset: inset 0 2px 5px rgba(80, 54, 28, .22);   /* 槽底压暗 */
+  --carve-hi:    inset 0 -1px 0 rgba(255, 252, 244, .45); /* 槽口受光 */
+  --carve-text:  #2a1d10;                    /* 刻字 */
+}
+
+body.carved .chipbtn {
+  color: var(--carve-text);
+  background: var(--carve-face);
+  border-color: var(--carve-line);
+  box-shadow: var(--carve-inset), var(--carve-hi);
+}
+body.carved .chipbtn:hover {
+  color: var(--carve-text);
+  border-color: color-mix(in srgb, var(--bronze) 62%, var(--carve-line));
+}
+/* 选中：槽里抹了一道朱砂，不是整块填实——填实会和主按钮抢眼 */
+body.carved .chipbtn.on {
+  color: var(--solid);
+  background: color-mix(in srgb, var(--solid) 15%, transparent);
+  border-color: color-mix(in srgb, var(--solid) 55%, var(--carve-line));
+  box-shadow: var(--carve-hi);
+  font-weight: 600;
+}

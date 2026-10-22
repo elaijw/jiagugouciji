@@ -6,9 +6,9 @@
 |---|---|---|---|---|
 | 0 | 视觉方向定稿（A 为主 / B 穿插） | WorkBuddy | `01-design/direction.md` | **通过**（见 04-verify/report-20261022.md） |
 | 1 | 设计 token 定稿 | WorkBuddy | `01-design/tokens-20261022.css` + `landing-report-20261022.md` | **待验收**：已在新基线落地（30 处，`_merge_tokens --check` 22 项 PASS，对比度 0 处不足 3） |
-| 2 | 按钮/卡片/弹层统一 | WorkBuddy | `css/ui.css` 改动 + 说明 | 待做 |
-| 3 | 首页纵深改造 | WorkBuddy | `js/core/shell.js`（`sceneHome` 结构，已获授权）+ `01-design/home-structure-*.md` | 待做 |
-| 4 | 三关展览式入口 | WorkBuddy | `css/modes.css` + `01-design/` 说明 | 待做 |
+| 2 | 按钮/卡片/弹层统一 | GPT6luna（接手） | `css/ui.css` 改动 + 说明 | 待验收：WorkBuddy 已复核并补丁，见 `01-design/wb3-review-20261022.md`（骨架达标；`danger` 语义错位、四文件重复定义已收权、刻痕皮肤下筛选片漏网已补）|
+| 3 | 首页纵深改造 | GPT6luna（接手） | `sceneHome` 当前结构 + `css/slab.css` + `01-design/home-structure-20261022.md` | 待验收：源码已对齐 A 方向；待 390px / 1280px 目视截图 |
+| 4 | 三关展览式入口 | GPT6luna（接手） | `css/slab-modes.css` + `01-design/mode-exhibition-20261022.md` | 待验收：第二关对比与主次已修；待多视口目视检查 |
 | 5 | 三关叙事文案 | GPT6luna | `02-copy/chapters.json` | **通过** |
 | 6 | 龟宝三阶段台词 | GPT6luna | `02-copy/guibao.json` | **通过** |
 | 7 | 首页文案 | GPT6luna | `02-copy/home.json` | **通过** |
@@ -38,3 +38,9 @@
    脚本自检（如 `_land_tokens.py --check`）作为证据附在报告里，不单独下结论。
 4. **未定义变量的排查结论**见 `03-feedback/var-audit.md`，不要重复查。
 5. **`js/modes/*` 归 DSH**；如需改玩法逻辑，先在 STATUS 提，不直接动。
+6. **皮肤层（`carved.css` 这类变体）不许用 `!important`**。
+   变体一律加作用域前缀（`body.carved .x`，权重 0,2,0）就足够压过组件层（0,1,0）。
+   一旦用 `!important`，后来的人再修 `.btn` 会**静默失效**——改了没反应、也查不出原因，
+   这已经是本项目反复踩过的坑（见 `01-design/wb3-review-20261022.md` 第三节）。
+7. **别人说"合了"要先验**：`git log --graph` 有 merge commit + `git merge-base --is-ancestor <提交> HEAD`。
+   本仓库出现过用 `reset --hard` 代替合并、把对方落地提交吞掉的情况（只在 reflog 里）。
