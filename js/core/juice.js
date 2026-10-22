@@ -177,6 +177,17 @@
     svg.style.left = (p.x - R) + 'px';
     svg.style.top = (p.y - R) + 'px';
 
+    /* 受热：先起一团焦热的晕，再裂开——让裂纹像"烧出来的" */
+    var heat = document.createElement('span');
+    heat.className = 'juice-heat tone-' + (tone || 'bone');
+    heat.style.left = (p.x - R * 0.55) + 'px';
+    heat.style.top = (p.y - R * 0.55) + 'px';
+    heat.style.width = heat.style.height = (R * 1.1) + 'px';
+    ensure().appendChild(heat);
+    setTimeout(function () {
+      if (heat.parentNode) { heat.parentNode.removeChild(heat); }
+    }, 760);
+
     var seed = Math.random() * 10;
     for (var i = 0; i < 5; i++) {
       var ang = (Math.PI * 2 * i) / 5 + seed;

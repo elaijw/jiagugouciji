@@ -51,3 +51,24 @@
 @media (prefers-reduced-motion: reduce) {
   .bb-divine-crack { animation: none; stroke-dashoffset: 0; }
 }
+
+/* 连击提示：贴在讲解面板左下，2 秒后自己退 */
+.bb-streak {
+  position: absolute;
+  left: 24px; bottom: 18px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(166, 62, 47, .92);
+  color: #fff6e8;
+  font-size: 13px;
+  letter-spacing: .04em;
+  animation: streak-pop .28s ease-out both;
+}
+@keyframes streak-pop {
+  from { opacity: 0; transform: translateY(6px) scale(.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.bb-teach-panel { position: relative; }
+@media (prefers-reduced-motion: reduce) {
+  .bb-streak { animation: none; }
+}

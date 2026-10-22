@@ -349,3 +349,27 @@ html.juice-frozen #juice-layer * {
 .bb-teach-guibao-line { margin: 12px 0 0; padding-left: 10px;
   border-left: 2px solid var(--cinnabar, #a63e2f);
   font-size: 13px; color: var(--ink-2, #6b6153); }
+
+/* ---------- 受热：裂纹之前的焦热晕 ---------- */
+.juice-heat {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(closest-side,
+      rgba(196, 96, 36, .55) 0%,
+      rgba(168, 76, 28, .32) 38%,
+      rgba(120, 54, 20, .12) 68%,
+      rgba(120, 54, 20, 0) 100%);
+  animation: juice-heat-bloom 620ms ease-out forwards;
+  mix-blend-mode: multiply;
+}
+@keyframes juice-heat-bloom {
+  0%   { opacity: 0;  transform: scale(.5); }
+  35%  { opacity: .9; transform: scale(1); }
+  100% { opacity: 0;  transform: scale(1.25); }
+}
+.juice-crack-path { animation-delay: 110ms; }
+@media (prefers-reduced-motion: reduce) {
+  .juice-heat { animation: none; opacity: 0; }
+  .juice-crack-path { animation-delay: 0s; }
+}

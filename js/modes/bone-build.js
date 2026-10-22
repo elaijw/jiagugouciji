@@ -167,7 +167,7 @@
       { title: '先看构件，再看今字', body: '拼字时留意部件的形状与关系。不同字形有变化，现代字只是对照入口。' },
       { title: '什么是“组合示意”？', body: '本课用字形数据中已收录的真构件做拼合练习；合体字的拼合图不冒充原甲骨上的完整刻形。' }
     ];
-    var state = { deck: [], index: 0, selected: [], choices: [], choiceIndex: -1, hint: false, divine: {} };
+    var state = { deck: [], index: 0, selected: [], choices: [], choiceIndex: -1, hint: false, divine: {}, streak: 0 };
     /* 题面是否同时给甲骨字形；想退回"只给今字"就改成 false */
     var SHOW_OB_FACE = true;
 
@@ -453,13 +453,16 @@
           return state.selected.indexOf(n) >= 0;
         });
         if (!ok) {
+          state.streak = 0;
           renderQuestion({ kind: 'no', text: '还差一点。你可以调整构件，或请龟宝给一条线索。' });
           juiceIntroMiss(lesson);
           return;
         }
+        state.streak = (state.streak || 0) + 1;
         markLearned(card.g);
         renderTeach(card, need);
         juiceIntroCarve();
+        juiceStreak(state.streak);
       };
       actions.appendChild(submitBtn);
       lesson.appendChild(verdict);
@@ -470,6 +473,21 @@
 
 
     /* ---------- DSH：入门课答错一道细裂纹 / 答对刻一遍（不改判定与计分） ---------- */
+
+    /* 连击：只做反馈，不加分（计分规则不动） */
+    function juiceStreak(n) {
+      if (!n || n < 2) { return; }
+      var tip = document.querySelector('.bb-streak');
+      if (tip && tip.parentNode) { tip.parentNode.removeChild(tip); }
+      tip = U.el('div', 'bb-streak', '连对 ×' + n);
+      var host = document.querySelector('.bb-teach-panel') || root;
+      host.appendChild(tip);
+      setTimeout(function () {
+        if (tip.parentNode) { tip.parentNode.removeChild(tip); }
+      }, 1800);
+      if (App.sound && App.sound.pluck) { App.sound.pluck(1.0 + Math.min(n, 5) * 0.08); }
+    }
+
     function juiceIntroMiss(el) {
       if (!App.juice) { return; }
       App.juice.crack(el || root, 64, 'bone');

@@ -524,6 +524,81 @@
     setTimeout(function () { makeBgm(); makePool(); }, 900);
   }
 
+
+  /* ======================
+     区域氛围音（每片一条极轻的循环层）
+     ------------------------------------------------------------
+     不引入外部素材：用白噪 + 带通 + 慢速 LFO 做出五种"地方"。
+       sky   风：宽、慢、带一点空
+       land  旷野：低、平
+       plant 林：中频、细碎
+       beast 荒原：低吼的缓颤
+       life  市声：更近、略亮
+     进区淡入 1.2s，离区淡出 0.9s；声音开关关闭时整体静音。
+     ====================== */
+  var AMB = {
+    sky:   { f: 620,  q: 0.7, g: 0.030, lfo: 0.07, lfoAmt: 220 },
+    land:  { f: 380,  q: 0.6, g: 0.028, lfo: 0.05, lfoAmt: 90 },
+    plant: { f: 1500, q: 1.1, g: 0.024, lfo: 0.13, lfoAmt: 520 },
+    beast: { f: 260,  q: 0.9, g: 0.030, lfo: 0.09, lfoAmt: 70 },
+    life:  { f: 980,  q: 0.8, g: 0.026, lfo: 0.11, lfoAmt: 300 }
+  };
+  var ambNodes = null, ambId = null, ambTimer = 0;
+
+  function stopAmbient(sec) {
+    var n = ambNodes;
+    ambNodes = null; ambId = null;
+    if (!n) { return; }
+    try {
+      var t = ctx.currentTime;
+      n.gain.gain.cancelScheduledValues(t);
+      n.gain.gain.setValueAtTime(n.gain.gain.value, t);
+      n.gain.gain.linearRampToValueAtTime(0.0001, t + (sec || 0.9));
+      setTimeout(function () {
+        try { n.src.stop(); } catch (e) {}
+        try { n.lfo.stop(); } catch (e) {}
+      }, Math.ceil((sec || 0.9) * 1000) + 120);
+    } catch (e) { /* 忽略 */ }
+  }
+
+  function startAmbient(id) {
+    var cfg = AMB[id];
+    if (!cfg || !on) { return; }
+    var c = ensure();
+    if (!c) { return; }
+    if (ambId === id && ambNodes) { return; }
+    stopAmbient(0.6);
+    try {
+      var src = c.createBufferSource();
+      src.buffer = noiseBuf;
+      src.loop = true;
+
+      var bp = c.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = cfg.f;
+      bp.Q.value = cfg.q;
+
+      var gain = c.createGain();
+      gain.gain.value = 0.0001;
+
+      var lfo = c.createOscillator();
+      var lfoGain = c.createGain();
+      lfo.frequency.value = cfg.lfo;
+      lfoGain.gain.value = cfg.lfoAmt;
+      lfo.connect(lfoGain);
+      lfoGain.connect(bp.frequency);
+
+      src.connect(bp); bp.connect(gain); gain.connect(sfxBus);
+      src.start(); lfo.start();
+
+      var t = c.currentTime;
+      gain.gain.linearRampToValueAtTime(cfg.g, t + 1.2);
+
+      ambNodes = { src: src, gain: gain, lfo: lfo };
+      ambId = id;
+    } catch (e) { /* 忽略 */ }
+  }
+
   App.sound = {
     on: function () { return on; },
     set: set,
@@ -556,5 +631,13 @@
       };
     }
   };
+
+  /* 氛围音挂在 App.sound 建好之后（否则前面赋值会打到 undefined） */
+  App.sound.ambient = function (id) {
+    if (!id) { stopAmbient(); return; }
+    if (!on) { return; }
+    startAmbient(id);
+  };
+  App.sound.ambientStop = function () { stopAmbient(); };
 
 })(window.App = window.App || {});

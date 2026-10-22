@@ -385,6 +385,7 @@
       S.zone = z; S.view = 'zone'; S.sel = null; S.lens = null;
       var tone = ZONE_TONE[z && z.id];
       if (tone && App.sound && App.sound.pluck) { App.sound.pluck(tone.pitch); }
+      if (App.sound && App.sound.ambient && z && z.id) { App.sound.ambient(z.id); }
       S.showHot = false; S.zoom = 1; S.scroll = { left: 0, top: 0 };
       S.manual = false; S.region = null;
       S.flow = null;
@@ -392,6 +393,7 @@
       render();
     }
     function backToWorld() {
+      if (App.sound && App.sound.ambientStop) { App.sound.ambientStop(); }
       S.view = 'map'; S.zone = null; S.sel = null; S.lens = null; S.flow = null;
       render();
     }
