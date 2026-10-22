@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>字趣 · 热区标点工具</title>
+<style>
+  :root { --ink:#29231e; --line:rgba(120,96,66,.3); --red:#a63e2f; --paper:#f6f1e4; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif;
+         background:#efe9da; color:var(--ink); }
+  header { padding:10px 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+           background:rgba(255,252,244,.9); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  select, button { font:inherit; padding:6px 10px; border:1px solid var(--line);
+                   background:#fff; border-radius:8px; cursor:pointer; }
+  button.primary { background:var(--red); color:#fff; border-color:var(--red); }
+  .wrap { padding:14px; max-width:1400px; margin:0 auto; }
+  .stage { position:relative; background:#fff; border:1px solid var(--line);
+           border-radius:10px; overflow:hidden; user-select:none; cursor:crosshair; }
+  .stage img { display:block; width:100%; height:auto; }
+  .marker { position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px;
+            border:2px solid var(--red); border-radius:50%; background:rgba(166,62,47,.18);
+            display:grid; place-items:center; font-size:11px; color:var(--red); font-weight:700; }
+  .marker.done { border-color:#2f7d4f; background:rgba(47,125,79,.16); color:#2f7d4f; }
+  .side { display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; }
+  .panel { flex:1 1 320px; background:rgba(255,252,244,.85); border:1px solid var(--line);
+           border-radius:10px; padding:12px; }
+  .cur { font-size:15px; line-height:1.8; }
+  .cur b { font-size:26px; color:var(--red); margin-right:8px; }
+  .hint { font-size:12px; color:#6b6153; line-height:1.7; }
+  ol { margin:8px 0 0; padding-left:20px; font-size:13px; line-height:1.9; }
+  li.done { color:#2f7d4f; text-decoration:line-through; }
+  li.now { font-weight:700; color:var(--red); }
+  textarea { width:100%; height:150px; font:12px/1.5 Consolas, monospace; }
+  .kv { font-size:13px; color:#6b6153; }
+</style>
+</head>
+<body>
+<header>
+  <strong>热区标点</strong>
+  <select id="zoneSel"></select>
+  <button id="prevBtn">上一字</button>
+  <button id="undoBtn">清除当前</button>
+  <button id="exportBtn" class="primary">导出 JSON</button>
+  <span class="kv" id="progress"></span>
+</header>
+<div class="wrap">
+  <div class="stage" id="stage"><img id="art" alt=""></div>
+  <div class="side">
+    <div class="panel">
+      <div class="cur" id="cur"></div>
+      <div class="hint">在图上点一下，就是当前这个字的中心点。点完自动跳下一个；
+        点错了点「上一字」或「清除当前」。全部点完点「导出 JSON」把内容发我。</div>
+      <ol id="list"></ol>
+    </div>
+    <div class="panel">
+      <div class="kv">导出结果（复制全部发我）</div>
+      <textarea id="out" spellcheck="false"></textarea>
+    </div>
+  </div>
+</div>
+<script>
+var ZONES = [{"id": "sky", "name": "天象", "art": "assets/level2-01-sky.jpg", "objects": [{"char": "日", "meaning": "一轮圆日", "r": 100, "x": 420, "y": 285}, {"char": "月", "meaning": "一弯弦月", "r": 100, "x": 2145, "y": 215}, {"char": "雨", "meaning": "云脚落下的雨丝", "r": 105, "x": 1255, "y": 780}, {"char": "火", "meaning": "升腾的火焰", "r": 110, "x": 1330, "y": 1145}]}, {"id": "land", "name": "山川", "art": "assets/level2-02-land.jpg", "objects": [{"char": "山", "meaning": "并列的峰峦", "r": 175, "x": 520, "y": 420}, {"char": "丘", "meaning": "低缓的圆丘", "r": 130, "x": 1650, "y": 560}, {"char": "谷", "meaning": "两坡之间的低谷", "r": 100, "x": 1050, "y": 420}, {"char": "石", "meaning": "河滩上的大石", "r": 105, "x": 700, "y": 1050}, {"char": "土", "meaning": "隆起的一堆土", "r": 85, "x": 880, "y": 1340}, {"char": "泉", "meaning": "石间涌出的水", "r": 115, "x": 260, "y": 820}, {"char": "川", "meaning": "宽阔的主河道", "r": 150, "x": 1400, "y": 740}, {"char": "水", "meaning": "较窄的溪流", "r": 95, "x": 1450, "y": 1160}, {"char": "田", "meaning": "格状的田亩", "r": 170, "x": 2150, "y": 1050}]}, {"id": "plant", "name": "草木", "art": "assets/level2-03-plant.jpg", "objects": [{"char": "木", "meaning": "左侧的独立大树", "r": 160, "x": 260, "y": 480}, {"char": "林", "meaning": "成片的树林", "r": 140, "x": 1000, "y": 220}, {"char": "竹", "meaning": "丛生的竹子", "r": 175, "x": 2350, "y": 450}, {"char": "禾", "meaning": "低垂的谷穗", "r": 150, "x": 1400, "y": 620}, {"char": "米", "meaning": "成堆的米粒", "r": 130, "x": 500, "y": 1280}, {"char": "屮", "meaning": "初生的小草", "r": 95, "x": 2080, "y": 1290}]}, {"id": "beast", "name": "禽兽虫鱼", "art": "assets/level2-04-beast.jpg", "objects": [{"char": "豕", "meaning": "体肥耳大的家豕", "r": 135, "x": 2000, "y": 1120}, {"char": "鹿", "meaning": "枝角分歧的鹿", "r": 150, "x": 800, "y": 480}, {"char": "牛", "meaning": "双角横张的牛", "r": 170, "x": 1320, "y": 980}, {"char": "羊", "meaning": "角向下弯的羊", "r": 120, "x": 1900, "y": 420}, {"char": "犬", "meaning": "卷尾的犬", "r": 135, "x": 420, "y": 780}, {"char": "虎", "meaning": "张口有纹的虎", "r": 150, "x": 2250, "y": 700}, {"char": "虫", "meaning": "蜷曲的蛇", "r": 130, "x": 2300, "y": 1250}, {"char": "鱼", "meaning": "水中的鱼", "r": 120, "x": 950, "y": 1280}, {"char": "隹", "meaning": "短尾的鸟", "r": 110, "x": 1600, "y": 600}]}, {"id": "life", "name": "人居器物", "art": "assets/level2-05-life.jpg", "objects": [{"char": "邑", "meaning": "环壕围绕的城邑", "r": 130, "x": 330, "y": 135}, {"char": "郭", "meaning": "城邑的外墙", "r": 125, "x": 245, "y": 280}, {"char": "门", "meaning": "城邑的城门", "r": 110, "x": 1205, "y": 515}, {"char": "宀", "meaning": "屋舍的屋顶", "r": 175, "x": 880, "y": 195}, {"char": "囗", "meaning": "围起来的地域", "r": 90, "x": 245, "y": 895}, {"char": "鼎", "meaning": "三足两耳的鼎", "r": 120, "x": 1355, "y": 875}, {"char": "缶", "meaning": "大腹小口的陶缶", "r": 105, "x": 1542, "y": 828}, {"char": "皿", "meaning": "盛物的浅盘", "r": 110, "x": 1190, "y": 1005}, {"char": "酉", "meaning": "窄口深腹的青铜酒器", "r": 100, "x": 1666, "y": 825}, {"char": "玉", "meaning": "散落的玉片", "r": 64, "x": 1518, "y": 1312}, {"char": "井", "meaning": "带木栏的水井", "r": 110, "x": 240, "y": 660}, {"char": "舟", "meaning": "水边的木舟", "r": 150, "x": 2210, "y": 985}, {"char": "卜", "meaning": "作坊地上的骨片", "r": 68, "x": 403, "y": 1160}, {"char": "贝", "meaning": "散落的海贝", "r": 64, "x": 1400, "y": 1336}, {"char": "糸", "meaning": "一束丝", "r": 72, "x": 330, "y": 550}, {"char": "弓", "meaning": "张开的弓", "r": 115, "x": 593, "y": 596}, {"char": "矢", "meaning": "平放的直箭", "r": 62, "x": 718, "y": 632}, {"char": "刀", "meaning": "青铜小刀", "r": 62, "x": 800, "y": 645}, {"char": "斧", "meaning": "横刃的斧", "r": 66, "x": 888, "y": 608}, {"char": "斤", "meaning": "窄刃的斤", "r": 70, "x": 470, "y": 928}, {"char": "戈", "meaning": "长柄横刃的戈", "r": 95, "x": 975, "y": 560}, {"char": "衣", "meaning": "祭祀者身上的衣", "r": 95, "x": 852, "y": 1172}, {"char": "大", "meaning": "正面张臂的大人", "r": 95, "x": 868, "y": 1000}, {"char": "力", "meaning": "翻土的耒耜", "r": 100, "x": 1830, "y": 1255}, {"char": "人", "meaning": "侧身站立的人", "r": 90, "x": 1884, "y": 775}, {"char": "目", "meaning": "正面人物的眼睛", "r": 62, "x": 872, "y": 886}, {"char": "耳", "meaning": "侧身人物的耳朵", "r": 58, "x": 1598, "y": 1042}, {"char": "口", "meaning": "正面人物的嘴", "r": 60, "x": 1212, "y": 1215}, {"char": "止", "meaning": "人的脚趾", "r": 58, "x": 795, "y": 1320}, {"char": "又", "meaning": "人的右手", "r": 60, "x": 955, "y": 1125}, {"char": "女", "meaning": "跪坐的女子", "r": 100, "x": 1625, "y": 1195}, {"char": "子", "meaning": "小童", "r": 88, "x": 1200, "y": 1335}, {"char": "足", "meaning": "人的脚", "r": 58, "x": 1705, "y": 1295}]}];
+var W = 2624, H = 1472;
+var KEY = 'ziqu.mark.v1';
+var state = load() || {};      // { zoneId: { char: [x,y] } }
+var curZone = ZONES[0].id;
+var idx = 0;
+
+var sel = document.getElementById('zoneSel');
+ZONES.forEach(function (z) {
+  var o = document.createElement('option');
+  o.value = z.id; o.textContent = z.name + '（' + z.objects.length + ' 字）';
+  sel.appendChild(o);
+});
+sel.value = curZone;
+
+function load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+function zone() { return ZONES.filter(function (z) { return z.id === curZone; })[0]; }
+function bag() { if (!state[curZone]) state[curZone] = {}; return state[curZone]; }
+
+function render() {
+  var z = zone();
+  document.getElementById('art').src = '../' + z.art;
+  var b = bag();
+  var stage = document.getElementById('stage');
+  Array.prototype.slice.call(stage.querySelectorAll('.marker')).forEach(function (n) { n.remove(); });
+  z.objects.forEach(function (o, i) {
+    if (!b[o.char]) { return; }
+    var mk = document.createElement('div');
+    mk.className = 'marker done';
+    mk.style.left = (b[o.char][0] / W * 100) + '%';
+    mk.style.top = (b[o.char][1] / H * 100) + '%';
+    mk.textContent = o.char;
+    stage.appendChild(mk);
+  });
+  var list = document.getElementById('list');
+  list.innerHTML = '';
+  z.objects.forEach(function (o, i) {
+    var li = document.createElement('li');
+    li.textContent = o.char + '  ' + (o.meaning || '');
+    if (b[o.char]) { li.className = 'done'; }
+    else if (i === idx) { li.className = 'now'; }
+    list.appendChild(li);
+  });
+  var done = z.objects.filter(function (o) { return b[o.char]; }).length;
+  document.getElementById('progress').textContent = done + ' / ' + z.objects.length;
+  var cur = z.objects[idx];
+  document.getElementById('cur').innerHTML = cur
+    ? '<b>' + cur.char + '</b>' + (cur.meaning || '') + '<div class="hint">请在图上点它的中心</div>'
+    : '<b>✔</b>本区已点完，可以导出';
+}
+
+document.getElementById('stage').addEventListener('click', function (ev) {
+  var z = zone(); var o = z.objects[idx];
+  if (!o) { return; }
+  var img = document.getElementById('art');
+  var r = img.getBoundingClientRect();
+  var px = (ev.clientX - r.left) / r.width;
+  var py = (ev.clientY - r.top) / r.height;
+  if (px < 0 || px > 1 || py < 0 || py > 1) { return; }
+  bag()[o.char] = [Math.round(px * W), Math.round(py * H)];
+  save();
+  while (idx < z.objects.length && bag()[z.objects[idx].char]) { idx++; }
+  render();
+});
+
+document.getElementById('prevBtn').onclick = function () {
+  var z = zone();
+  idx = Math.max(0, idx - 1);
+  var c = z.objects[idx] && z.objects[idx].char;
+  if (c) { delete bag()[c]; save(); }
+  render();
+};
+document.getElementById('undoBtn').onclick = function () {
+  var z = zone(); var c = z.objects[idx] && z.objects[idx].char;
+  if (c) { delete bag()[c]; save(); }
+  render();
+};
+document.getElementById('exportBtn').onclick = function () {
+  var out = {};
+  ZONES.forEach(function (z) {
+    var b = state[z.id] || {};
+    z.objects.forEach(function (o) {
+      if (b[o.char]) {
+        out[z.id] = out[z.id] || {};
+        out[z.id][o.char] = b[o.char];
+      }
+    });
+  });
+  var txt = JSON.stringify(out, null, 1);
+  var ta = document.getElementById('out');
+  ta.value = txt; ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+};
+sel.onchange = function () { curZone = sel.value; idx = 0; render(); };
+render();
+</script>
+</body>
+</html>
