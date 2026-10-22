@@ -91,6 +91,7 @@
     { id: 'home',  label: '主页' },
     { id: 'modes', label: '开始游戏' },
     { id: 'atlas', label: '汉字图鉴' },
+    { id: 'archive', label: '探索档案' },
     { id: 'howto', label: '玩法说明' }
   ];
 
@@ -100,6 +101,7 @@
       case 'modes': return 'modes';
       case 'play':  return 'modes';      /* 对局属于「开始游戏」分支 */
       case 'atlas': return 'atlas';
+      case 'archive': return 'archive';
       case 'howto': return 'howto';
       case 'plan':  return 'howto';      /* 「后续玩法」并入玩法说明 */
       case 'settings': return 'settings';
@@ -1013,6 +1015,128 @@
     close.focus();
   }
 
+  /* ---------- 场景：探索档案（只读） ----------
+     提案里"通关不只是分数，而是一份可以回顾的档案"。
+     这一版只做读：已发现文字、成就、卜骨印记，全部来自既有数据层，
+     不新增进度键、不写存档，避免和三个玩法的进度逻辑打架。 */
+  function sceneArchive() {
+    var wrap = App.el('div', 'scene archive-scene');
+    var st = App.atlas.stats();
+    var sum = (App.achievements && App.achievements.summary) ? App.achievements.summary() : null;
+    var kao = (App.kaoji && App.kaoji.state) ? App.kaoji.state() : null;
+    var bones = (App.kaoji && App.kaoji.bones) ? App.kaoji.bones.length : 0;
+
+    var head = App.el('div', 'sec-head-l');
+    head.appendChild(App.el('p', 'kicker', '我的探索'));
+    head.appendChild(App.el('h1', 'sec-h', '甲骨探索档案'));
+    head.appendChild(App.el('p', 'lead',
+      '这里记着你已经认出的字、达成的成就，以及拨开的雾。'
+      + '它不评分数，只留痕迹。'));
+    wrap.appendChild(head);
+
+    /* 三个数：发现 / 成就 / 印记 */
+    var row = App.el('div', 'ar-metrics');
+    [
+      ['已发现文字', st.learned + ' / ' + st.chars, st.percent + '%'],
+      ['探索成就', sum ? (sum.achieved + ' / ' + sum.total) : '—', sum ? sum.rank.name : ''],
+      ['卜骨印记', kao ? (kao.bones + ' / ' + bones) : '—', kao ? (kao.qi + ' 契') : '']
+    ].forEach(function (m) {
+      var cell = App.el('div', 'ar-metric');
+      cell.appendChild(App.el('span', 'ar-metric-k', m[0]));
+      cell.appendChild(App.el('b', 'ar-metric-v', m[1]));
+      cell.appendChild(App.el('span', 'ar-metric-s', m[2]));
+      row.appendChild(cell);
+    });
+    wrap.appendChild(row);
+
+    /* 已发现的字：字形 + 今字 + 类别 */
+    /* 一个字可能出现在多个玩法里（图鉴是一条目一条记录），按字去重 */
+    var learnedList = [];
+    var seenCh = {};
+    App.atlas.entries().forEach(function (e) {
+      if (!st.learnedSet || !st.learnedSet[e.char] || seenCh[e.char]) { return; }
+      seenCh[e.char] = 1;
+      learnedList.push(e);
+    });
+    var sec1 = App.el('section', 'ar-sec');
+    var h1 = App.el('div', 'ar-sec-head');
+    h1.appendChild(App.el('h2', 'sec-h', '已发现的文字'));
+    h1.appendChild(App.el('span', 'ar-sec-note', learnedList.length + ' 个'));
+    sec1.appendChild(h1);
+
+    if (!learnedList.length) {
+      var empty = App.el('div', 'ar-empty');
+      empty.appendChild(App.el('p', null, '还没有发现任何字。去第一关跟龟宝认第一个字，这里就会留下第一笔。'));
+      var go = App.el('a', 'btn primary', '去第一关 →');
+      go.href = '#/play/bone-build';
+      empty.appendChild(go);
+      sec1.appendChild(empty);
+    } else {
+      var grid = App.el('div', 'ar-grid');
+      var KIND = { natural: '自然', body: '人身', life: '生灵', object: '器物', other: '其它' };
+      learnedList.slice(0, 60).forEach(function (e) {
+        var card = App.el('div', 'ar-card');
+        var face = App.el('div', 'ar-card-face');
+        var g = glyphSvgNode(e.char, 'ar-card-glyph');
+        if (g) { face.appendChild(g); }
+        card.appendChild(face);
+        card.appendChild(App.el('b', 'ar-card-ch', e.char));
+        card.appendChild(App.el('span', 'ar-card-kind', KIND[e.kind] || ''));
+        if (e.form) { card.appendChild(App.el('p', 'ar-card-form', e.form)); }
+        grid.appendChild(card);
+      });
+      sec1.appendChild(grid);
+    }
+    wrap.appendChild(sec1);
+
+    /* 成就 */
+    var sec2 = App.el('section', 'ar-sec');
+    var h2 = App.el('div', 'ar-sec-head');
+    h2.appendChild(App.el('h2', 'sec-h', '探索成就'));
+    h2.appendChild(App.el('span', 'ar-sec-note',
+      sum ? (sum.achieved + ' 已达成 · ' + (sum.nextRank ? ('下一级 ' + sum.nextRank.name) : '已至最高')) : ''));
+    sec2.appendChild(h2);
+    var alist = (App.achievements && App.achievements.list) ? App.achievements.list() : [];
+    if (!alist.length) {
+      sec2.appendChild(App.el('p', 'ar-empty-p', '暂无成就数据。'));
+    } else {
+      var agrid = App.el('div', 'ar-ach');
+      alist.forEach(function (a) {
+        var item = App.el('div', 'ar-ach-item' + (a.done ? ' done' : ''));
+        item.appendChild(App.el('span', 'ar-ach-icon', a.icon || '契'));
+        var txt = App.el('div', 'ar-ach-txt');
+        txt.appendChild(App.el('b', null, a.name));
+        txt.appendChild(App.el('span', null, a.desc));
+        item.appendChild(txt);
+        item.appendChild(App.el('span', 'ar-ach-prog',
+          a.done ? '已达成' : (a.now + ' / ' + a.need)));
+        agrid.appendChild(item);
+      });
+      sec2.appendChild(agrid);
+    }
+    wrap.appendChild(sec2);
+
+    /* 印记：已开的卜骨 */
+    var sec3 = App.el('section', 'ar-sec');
+    var h3 = App.el('div', 'ar-sec-head');
+    h3.appendChild(App.el('h2', 'sec-h', '卜骨印记'));
+    h3.appendChild(App.el('span', 'ar-sec-note', kao ? ('契 ' + kao.qi) : ''));
+    sec3.appendChild(h3);
+    var seals = App.el('div', 'ar-seals');
+    (App.kaoji && App.kaoji.bones ? App.kaoji.bones : []).forEach(function (b, i) {
+      var opened = kao && i < kao.bones;
+      var seal = App.el('div', 'ar-seal' + (opened ? ' open' : ''));
+      seal.appendChild(App.el('span', 'ar-seal-ch', opened ? b.ch : '　'));
+      seal.appendChild(App.el('b', null, opened ? b.name : '未开'));
+      seal.appendChild(App.el('span', 'ar-seal-at', b.at + ' 契'));
+      seals.appendChild(seal);
+    });
+    sec3.appendChild(seals);
+    wrap.appendChild(sec3);
+
+    return wrap;
+  }
+
   /* ---------- 场景：玩法说明 ---------- */
   function sceneHowto() {
     var wrap = App.el('div', 'scene howto-scene');
@@ -1604,6 +1728,7 @@
     else if (r.name === 'play') scene = scenePlay(r.params.id);
     else if (r.name === 'settings') scene = sceneSettings();
     else if (r.name === 'atlas') scene = sceneAtlas();
+    else if (r.name === 'archive') scene = sceneArchive();
     else if (r.name === 'howto' || r.name === 'plan') scene = sceneHowto();
     else scene = sceneHome();
     root.appendChild(scene);
@@ -1635,7 +1760,7 @@
   App.shell = {
     render: render, renderHeader: renderHeader, renderNav: renderNav,
     renderFooter: renderFooter, sceneSettings: sceneSettings,
-    sceneHome: sceneHome, sceneAtlas: sceneAtlas, sceneHowto: sceneHowto
+    sceneHome: sceneHome, sceneAtlas: sceneAtlas, sceneArchive: sceneArchive, sceneHowto: sceneHowto
   };
 
 })(window.App = window.App || {});

@@ -1,0 +1,91 @@
+/* ============================================================
+   archive.css —— 探索档案（只读）
+   沿用骨白纸面 + 朱砂：档案是"纸上的记录"，不是仪表盘。
+   ============================================================ */
+
+.ar-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 8px;
+}
+.ar-metric {
+  padding: 14px 16px;
+  border: 1px solid var(--edge, rgba(120,96,66,.25));
+  border-radius: var(--r-lg, 18px);
+  background: rgba(255, 253, 246, .55);
+  display: grid;
+  gap: 2px;
+}
+.ar-metric-k { font-size: 12px; color: var(--ink-2, #6b6153); letter-spacing: .04em; }
+.ar-metric-v { font-size: 26px; line-height: 1.2; color: var(--ink, #29231e); }
+.ar-metric-s { font-size: 12px; color: var(--cinnabar, #a63e2f); }
+
+.ar-sec { margin: 26px 0 8px; }
+.ar-sec-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; border-bottom: 1px solid var(--edge, rgba(120,96,66,.22));
+  padding-bottom: 8px; margin-bottom: 12px;
+}
+.ar-sec-note { font-size: 12px; color: var(--ink-2, #6b6153); }
+
+.ar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 10px;
+}
+.ar-card {
+  padding: 10px;
+  border: 1px solid var(--edge, rgba(120,96,66,.22));
+  border-radius: 12px;
+  background: rgba(255, 253, 246, .6);
+  display: grid; gap: 4px; justify-items: center; text-align: center;
+}
+.ar-card-face { height: 56px; display: grid; place-items: center; }
+.ar-card-glyph { width: 46px; height: 46px; }
+.ar-card-ch { font-size: 15px; color: var(--ink, #29231e); }
+.ar-card-kind { font-size: 11px; color: var(--ink-2, #6b6153); }
+.ar-card-form { font-size: 11px; color: var(--ink-2, #6b6153); line-height: 1.5; margin: 0; }
+
+.ar-ach { display: grid; gap: 8px; }
+.ar-ach-item {
+  display: grid; grid-template-columns: 34px minmax(0,1fr) auto;
+  align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--edge, rgba(120,96,66,.2));
+  border-radius: 10px;
+  background: rgba(255, 253, 246, .45);
+  opacity: .72;
+}
+.ar-ach-item.done { opacity: 1; border-color: var(--cinnabar, #a63e2f); }
+.ar-ach-icon {
+  width: 30px; height: 30px; display: grid; place-items: center;
+  border-radius: 6px; font-size: 13px;
+  background: rgba(166, 62, 47, .10); color: var(--cinnabar, #a63e2f);
+}
+.ar-ach-txt { display: grid; gap: 1px; }
+.ar-ach-txt b { font-size: 14px; }
+.ar-ach-txt span { font-size: 12px; color: var(--ink-2, #6b6153); }
+.ar-ach-prog { font-size: 12px; color: var(--ink-2, #6b6153); }
+
+.ar-seals { display: flex; flex-wrap: wrap; gap: 10px; }
+.ar-seal {
+  width: 104px; padding: 10px 8px;
+  border: 1px dashed var(--edge, rgba(120,96,66,.3));
+  border-radius: 10px;
+  display: grid; gap: 2px; justify-items: center; text-align: center;
+  opacity: .55;
+}
+.ar-seal.open { opacity: 1; border-style: solid; border-color: var(--cinnabar, #a63e2f); }
+.ar-seal-ch { font-size: 20px; color: var(--ink, #29231e); }
+.ar-seal b { font-size: 12px; }
+.ar-seal-at { font-size: 11px; color: var(--ink-2, #6b6153); }
+
+.ar-empty { display: grid; gap: 10px; justify-items: start; padding: 16px 0 4px; }
+.ar-empty-p { color: var(--ink-2, #6b6153); }
+
+@media (max-width: 720px) {
+  .ar-metrics { grid-template-columns: 1fr; }
+  .ar-ach-item { grid-template-columns: 30px minmax(0,1fr); }
+  .ar-ach-prog { grid-column: 2; }
+}
