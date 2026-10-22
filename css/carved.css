@@ -55,11 +55,14 @@ body.carved .lv-name {
     0 1px 0 rgba(255, 253, 246, .55),
     0 -1px 1px rgba(46, 28, 12, .30);
 }
+/* 正文不加任何投影：小字一叠浅影就发虚（实测重影） */
 body.carved p,
 body.carved li,
 body.carved span,
-body.carved b {
-  text-shadow: 0 1px 0 rgba(255, 252, 244, .38);
+body.carved b,
+body.carved a,
+body.carved small {
+  text-shadow: none;
 }
 
 /* ---------- 面板：没有白色卡片，只有凹槽 ---------- */
@@ -237,4 +240,27 @@ body.carved .chipbtn.on {
   border-color: color-mix(in srgb, var(--solid) 55%, var(--carve-line));
   box-shadow: var(--carve-hi);
   font-weight: 600;
+}
+
+/* 区域名 / 地名：跟界面同一种字，不要混入衬线 */
+body.carved .wy2-zone-head b,
+body.carved .wy2-pin-txt b,
+body.carved .lv-title {
+  font-family: var(--font-round) !important;
+  letter-spacing: .02em !important;
+}
+
+/* 小字再压深一档：骨面比纸面暖，灰色小字会被吃掉 */
+body.carved .value,
+body.carved .unit,
+body.carved .hero-trust,
+body.carved .foot-p,
+body.carved .foot-col li,
+body.carved .wy2-credit,
+body.carved .as-meta,
+body.carved .lv-step,
+body.carved .lv-cap,
+body.carved .chip,
+body.carved .ba-label {
+  color: #3d2a15 !important;
 }

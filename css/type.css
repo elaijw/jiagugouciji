@@ -174,17 +174,17 @@ h3, h4 { letter-spacing: 0; }
    正文改成黑体以后，"刻辞、题记、引文、出处"若也跟着变，就丢了唯一的历史质感。
    这里把它们显式拉回宋体/楷体，形成"界面是现代的、材料是古代的"对比。
    ---------------------------------------------------------------------------- */
-.bb-evidence-src,
-.cite,
-.foot-p,
-.as-meta,
-.wy2-credit,
-.rw-bone-line,
-.rw-line {
-  font-family: var(--font-song);
-}
+/* 只有"人写的那句"用衬线：卜辞与字卡例句。
+   页脚、出处、元信息属于界面文字，必须跟正文同一种字。 */
 .bb-evidence-src,
 .rw-bone-line,
 .rw-line {
   font-family: var(--font-kai);
+}
+.foot-p,
+.foot-col li,
+.as-meta,
+.wy2-credit,
+.cite {
+  font-family: var(--font-round);
 }
