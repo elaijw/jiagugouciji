@@ -1,0 +1,19 @@
+{
+  "_说明": "文案 schema 样例。字段名不可改，缺字段会被前端拒绝。",
+  "home": {
+    "title": "唤醒沉睡的古文字",
+    "subtitle": "循着先民留下的刻痕，寻找文字最初的模样。",
+    "cta": "开始探索",
+    "progress_label": "探索进度"
+  },
+  "chapters": [
+    { "id": 1, "name": "初见甲骨", "role": "文明发现者", "enter": "", "clear": "" },
+    { "id": 2, "name": "构字秘境", "role": "文字探索者", "enter": "", "clear": "" },
+    { "id": 3, "name": "文字觉醒", "role": "文明守护者", "enter": "", "clear": "" }
+  ],
+  "guibao": {
+    "curious": ["..."],
+    "partner": ["..."],
+    "guardian": ["..."]
+  }
+}
