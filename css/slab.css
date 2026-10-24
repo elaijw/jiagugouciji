@@ -324,15 +324,19 @@
   clip-path: url(#slabChip1);
   background-color: #e9dcbd;
   background-position: 0 0, -14px -22px;
-  /* 朱砂压 15% 墨 = #9a4331。骨面被纸纹 multiply 后实测底是 #e5dcc9，
-     在这上面 4.87 —— 17px 不是大字号（门槛 4.5），刚好过，也不再深了：
-     再压就变成赭褐，"朱砂刻辞"的味道就没了。 */
-  color: color-mix(in srgb, var(--cinnabar-tint) 85%, var(--ink));
+  /* 朱砂压 22% 墨 = #91412f。
+     ⚠ 这个比例是按**手机档**定的，不能按桌面档定：
+     骨片是 bone-surface.png 以 380px 平铺，按钮越小采到的纹理块越暗。
+     实测同一片骨，桌面被压成 #e6ddc9、手机被压成 #dfd3b5，差一档。
+     85%（#9a4332）在桌面上 4.82 过线，手机上只有 4.38 不过 —— 就是这个坑。
+     78% 两头都过：手机 4.71 / 桌面 5.18。
+     再往下压就成赭褐，"朱砂刻辞"的味道就没了，所以停在 78%。 */
+  color: color-mix(in srgb, var(--cinnabar-tint) 78%, var(--ink));
   padding: 0 24px;
 }
 .hero .hero-main:hover {
   background-color: #f2e6c9;
-  color: color-mix(in srgb, var(--cinnabar-tint) 78%, var(--ink));
+  color: color-mix(in srgb, var(--cinnabar-tint) 71%, var(--ink));
   transform: translateY(-1px);
 }
 .hero .hero-ghost {
