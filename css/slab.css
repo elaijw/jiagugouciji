@@ -301,31 +301,47 @@
   text-shadow: 0 1px 0 rgba(255, 252, 244, .7);
 }
 
-/* 主按钮：朱砂在骨白上是最跳的一点，保留渐变，把投影换成暖褐 */
+/* 两枚 CTA 各摊一片骨：
+   主按钮 = 一片大骨 + 朱砂刻辞；次按钮 = 一片小骨 + 墨字。
+   轮廓用 slabChip*（内联 clipPath，objectBoundingBox），所以两片的磕口不一样；
+   纹理用 bone-surface.png 以 380px 平铺——小元素上 cover 会把纹理缩到 0.3 倍变噪点。
+   每片给不同的 background-position，避免两块骨纹长得一模一样。
+   骨片上不描边、不投影（clip-path 本来也会把自带投影裁掉）。 */
+.hero .hero-main,
+.hero .hero-ghost {
+  border: 0;
+  box-shadow: none;
+  text-decoration: none;
+  background-image: var(--fiber), url("../assets/bone-surface.png");
+  background-size: 220px 220px, 380px 380px;
+  background-repeat: repeat, repeat;
+  background-blend-mode: multiply, normal;
+}
 .hero .hero-main {
-  color: var(--bone-white);
-  background: linear-gradient(150deg, var(--solid-hi), var(--solid));
-  border: 1px solid color-mix(in srgb, var(--solid-hi) 68%, var(--ink-carve));
-  box-shadow: var(--lift-1);
+  clip-path: url(#slabChip1);
+  background-color: #e9dcbd;
+  background-position: 0 0, -14px -22px;
+  /* 朱砂压 85% 墨：骨底上 5.1:1，纯 cinnabar 只有 3.4:1 */
+  color: color-mix(in srgb, var(--cinnabar-tint) 85%, var(--ink));
+  padding: 0 24px;
 }
 .hero .hero-main:hover {
-  color: var(--bone-white);
-  background: var(--solid-hi);
-  box-shadow: var(--lift-2);
-  transform: translateY(-2px);
+  background-color: #f2e6c9;
+  color: color-mix(in srgb, var(--cinnabar-tint) 78%, var(--ink));
+  transform: translateY(-1px);
 }
-/* 次按钮：从"暗底玻璃"改成"案面上的描边按钮" */
 .hero .hero-ghost {
+  clip-path: url(#slabChip4);
+  background-color: #efe3c8;
+  background-position: 0 0, -96px -128px;
   color: var(--ink-2);
-  background: color-mix(in srgb, var(--bone-white) 78%, transparent);
-  border: 1px solid var(--edge);
-  box-shadow: var(--lift-1);
+  font-weight: 500;
+  padding: 0 18px;
 }
 .hero .hero-ghost:hover {
+  background-color: #f7edd6;
   color: var(--ink);
-  background: var(--bone-white);
-  border-color: var(--cinnabar);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 .hero-trust {
   color: var(--ink-2);

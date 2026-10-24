@@ -1493,7 +1493,9 @@ html.js-motion .mo-now { transition: none !important; }
   font-size: clamp(15px, 1.3vw, 18px);
   line-height: 1.95;
 }
-.hero-cta { gap: 12px; margin-top: 28px; }
+/* 两枚 CTA 必须是一对：block 容器里 gap 不生效（两枚会紧贴成一坨），
+   改 flex 让 12px 间距真正落下来；窄屏自动折行，不硬挤。 */
+.hero-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 28px; }
 .hero .hero-main {
   min-height: 54px;
   padding: 0 22px;
