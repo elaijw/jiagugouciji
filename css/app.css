@@ -77,8 +77,11 @@
   .seal{
     flex:0 0 auto;
     display:inline-block;
-    background:var(--red); color:#fbeee2;
-    border:1px solid var(--red); border-radius:3px;
+    /* 印章底用 --cinnabar-tint 而不是 --red(#cc523b)：
+       浅字压鲜朱砂只有 3.8:1，压深一档的朱砂是 4.84。
+       印章本来就该是"按下去"的沉色，不是亮色。 */
+    background:var(--cinnabar-tint); color:#fbeee2;
+    border:1px solid var(--cinnabar-tint); border-radius:3px;
     padding:3px 8px; font-size:11px; letter-spacing:2px; line-height:1.35;
     box-shadow:0 1px 0 rgba(0,0,0,.16);
   }

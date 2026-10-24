@@ -23,7 +23,12 @@
   /* —— 墨褐 #29231E —— 正文与刻痕，也是深色面的底色 —— */
   --ink:        #2b2318;
   --ink-2:      #5b4d3a;   /* 次要文字 */
-  --ink-soft:   #7d6b52;   /* 更淡，用于说明与占位 */
+  /* 2026-10-24 加深：原 #7d6b52 在纸纹经 multiply 压暗处只有 3.6–4.0，
+     而它承担着全站 72 处 10–12px 小字（页脚标签、王邑元信息、进度数）。
+     新值纸底 5.20 / 纸纹最暗处 4.71，两处都过 AA。
+     ⚠ 它只服务浅色底。深墨块上的次级文字请用 --on-dark-2 / --on-dark-3，
+     不要把本值放回去——深底上越深越糊。 */
+  --ink-soft:   #6b5a43;
 
   /* —— 墨褐深色面（品牌主视觉 / 重点区域）——
      深色区里的文字与描边用下面这组，不要直接拿 --bone 硬套，
@@ -88,6 +93,17 @@
      两者不能共用同一个值。改动前请跑 dev/_contrast.js。 */
   --cinnabar-tint: #ae4936;
   --bronze-tint:   #80683f;
+  /* 青铜当"字"时的专用深色（和 --bronze-tint 同色相，再压一档）。
+     #80683f 在纸底上是 4.3、页脚那种压暗处掉到 3.85，13px 撑不住。
+     这个：纸底 5.5、最暗处 5.0。
+     ⚠ 只给文字。--bronze-tint 还要当描边和淡底用（46 处），不能连它一起加深。 */
+  --bronze-text:   #6b5631;
+  /* 朱砂当"字"时的专用深色。
+     --cinnabar-tint(#ae4936) 在纯纸底上够用（4.6:1），但纸纹经 multiply 后
+     最暗处只有 #ddd9d0，它掉到 4.3 —— 差一点。这个再压一档：
+     纸底 5.1、纸纹最暗处 4.6，两头都过 AA。
+     ⚠ 只给文字用；当底色用会让白字更刺眼，那时仍用 --cinnabar-tint。 */
+  --cinnabar-text: #9a4331;
   --blue-tint:     #426c80;
   --green-tint:    var(--patina-tint);
 
@@ -546,7 +562,8 @@ input[type="range"]::-moz-range-thumb {
 
 /* ---------- 3.9 旧样式兼容 ---------- */
 .seal {
-  background: var(--cinnabar); color: #fbeee2;
+  /* 同 app.css：印章底压深一档，浅字才有 4.84（鲜朱砂只有 3.81） */
+  background: var(--cinnabar-tint); color: #fbeee2;
   border: 1px solid color-mix(in srgb, var(--cinnabar) 60%, #000);
   border-radius: var(--r-xs); padding: 2px var(--s-2);
   letter-spacing: 2px; line-height: 1.4;

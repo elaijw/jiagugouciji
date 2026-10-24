@@ -249,8 +249,11 @@
 .hero-body { max-width: min(480px, 39vw); }
 
 .hero-kicker {
-  color: var(--bronze-tint);
-  font-size: 11px;
+  /* 眉标从 --bronze-tint(#80683f) 换成 --ink-2：
+     青铜在纸底上只有 4.1，纸纹压暗处掉到 3.4，12px 撑不住。
+     色相辨识靠前面那条朱砂短线，字本身收进墨褐更稳。 */
+  color: var(--ink-2);
+  font-size: 12px;
   letter-spacing: 3.2px;
   margin-bottom: 18px;
 }
@@ -321,7 +324,9 @@
   clip-path: url(#slabChip1);
   background-color: #e9dcbd;
   background-position: 0 0, -14px -22px;
-  /* 朱砂压 85% 墨：骨底上 5.1:1，纯 cinnabar 只有 3.4:1 */
+  /* 朱砂压 15% 墨 = #9a4331。骨面被纸纹 multiply 后实测底是 #e5dcc9，
+     在这上面 4.87 —— 17px 不是大字号（门槛 4.5），刚好过，也不再深了：
+     再压就变成赭褐，"朱砂刻辞"的味道就没了。 */
   color: color-mix(in srgb, var(--cinnabar-tint) 85%, var(--ink));
   padding: 0 24px;
 }
@@ -342,6 +347,37 @@
   background-color: #f7edd6;
   color: var(--ink);
   transform: translateY(-1px);
+}
+
+/* 首页「进入图鉴」：和 hero 那两枚同一套骨片语言，但小一档。
+   原来是 .btn.primary 的朱砂实底 —— 在一张纸面首页上，页面中段突然压一块
+   最响的实红，反而比首屏的"开始探索"更抢眼，层级是倒的。
+   改成小骨片后，首页所有"往下走一步"都是骨，实红留给真正的重动作
+   （对战页的质问、结算页的继续）。
+   用 slabChip2：和 hero 的 1、4 形状不同，三片骨各磕各的口子。 */
+.home-scene .collect-card .cc-body .btn.primary {
+  clip-path: url(#slabChip2);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  text-shadow: none;
+  background-color: #efe3c8;
+  background-image: var(--fiber), url("../assets/bone-surface.png");
+  background-size: 220px 220px, 380px 380px;
+  background-repeat: repeat, repeat;
+  background-blend-mode: multiply, normal;
+  background-position: 0 0, -38px -74px;
+  color: var(--cinnabar-text);
+  padding: 0 20px;
+}
+.home-scene .collect-card .cc-body .btn.primary:hover {
+  background-color: #f7edd6;
+  color: color-mix(in srgb, var(--cinnabar-text) 82%, var(--ink));
+  transform: translateY(-1px);
+}
+.home-scene .collect-card .cc-body .btn.primary:active {
+  background-color: #e4d8bb;
+  box-shadow: none;
 }
 .hero-trust {
   color: var(--ink-2);
@@ -365,7 +401,7 @@
 }
 .hero-guide-copy b { color: var(--ink); }
 .hero-guide-copy span { color: var(--ink-2); }
-.hero-guide-arrow { color: var(--cinnabar); }
+.hero-guide-arrow { color: var(--cinnabar-text); }
 .hero-guide-glyph { color: #6a5536; }
 .hero-guide-mascot {
   filter: drop-shadow(0 3px 6px color-mix(in srgb, var(--ink) 28%, transparent));
@@ -377,8 +413,19 @@
 .hero .stat-band {
   border-top-color: var(--edge);
 }
-.hero .stat-cell b { color: var(--cinnabar-tint); }
+/* 数字 25px 属大字号（门槛 3:1），但它在案沿的暗带上实测只有 2.7–3.4，
+   所以同样走压墨那一档。 */
+.hero .stat-cell b { color: var(--cinnabar-text); }
 .hero .stat-cell span { color: var(--ink-2); }
+/* 署名压在骨纹上：底会掉到 #c1bcb0，11px 的墨褐在那上面只有 4.3。
+   不是把字再压深（那就和正文同级了），而是给它垫一张极浅的纸角 ——
+   署名本来就不该直接浮在花纹上。不加投影，它不是卡片，是签。 */
+.hero .hero-credit {
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+  padding: 5px 9px 4px;
+  border-radius: 2px;
+}
 .hero .hero-credit .hc-name { color: var(--ink-2); }
 .hero .hero-credit .hc-src { color: var(--ink-2); }
 .hero .hero-cue {
@@ -449,8 +496,11 @@
     letter-spacing: .03em;
   }
   .hero-lead { font-size: 14px; line-height: 1.85; }
-  .hero .hero-main,
-  .hero .hero-ghost { min-height: 46px; }
+  /* 窄屏骨片小一档，内边距跟着收窄到 13px。
+     这个值原来写在 ui.css 的 720px 断点里，和这里的 700px 断点交叉，
+     靠加载顺序决定谁赢 —— 现在骨片的内边距只在这一处定义。 */
+  .hero .hero-main { min-height: 46px; padding: 0 13px; }
+  .hero .hero-ghost { min-height: 46px; padding: 0 11px; }
   .sf-c { stroke-width: 5px; }
   .sf-main { stroke-width: 7px; }
 }

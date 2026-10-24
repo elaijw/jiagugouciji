@@ -84,7 +84,9 @@
 .footer .foot-p,
 .footer .foot-item,
 .footer .foot-bar { color: var(--ink-2); }
-.footer a { color: var(--bronze-tint); }
+/* 页脚链接是 13px 正文级信息（出处署名、导航），不是装饰：
+   青铜原色在压暗的纸底上只有 3.85，换文字专用深青铜。 */
+.footer a { color: var(--bronze-text); }
 .footer a:hover { color: var(--cinnabar-tint); }
 .footer .foot-bar {
   border-top-color: color-mix(in srgb, var(--edge) 60%, transparent);

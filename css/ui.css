@@ -176,7 +176,7 @@ img { max-width: 100%; }
 .sec-h { margin: 0; font-size: 22px; letter-spacing: 2px; }
 .sec-note { margin: var(--s-1) 0 0; font-size: var(--fs-md); color: var(--ink-2); }
 .sec-more {
-  font-size: var(--fs-md); color: var(--bronze-tint); text-decoration: none;
+  font-size: var(--fs-md); color: var(--bronze-text); text-decoration: none;
   white-space: nowrap; padding-bottom: 2px;
   border-bottom: 1px solid color-mix(in srgb, var(--bronze) 45%, transparent);
 }
@@ -249,7 +249,7 @@ img { max-width: 100%; }
   margin: 0; text-align: right;
 }
 .hero-credit .hc-name { font-size: var(--fs-xs); color: var(--on-dark-2); letter-spacing: 1px; }
-.hc-src { font-size: 10px; line-height: 1.45; color: var(--on-dark-3); }
+.hc-src { font-size: 11px; line-height: 1.45; color: var(--on-dark-3); }
 
 /* 下滑提示：固定在底部居中 */
 .hero-cue {
@@ -392,9 +392,10 @@ img { max-width: 100%; }
 .dc-glyph { width: 104px; height: 104px; color: var(--ink); }
 .dc-glyph.composed { opacity: .82; }
 .dc-ob { position: relative; }
+/* 压在骨纹暗部（#d1c2a6）上，--ink-soft 只剩 3.8，等于看不见；换 --ink-2 得 4.67 */
 .dc-composednote {
   position: absolute; left: 0; right: 0; bottom: 2px; text-align: center;
-  font-size: 10px; color: var(--ink-soft); letter-spacing: 1px;
+  font-size: 11px; color: var(--ink-2); letter-spacing: 1px;
 }
 .dc-info { flex: 1 1 220px; min-width: 0; }
 .dc-pair { display: flex; align-items: baseline; gap: var(--s-3); margin-bottom: var(--s-2); }
@@ -430,7 +431,7 @@ img { max-width: 100%; }
   border-bottom: 1px dashed color-mix(in srgb, var(--edge) 60%, transparent);
 }
 .cc-kname { color: var(--ink-2); }
-.cc-knum { color: var(--bronze-tint); font-variant-numeric: tabular-nums; }
+.cc-knum { color: var(--bronze-text); font-variant-numeric: tabular-nums; }
 .cc-note { margin: 0; font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.7; }
 
 /* ============================================================================
@@ -819,7 +820,8 @@ img { max-width: 100%; }
   /* 窄屏一屏更紧：图按 24vh 取，说明牌缩小 */
   .hero-bone { height: min(24vh, 180px); }
   .hero-credit { padding: var(--s-1) var(--s-1) var(--s-2); }
-  .hc-src { font-size: 9px; line-height: 1.45; }
+  /* 窄屏最小 10.5px：署名是"有出处"的信息，不是装饰，再小就真读不了了 */
+  .hc-src { font-size: 10.5px; line-height: 1.45; }
   .hero-title { font-size: 26px; letter-spacing: 2px; }
   .hero-lead { margin-bottom: var(--s-3); }
   .hero-cue { margin-top: var(--s-1); }
@@ -872,7 +874,7 @@ img { max-width: 100%; }
   .hero-lead, .hero-trust { display: none; }
   .hero-in { padding: var(--s-4) var(--s-4); gap: var(--s-2); }
   .hero-credit { right: var(--s-3); bottom: var(--s-2); }
-  .hc-src { font-size: 8px; }
+  .hc-src { font-size: 10px; }
 }
 
 /* 手机横屏且很矮：顶栏收紧，页脚不占屏 */
@@ -1024,7 +1026,7 @@ html.js-motion .mo-now { transition: none !important; }
   background: linear-gradient(90deg, var(--bronze), var(--cinnabar));
   transition: width var(--t-slow) var(--ease);
 }
-.ach-num { font-size: 10px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.ach-num { font-size: 11px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
 @media (max-width: 720px) {
   .ach-grid { grid-template-columns: 1fr; }
@@ -1494,32 +1496,19 @@ html.js-motion .mo-now { transition: none !important; }
   line-height: 1.95;
 }
 /* 两枚 CTA 必须是一对：block 容器里 gap 不生效（两枚会紧贴成一坨），
-   改 flex 让 12px 间距真正落下来；窄屏自动折行，不硬挤。 */
+   改 flex 让 12px 间距真正落下来；窄屏自动折行，不硬挤。
+   子项给 flex:0 0 auto —— 默认的 flex:0 1 auto 允许被压窄，
+   而骨片按钮一旦窄于文字，clip-path 会先切字再切边。宁可折行。 */
 .hero-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 28px; }
-.hero .hero-main {
-  min-height: 54px;
-  padding: 0 22px;
-  color: #fff7eb;
-  background: linear-gradient(135deg, #bc5039, #8f2f27);
-  border: 1px solid rgba(255, 197, 161, .42);
-  box-shadow: 0 12px 28px rgba(96, 28, 21, .34), inset 0 1px rgba(255, 255, 255, .18);
-}
-.hero .hero-main:hover {
-  background: linear-gradient(135deg, #d16447, #a83a2e);
-  box-shadow: 0 16px 36px rgba(96, 28, 21, .45), inset 0 1px rgba(255, 255, 255, .22);
-  transform: translateY(-2px);
-}
-.hero .hero-ghost {
-  min-height: 54px;
-  color: #f2e5cf;
-  background: rgba(20, 17, 14, .32);
-  border-color: rgba(242, 232, 213, .32);
-}
-.hero .hero-ghost:hover {
-  color: #fff8ec;
-  background: rgba(242, 232, 213, .1);
-  border-color: rgba(242, 232, 213, .65);
-}
+.hero-cta > .btn { flex: 0 0 auto; }
+/* 两枚 CTA 的尺寸基线（54px 高）。
+   颜色 / 骨纹 / 磕口轮廓全部在 slab.css —— 那里是唯一视觉权威。
+   这里原本是一套「实红块 + 深玻璃」的旧皮肤（linear-gradient(135deg,#bc5039,#8f2f27)
+   + 1px 浅边 + 大投影），已经被 slab.css 一条条盖住；
+   留着只有两个后果：让人误以为改这里有用，以及在 link 顺序变动时原地复活。
+   所以只留尺寸，一点颜色都不留。 */
+.hero .hero-main,
+.hero .hero-ghost { min-height: 54px; }
 .hero-trust {
   margin: 18px 0 0;
   color: rgba(242, 232, 213, .56);
@@ -1759,12 +1748,13 @@ html.js-motion .mo-now { transition: none !important; }
   }
   .hero-in { padding: 66px 22px 198px; }
   .hero-body { max-width: 580px; }
-  .hero-kicker { margin-bottom: 16px; font-size: 9px; letter-spacing: 1.6px; }
+  .hero-kicker { margin-bottom: 16px; font-size: 11px; letter-spacing: 1.4px; }
   .hero-title { max-width: 10em; font-size: clamp(38px, 10vw, 54px); }
   .hero-lead { max-width: 29em; margin-top: 16px; font-size: 14px; }
   .hero-cta { gap: 8px; margin-top: 22px; }
+  /* 窄屏骨片更小，内边距随之收；padding 统一由 slab.css 管，这里只定高度与字号 */
   .hero .hero-main,
-  .hero .hero-ghost { min-height: 48px; padding: 0 13px; font-size: 12px; }
+  .hero .hero-ghost { min-height: 48px; font-size: 12px; }
   .hero-guide { width: min(100%, 330px); margin-top: 17px; }
   .hero .stat-band {
     left: 18px;
@@ -1780,7 +1770,7 @@ html.js-motion .mo-now { transition: none !important; }
   .hero .hero-cue { display: none; }
   .hero-credit { right: 16px; bottom: 98px; max-width: 42vw; text-align: right; }
   .hero-credit .hc-name { font-size: 9px; }
-  .hc-src { font-size: 8px; }
+  .hc-src { font-size: 10px; }
   .hero-guide-mascot { width: 42px; height: 42px; }
   .home-scene .play-grid { grid-template-columns: 1fr; }
   .home-scene .play-card,
