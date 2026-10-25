@@ -26,36 +26,7 @@
     var hero = document.querySelector('.home-scene .hero');
     if (!hero) { return; }
 
-    /* 刻字：优先「水」（五笔，正好演示逐笔），退「日」「大」「木」 */
-    if (!hero.querySelector('.hero-etch') && App.hasGlyph && App.glyphStrokeSvg) {
-      var cands = ['木', '日', '大', '水', '火', '山'];
-      var ch = null;
-      for (var i = 0; i < cands.length; i++) {
-        if (App.hasGlyph(cands[i])) { ch = cands[i]; break; }
-      }
-      if (ch) {
-        var n = App.glyphStrokeCount ? App.glyphStrokeCount(ch) : 0;
-        var parts = [];
-        for (var k = 0; k < n; k++) {
-          var s = App.glyphStrokeSvg(ch, k);
-          if (s) { parts.push(s); }
-        }
-        if (parts.length) {
-          var box = document.createElement('div');
-          box.className = 'hero-etch';
-          box.setAttribute('aria-hidden', 'true');
-          box.innerHTML = '<svg viewBox="0 0 100 100">' + parts.join('') + '</svg>';
-          var paths = box.querySelectorAll('path');
-          for (var p = 0; p < paths.length; p++) {
-            paths[p].setAttribute('pathLength', '1');
-            if (!REDUCED) {
-              paths[p].style.animationDelay = (0.35 + p * 0.26).toFixed(2) + 's';
-            }
-          }
-          hero.appendChild(box);
-        }
-      }
-    }
+    /* 右侧叠加的甲骨字形已按反馈移除：骨片上只留照片自带的刻辞，不再压一个大字 */
 
     /* 龟宝半身像：右下角，和骨片错开 */
     if (!hero.querySelector('.hero-guibao')) {

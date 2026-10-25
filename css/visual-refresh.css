@@ -188,10 +188,10 @@ html body .home-scene .sheet {
 /* 龟宝：站在骨片下缘，避开右下角署名 */
 .hero-guibao {
   position: absolute;
-  right: 26%;
-  bottom: 18%;
-  width: clamp(96px, 10vw, 148px);
-  z-index: 6;
+  right: 2.2%;
+  bottom: 8.5%;
+  width: clamp(92px, 8.5vw, 128px);
+  z-index: 7;
   pointer-events: none;
 }
 .hero-guibao img {
@@ -269,3 +269,39 @@ html body .home-scene .sheet {
    ============================================================ */
 .stat-cell b,
 .cc-big b { font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   装饰层：让骨片周围的气氛真正可见
+   （雾层 / 灼痕 / 兆纹 / 两角残片）
+   ============================================================ */
+.home-scene .hero-depth-back { opacity: .9; }
+.home-scene .hero-sheen      { opacity: 1; }
+.home-scene .hero-burn       { opacity: .92 !important; }
+.home-scene .hero-fire svg   { opacity: 1; }
+.home-scene .hero-frag-l     { opacity: .62 !important; }
+.home-scene .hero-frag-r     { opacity: .55 !important; }
+
+/* 右下角：龟宝站在骨片旁，给它一圈很淡的骨白托底 */
+.home-scene .hero-guibao::before {
+  content: "";
+  position: absolute;
+  inset: -18% -22% -14%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(252, 248, 238, .9), rgba(252, 248, 238, 0) 72%);
+  z-index: -1;
+}
+
+/* hero 底部水墨雾带：把"展陈"的氛围托出来，但不压字 */
+.home-scene .hero::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 34%;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60% 100% at 22% 100%, rgba(120, 106, 82, .10), rgba(120, 106, 82, 0) 70%),
+    radial-gradient(52% 96% at 78% 100%, rgba(96, 88, 70, .12), rgba(96, 88, 70, 0) 72%);
+}
+/* 只给文字层抬 z-index：不要改其它元素定位，否则统计带/署名会脱离原位 */
+.home-scene .hero-in { position: relative; z-index: 5; }
