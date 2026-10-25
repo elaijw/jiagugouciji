@@ -28,6 +28,36 @@
 
     /* 右侧叠加的甲骨字形已按反馈移除：骨片上只留照片自带的刻辞，不再压一个大字 */
 
+    /* 展览说明牌：小号构件字形 + 引线 + 一句解释。
+       只是注解装饰，不往骨片上压大字。 */
+    if (!hero.querySelector('.hero-label') && App.hasGlyph && App.glyphSvg &&
+        App.hasGlyph('人') && App.hasGlyph('木')) {
+      var lab = document.createElement('aside');
+      lab.className = 'hero-label';
+      lab.setAttribute('aria-label', '说明：甲骨文「休」由「人」与「木」两个构件组成');
+      lab.innerHTML =
+        '<span class="hl-kicker">甲骨 · 合体字</span>' +
+        '<span class="hl-form">' +
+          '<span class="hl-comp"><svg viewBox="0 0 100 100">' +
+            App.glyphSvg('人', '#24221D') + '</svg></span>' +
+          '<i>＋</i>' +
+          '<span class="hl-comp"><svg viewBox="0 0 100 100">' +
+            App.glyphSvg('木', '#24221D') + '</svg></span>' +
+          '<i>＝</i>' +
+          '<b>休</b>' +
+        '</span>' +
+        '<span class="hl-note">今字「休」· 人倚木而息</span>';
+      /* 引线：从牌子右上角指向骨片刻辞一带 */
+      var lead = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      lead.setAttribute('class', 'hl-lead');
+      lead.setAttribute('viewBox', '0 0 120 70');
+      lead.setAttribute('aria-hidden', 'true');
+      lead.innerHTML = '<path d="M6 64 C34 48 68 30 110 12"/>' +
+                       '<circle cx="110" cy="12" r="2.4"/>';
+      lab.appendChild(lead);
+      hero.appendChild(lab);
+    }
+
     /* 龟宝半身像：右下角，和骨片错开 */
     if (!hero.querySelector('.hero-guibao')) {
       var gb = document.createElement('div');
