@@ -551,13 +551,6 @@
     };
     hero.appendChild(cue);
 
-    /* 署名：压在右下角小字。CC0 不强制署名，但出处该写清楚。 */
-    var cap = App.el('p', 'hero-credit');
-    cap.appendChild(App.el('span', 'hc-name', '骨片刻辞 · 商代'));
-    cap.appendChild(App.el('span', 'hc-src',
-      '摄影 Gary Todd　CC0 1.0 公有领域　Wikimedia Commons'));
-    hero.appendChild(cap);
-
     wrap.appendChild(hero);
 
     /* 数字用真实的：字形数、构件数、字卡数、玩法数。
