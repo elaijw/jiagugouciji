@@ -492,12 +492,12 @@
     hero.appendChild(slab);
 
     var hb = App.el('div', 'hero-body');
-    hb.appendChild(App.el('p', 'hero-kicker', '甲骨文互动叙事　/　CULTURAL GAME LAB'));
+    hb.appendChild(App.el('p', 'hero-kicker', '甲骨文互动叙事'));
     var h1 = App.el('h1', 'hero-title');
     carveTitle(h1, copyText('home.title', '从一片卜骨，\n读懂汉字的来处'));
     hb.appendChild(h1);
     hb.appendChild(App.el('p', 'hero-lead', copyText('home.subtitle',
-      '亲手拼出甲骨字形，点亮殷商王邑，最后迎战构件 Boss。把三千年前的文字，'
+      '亲手拼出甲骨字形，点亮殷商王邑，最后迎战终局之敌。把三千年前的文字，'
       + '从展柜里的知识，变成一场可以亲自参与的探索。')));
 
     var cta = App.el('div', 'hero-cta');
@@ -576,7 +576,7 @@
 
     sec1.id = 'playSection';
     sec1.appendChild(sectionHead('三步，开启甲骨探索',
-      '从认字形，到拨雾见邑，再迎战 Boss 终局',
+      '从认字形，到拨雾见邑，再到终局之战',
       '#/modes', '全部玩法 →'));
     /* 主线：给每张卡排上步骤号，卡之间用一条贯穿的细线串起来。
        顺序仍按 App.modes.playable() 的注册顺序，**不重排**——
@@ -1403,10 +1403,10 @@
       action: '进入王邑地图'
     },
     'boss-raid': {
-      step: '进阶 Boss', char: '虎', modern: '虎',
+      step: '进阶关卡', char: '虎', modern: '虎',
       cap: '21 关 · 分阶段挑战',
-      summary: '推进 21 关线性 Boss 战：拆构件、破防，再进入笔画终局。',
-      action: '挑战 Boss'
+      summary: '推进 21 关线性关卡：拆构件、破防，再进入笔画终局。',
+      action: '挑战终局'
     }
   };
 
@@ -1442,7 +1442,7 @@
     introCopy.appendChild(App.el('p', 'lv-kicker', '识字 · 探索 · 讨伐'));
     introCopy.appendChild(App.el('h1', 'lv-title', '从认字形，到挑战终局'));
     introCopy.appendChild(App.el('p', 'lv-lead',
-      '第 01 关认识甲骨字形与构件，第 02 关沿王邑实物找字，第 03 关迎战进阶 Boss。'));
+      '第 01 关认识甲骨字形与构件，第 02 关沿王邑实物找字，第 03 关迎战进阶关卡。'));
     intro.appendChild(introCopy);
 
     var guide = App.el('aside', 'lv-guide');
