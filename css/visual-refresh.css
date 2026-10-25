@@ -1,0 +1,271 @@
+/* ============================================================
+   visual-refresh.css —— 纯视觉重构层（不改功能、不改结构）
+   ------------------------------------------------------------
+   只在最后加载，用覆盖的方式换观感：
+     1. 分区底色：首屏米白 / 玩法区浅褐 / 成就区米白
+     2. 第二主色：石绿 #5B7F6B（图标、进度、编号）；
+        朱砂 #A63A2C 只留给主按钮与印章
+     3. 三张玩法卡：顶部色带 + 编号书法字体
+     4. 首屏右侧：甲骨字形逐笔描边 + 龟宝半身像（元素由 visual.js 注入）
+     5. 卡片滚动入场 + hover 上浮
+     6. 区块标题左侧 3px 朱砂竖线
+     7. 数字滚动计数（数据由 visual.js 驱动，这里只保证排版稳定）
+   ============================================================ */
+
+:root {
+  --paper-hero: #F5F0E4;   /* 首屏米白 */
+  --paper-game: #EDE6D8;   /* 玩法区浅褐 */
+  --paper-ach:  #F5F0E4;   /* 成就区米白 */
+  --jade:       #5B7F6B;   /* 石绿：第二主色 */
+  --jade-deep:  #48685A;
+  --jade-soft:  #7C9E89;
+  --jade-tint:  rgba(91, 127, 107, .12);
+  --jade-line:  rgba(91, 127, 107, .45);
+}
+
+/* ============================================================
+   1. 分区底色
+   ============================================================ */
+.home-scene > .hero {
+  background-image: none !important;
+  background-color: var(--paper-hero) !important;
+}
+html body .home-scene .sheet {
+  background-color: var(--paper-ach);
+}
+/* 纸叠边的上沿：原先是朱砂，按"朱砂只给主按钮与印章"改石绿 */
+.home-scene .sheet { border-top-color: rgba(91, 127, 107, .55) !important; }
+
+/* 玩法区：浅褐。向两侧破出 sheet 内边距，做成整段色带 */
+.home-scene .sheet #playSection {
+  background-color: var(--paper-game) !important;
+  margin-inline: calc(var(--s-7, 28px) * -1);
+  padding-inline: var(--s-7, 28px);
+  border-top: 1px solid var(--edge, rgba(120, 96, 66, .25));
+  border-bottom: 1px solid var(--edge, rgba(120, 96, 66, .25));
+}
+@media (max-width: 720px) {
+  .home-scene .sheet #playSection {
+    margin-inline: calc(var(--s-4, 16px) * -1);
+    padding-inline: var(--s-4, 16px);
+  }
+}
+
+/* ============================================================
+   2. 石绿体系（选择器带 .home-scene，压过原有同族规则）
+   ============================================================ */
+.home-scene .pc-icon {
+  background: linear-gradient(160deg, var(--jade), var(--jade-deep)) !important;
+  color: #F4F7F2 !important;
+  border-color: rgba(72, 104, 90, .5) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .30),
+              0 2px 6px rgba(48, 70, 58, .26) !important;
+}
+.home-scene .pc-progfill {
+  background: linear-gradient(90deg, var(--jade), var(--jade-soft)) !important;
+}
+.home-scene .pc-progbar {
+  background-color: rgba(91, 127, 107, .18) !important;
+}
+.home-scene .cc-fill {
+  background: linear-gradient(90deg, var(--jade), var(--jade-soft)) !important;
+}
+.home-scene .cc-bar {
+  background-color: rgba(91, 127, 107, .18) !important;
+}
+.home-scene .pc-go,
+.home-scene .pc-slot:hover .pc-go,
+.home-scene .pc-slot:focus-within .pc-go {
+  color: var(--jade-deep) !important;
+}
+.home-scene .pc-mainflag,
+.home-scene .pc-startflag {
+  color: var(--jade-deep) !important;
+  border-color: var(--jade-line) !important;
+  background: var(--jade-tint) !important;
+}
+.home-scene .sec-more:hover { color: var(--jade-deep) !important; }
+
+/* 评级块：原来是朱砂描边，改石绿（朱砂留给主按钮与印章） */
+.home-scene .cc-rank {
+  border-color: var(--jade-line) !important;
+  background: rgba(91, 127, 107, .05);
+}
+.home-scene .cc-ranklab { color: var(--jade-deep) !important; }
+.home-scene .cc-rankname { color: var(--jade-deep) !important; }
+
+/* 统计数字：原先是朱砂/暖金，改墨色底 + 石绿点缀 */
+.home-scene .hero .stat-cell b {
+  color: var(--jade-deep) !important;
+}
+
+/* 编号：书法字体、放大、石绿 */
+.home-scene .pc-step { align-items: baseline; }
+.home-scene .pc-step b {
+  font-family: var(--font-kai, "Kaiti SC", KaiTi, serif) !important;
+  font-size: 42px !important;
+  line-height: .86 !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  color: var(--jade-deep) !important;
+  opacity: .92;
+}
+
+/* 主按钮统一到指定朱砂 #A63A2C（这是全站唯一该用朱砂的交互元素） */
+.home-scene .btn.primary {
+  background: #A63A2C !important;
+  border-color: #8E2F23 !important;
+  color: #FFF7EA !important;
+  text-shadow: 0 1px 1px rgba(70, 18, 10, .35);
+}
+.home-scene .btn.primary *,
+.home-scene .btn.primary span { color: #FFF7EA !important; }
+.home-scene .btn.primary:hover { background: #B2412F !important; }
+
+/* ============================================================
+   3. 三张玩法卡：顶部色带（用 ::after，避开已有的 ::before 光泽层）
+   ============================================================ */
+.home-scene .play-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 6px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--jade), var(--jade-soft));
+}
+.home-scene .pc-slot:nth-child(2) .play-card::after {
+  background: linear-gradient(90deg, var(--jade-deep), var(--jade));
+}
+.home-scene .pc-slot:nth-child(3) .play-card::after {
+  background: linear-gradient(90deg, #6E8F7A, var(--jade-deep));
+}
+
+/* ============================================================
+   4. 首屏右侧：甲骨字形描边 + 龟宝半身像
+   ============================================================ */
+.hero-etch {
+  position: absolute;
+  right: 22%;
+  top: 45%;
+  width: clamp(160px, 20vw, 250px);
+  transform: translateY(-50%);
+  z-index: 4;
+  pointer-events: none;
+  opacity: .9;
+  mix-blend-mode: multiply;
+}
+.hero-etch svg { display: block; width: 100%; height: auto; overflow: visible; }
+.hero-etch path {
+  fill: none;
+  stroke: #33271A;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: vr-etch 1.05s cubic-bezier(.4, 0, .2, 1) forwards;
+  filter: drop-shadow(0 0 1.5px rgba(255, 250, 238, .9));
+}
+@keyframes vr-etch {
+  0%   { stroke-dashoffset: 1; opacity: 0; }
+  10%  { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+.hero-etch::after {
+  content: "";
+  position: absolute;
+  inset: -14% -10%;
+  border-radius: 46%;
+  background: radial-gradient(closest-side, var(--jade-tint), rgba(91, 127, 107, 0) 72%);
+  opacity: 0;
+  animation: vr-etch-glow 1.6s ease-out 1.1s forwards;
+}
+@keyframes vr-etch-glow { to { opacity: 1; } }
+
+/* 龟宝：站在骨片下缘，避开右下角署名 */
+.hero-guibao {
+  position: absolute;
+  right: 26%;
+  bottom: 18%;
+  width: clamp(96px, 10vw, 148px);
+  z-index: 6;
+  pointer-events: none;
+}
+.hero-guibao img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 10px 16px rgba(46, 30, 12, .26));
+  animation: vr-guibao-bob 5.2s ease-in-out infinite;
+}
+@keyframes vr-guibao-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+/* 窄屏：刻字会压到标题与按钮，龟宝会压到署名——都收掉，
+   mobile 上靠引导卡里的小龟宝出角色就行 */
+@media (max-width: 1000px) {
+  .hero-etch { display: none; }
+}
+@media (max-width: 720px) {
+  .hero-guibao { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-etch path { animation: none; stroke-dashoffset: 0; }
+  .hero-etch::after { animation: none; opacity: .8; }
+  .hero-guibao img { animation: none; }
+}
+
+/* ============================================================
+   5. 滚动入场 + hover 上浮
+   ============================================================ */
+.vr-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity .5s ease-out, transform .5s ease-out;
+}
+.vr-reveal.vr-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .vr-reveal { opacity: 1; transform: none; transition: none; }
+}
+
+.pc-slot {
+  transition: transform .26s ease-out, filter .26s ease-out;
+}
+.pc-slot:hover {
+  transform: translateY(-3px);
+  filter: drop-shadow(0 14px 20px rgba(58, 40, 22, .20));
+}
+.home-scene .daily-card,
+.home-scene .collect-card,
+.home-scene .ach-card {
+  transition: transform .26s ease-out, box-shadow .26s ease-out;
+}
+.home-scene .daily-card:hover,
+.home-scene .collect-card:hover,
+.home-scene .ach-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px rgba(58, 40, 22, .16);
+}
+
+/* ============================================================
+   6. 区块标题：左侧 3px 朱砂竖线
+   ============================================================ */
+.sec-head-l {
+  border-left: 3px solid #A63A2C;
+  padding-left: 12px;
+}
+.sec-head-l .sec-h { margin-top: 0; }
+
+/* ============================================================
+   7. 数字滚动计数：排版稳定（动画由 visual.js 驱动）
+   ============================================================ */
+.stat-cell b,
+.cc-big b { font-variant-numeric: tabular-nums; }
