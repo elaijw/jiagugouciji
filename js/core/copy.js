@@ -3,9 +3,9 @@
   'use strict';
   App.copy = {
  "home": {
-  "title": "唤醒沉睡的\n古文字",
+  "title": "唤醒沉睡的古文字",
   "subtitle": "循着刻痕与字形线索，寻找文字最初的模样。",
-  "cta": "开始构字",
+  "cta": "开始探索",
   "progress_label": "探索进度"
  },
  "chapters": [

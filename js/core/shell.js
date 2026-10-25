@@ -578,6 +578,8 @@
 
     /* ================= 核心玩法 ================= */
     var sec1 = App.el('section', 'home-sec');
+    var mt = motivateCard();
+    if (mt) { wrap.appendChild(mt); }
 
     sec1.id = 'playSection';
     sec1.appendChild(sectionHead('三步，开启甲骨探索',
@@ -748,10 +750,6 @@
     sec2.appendChild(row);
     if (App.achievements) { sec2.appendChild(achieveCard()); }
     wrap.appendChild(sec2);
-
-    /* 今日目标放在每日一字 / 收集之后：首屏留给叙事与主视觉 */
-    var mt = motivateCard();
-    if (mt) { wrap.appendChild(mt); }
 
     return sheetWrap(wrap, hero);
   }
