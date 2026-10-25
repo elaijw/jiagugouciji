@@ -305,3 +305,33 @@ html body .home-scene .sheet {
 }
 /* 只给文字层抬 z-index：不要改其它元素定位，否则统计带/署名会脱离原位 */
 .home-scene .hero-in { position: relative; z-index: 5; }
+
+/* ============================================================
+   首屏主张行：一句说清"是什么/有多少/怎么玩"，带玩法说明入口
+   ============================================================ */
+.home-scene .hero-claim {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0 0 16px;
+  padding-left: 13px;
+  border-left: 3px solid var(--cinnabar, #cc523b);
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--ink, #2b2318);
+}
+.home-scene .hero-claim .hc-text { font-weight: 600; letter-spacing: .02em; }
+.home-scene .hero-claim .hc-link {
+  font-size: 14px;
+  color: var(--ink-2, #5b4d3a);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(120, 96, 66, .45);
+  padding-bottom: 1px;
+}
+.home-scene .hero-claim .hc-link:hover { color: var(--cinnabar, #cc523b); border-bottom-color: currentColor; }
+.home-scene .hero-claim .hc-link-arrow { margin-left: 3px; }
+
+@media (max-width: 720px) {
+  .home-scene .hero-claim { font-size: 15px; gap: 8px 12px; margin-bottom: 12px; }
+}

@@ -6,7 +6,7 @@
 
      构件      37 个   js/core/data.js 的 BUILTIN_PIECES（带分类）
      合体字    34 张   js/core/data.js 的 BUILTIN_POOL（带构件/释义/卜辞出处）
-     王邑实物  61 个   levels.json 的 map.zones[].objects（带分区/释义）
+     王邑实物  56 个   levels.json 的 map.zones[].objects（带分区/释义）
      讨伐字形  21 尊   levels.json 的 boss.tiers[].list（带档位/构件）
 
    同一个字可能出现在多处（「山」既是构件、又是实物、又是 BOSS），

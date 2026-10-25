@@ -496,6 +496,18 @@
     var h1 = App.el('h1', 'hero-title');
     carveTitle(h1, copyText('home.title', '从一片卜骨，\n读懂汉字的来处'));
     hb.appendChild(h1);
+
+    /* 主张：一进首屏就说清"是什么、有多少、怎么玩"，
+       后面跟一个直接进玩法说明的入口。 */
+    var claim = App.el('p', 'hero-claim');
+    claim.appendChild(App.el('span', 'hc-text',
+      copyText('home.claim', '73 个真实甲骨字形，三关亲手拆解')));
+    var claimLink = App.el('a', 'hc-link', copyText('home.claim_link', '怎么玩'));
+    claimLink.href = '#/howto';
+    claimLink.appendChild(App.el('span', 'hc-link-arrow', '→'));
+    claim.appendChild(claimLink);
+    hb.appendChild(claim);
+
     hb.appendChild(App.el('p', 'hero-lead', copyText('home.subtitle',
       '亲手拼出甲骨字形，点亮殷商王邑，最后迎战终局之敌。把三千年前的文字，'
       + '从展柜里的知识，变成一场可以亲自参与的探索。')));
@@ -1398,7 +1410,7 @@
     },
     'wangyi-map': {
       step: '实物探索', char: '邑', chain: true,
-      seal: '5 幅主题小地图', cap: '61 个甲骨字形 · 完成一图，点亮一域',
+      seal: '5 幅主题小地图', cap: '56 个甲骨字形 · 完成一图，点亮一域',
       summary: '从主题小地图学习甲骨字形；学完一个分区，就点亮大地图上的对应王邑。',
       action: '进入王邑地图'
     },

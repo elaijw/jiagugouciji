@@ -6,7 +6,9 @@
   "title": "唤醒沉睡的古文字",
   "subtitle": "循着刻痕与字形线索，寻找文字最初的模样。",
   "cta": "开始探索",
-  "progress_label": "探索进度"
+  "progress_label": "探索进度",
+  "claim": "73 个真实甲骨字形，三关亲手拆解",
+  "claim_link": "怎么玩"
  },
  "chapters": [
   {
