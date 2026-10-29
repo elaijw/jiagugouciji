@@ -9,7 +9,7 @@
 $ErrorActionPreference = 'Continue'
 $repo = $PSScriptRoot
 # 用仓库的规范大小写，避免每次推送都被 GitHub 提示 “repository moved”
-$remote = 'https://github.com/Elaijw38/jiagugouciji.git'
+$remote = 'https://github.com/elaijw/jiagugouciji.git'
 
 # git 可能不在 PATH（安装后需要重开窗口），这里自己找
 $git = 'C:\Program Files\Git\cmd\git.exe'
