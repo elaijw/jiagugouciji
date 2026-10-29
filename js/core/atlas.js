@@ -6,7 +6,9 @@
 
      构件      37 个   js/core/data.js 的 BUILTIN_PIECES（带分类）
      合体字    34 张   js/core/data.js 的 BUILTIN_POOL（带构件/释义/卜辞出处）
-     王邑实物  56 个   levels.json 的 map.zones[].objects（带分区/释义）
+     王邑实物  38 个   levels.json 的 map.zones[].objects（带分区/释义）
+                       ＋ zones[].retired 里 16 个「图上无对应实物、已从地图撤掉」的字，
+                         仍收进图鉴（共 54 条），但不计入完成度分母
      讨伐字形  21 尊   levels.json 的 boss.tiers[].list（带档位/构件）
 
    同一个字可能出现在多处（「山」既是构件、又是实物、又是 BOSS），
@@ -70,6 +72,12 @@
       (map.zones || []).forEach(function (z) {
         (z.objects || []).forEach(function (o) {
           push('object', o.char, { zone: z.name, meaning: o.meaning || '' });
+        });
+        /* 归档热点：底图上没有对应实物、已从地图撤掉的字。
+           仍收进图鉴（否则删热点会把字一起带走），但标 retired:1，
+           stats() 不计入完成度分母——它们永远点不到，算进分母会让完成度到不了 100%。 */
+        (z.retired || []).forEach(function (o) {
+          push('object', o.char, { zone: z.name, meaning: o.meaning || '', retired: 1 });
         });
       });
     }
@@ -157,6 +165,7 @@
     var es = entries(), learn = learned();
     var totalCh = {}, gotCh = {}, byKind = {};
     es.forEach(function (e) {
+      if (e.retired) { return; }   /* 归档条目：图鉴里查得到，但不占完成度分母 */
       totalCh[e.char] = 1;
       if (!byKind[e.kind]) { byKind[e.kind] = { total: 0, learned: 0 }; }
       byKind[e.kind].total++;
