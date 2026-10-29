@@ -277,3 +277,391 @@ body.font-youyuan { --font-display: var(--font-youyuan); }
 
 /* Noto 标题：介于黑与圆之间 */
 body.font-noto { --font-display: var(--font-noto); }
+
+/* ============================================================================
+   设计完成度升级（2026-10-29）
+   ----------------------------------------------------------------------------
+   原则：**不换配色、不换字体体系、不改结构**，只把现有设计做精细。
+
+   只做五类事：
+     1. 排版：字号/行高/行长/字距，让正文更好读
+     2. 节奏：容器宽度、区块间距、对齐基准
+     3. 材质：边框、圆角、阴影统一成一套，去掉多余的层
+     4. 交互：按钮、卡片、焦点、答题反馈的微动效（140–220ms）
+     5. 动效：页面进场淡入、局部高亮；全部可被 prefers-reduced-motion 关闭
+
+   颜色一律取现有令牌（--ink / --edge / --cinnabar / --bone…），
+   只调透明度与明度，不引入新色相。
+   ============================================================================ */
+
+:root {
+  /* 只新增"尺度"变量，不新增颜色 */
+  --pl-r: 5px;                       /* 统一小圆角，替代原先 0/2/8/14 混用 */
+  --pl-line: var(--edge);
+  --pl-shadow: 0 1px 0 rgba(255, 255, 255, .55), 0 10px 24px rgba(43, 35, 24, .055);
+  --pl-shadow-hi: 0 1px 0 rgba(255, 255, 255, .6), 0 16px 34px rgba(43, 35, 24, .085);
+  --pl-ease: cubic-bezier(.32, .72, .28, 1);
+}
+
+/* ============================================================
+   1. 排版：让正文先好读
+   ============================================================ */
+body { font-size: 15.5px; line-height: 1.72; }
+
+p, li, dd, dt, .lead, .sec-note, .pc-desc, .lv-desc, .bb-cover-lead,
+.bo-tier-note, .dc-mean, .cc-note, .mt-note {
+  line-height: 1.72;
+}
+
+/* 行长：中文舒适区 34–40 字，避免长行扫读 */
+.lead, .sec-note, .pc-desc, .lv-desc, .bb-cover-lead,
+.bo-tier-note, .bo-sub, .lv-story, .dc-mean {
+  max-width: 40em;
+}
+
+/* 标题：汉字不做负字距，靠字重与行高分层 */
+.hero-title, .sec-h, .lv-name, .bo-tier-name, .bb-cover-title, .dc-title {
+  letter-spacing: .01em;
+  text-wrap: balance;
+}
+
+/* 数字统一等宽，统计与进度不再跳 */
+.stat-cell b, .pc-step b, .lv-no, .bo-tier-no, .bo-beadnum,
+.pc-progtext, .cc-bignum, .bo-progtext {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* 辅助文字下限 13px，且用 --ink-2，不用浅灰 */
+.tag, .sec-more, .pc-tagline, .lv-cap, .dc-date, .pc-progtext,
+.foot-tag, .hero-cue, .mt-mile, .hc-src, .bo-tier-note, .bo-progtext {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   2. 节奏：容器与间距
+   ============================================================ */
+@media (min-width: 1200px) {
+  .wrap { max-width: 1200px; }
+}
+.home-sec { padding: var(--s-8) 0; }
+.hero-claim { margin-bottom: var(--s-5); }
+.hero-lead { margin-bottom: var(--s-7); }
+.sec-head { margin-bottom: var(--s-5); }
+
+/* ============================================================
+   3. 材质：边框/圆角/阴影统一（颜色不动，只统一对比）
+   ============================================================ */
+.lv, .daily-card, .collect-card, .ach-card, .mt-row,
+.bo-tier, .lv-plate, .dc-ob, .cc-rank, .live-card {
+  border-radius: var(--pl-r);
+  box-shadow: var(--pl-shadow);
+}
+.lv, .daily-card, .collect-card, .ach-card, .bo-tier {
+  border: 1px solid var(--pl-line);
+  transition: transform .18s var(--pl-ease),
+              box-shadow .18s var(--pl-ease),
+              border-color .18s var(--pl-ease);
+}
+.lv-plate, .dc-ob {
+  border: 1px solid var(--pl-line);
+  background: rgba(255, 255, 255, .34);
+}
+
+/* 选关卡上的散件（构件拆解 / 地图链 / 古今对照）不再自带底板，避免"卡中卡" */
+.modes-scene .lv-chain,
+.modes-scene .lv-evo,
+.modes-scene .lv-break {
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* 讨伐页每一阶的内部留白对齐 */
+.bo-tier { padding: var(--s-5) var(--s-5) var(--s-4) !important; }
+.bo-tier-head { align-items: baseline; gap: var(--s-3); }
+.bo-tier-note { margin-top: 6px; }
+
+/* ============================================================
+   4. 交互：悬停、按下、焦点、答题反馈
+   ============================================================ */
+.pc-slot, .lv, .daily-card, .collect-card, .ach-card, .bo-bead {
+  transition: transform .18s var(--pl-ease), box-shadow .18s var(--pl-ease);
+}
+.pc-slot:hover, .lv:hover, .bo-tier:hover { box-shadow: var(--pl-shadow-hi); }
+.lv:hover, .pc-slot:hover { transform: translateY(-2px); }
+.daily-card:hover, .collect-card:hover, .ach-card:hover { transform: translateY(-2px); }
+
+/* 按钮：统一内距与圆角，按下有 1px 回应，不做浮夸渐变 */
+.btn {
+  border-radius: var(--pl-r) !important;
+  transition: transform .12s var(--pl-ease),
+              background-color .16s var(--pl-ease),
+              border-color .16s var(--pl-ease),
+              color .16s var(--pl-ease);
+}
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible,
+.top-link:focus-visible,
+a:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--cinnabar) 42%, transparent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* 答题反馈：只改边框与底色明度，不新增颜色 */
+.mo-hit, .mo-miss, .bb-opt, .bo-bead, .pc-opt {
+  transition: background-color .18s var(--pl-ease),
+              border-color .18s var(--pl-ease),
+              transform .18s var(--pl-ease);
+}
+@keyframes pl-hit { 0% { transform: scale(1); } 42% { transform: scale(1.012); } 100% { transform: scale(1); } }
+@keyframes pl-miss { 0%, 100% { transform: translateX(0); } 28% { transform: translateX(-2px); } 62% { transform: translateX(2px); } }
+.mo-hit { animation: pl-hit .26s var(--pl-ease); }
+.mo-miss { animation: pl-miss .24s var(--pl-ease); }
+
+/* 甲骨字形：给一个极轻的纸底，让字形从卡片纹理里"浮"出来 */
+.pc-art-glyph, .lv-glyph, .bo-tier-img {
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, .5));
+}
+.pc-art, .lv-art { align-items: center; }
+
+/* ============================================================
+   5. 动效：进场克制，局部高亮
+   ============================================================ */
+@keyframes pl-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pl-in-soft { from { opacity: 0; } to { opacity: 1; } }
+
+.home-scene > .hero { animation: pl-in-soft .32s var(--pl-ease) both; }
+.home-scene > .hero .hero-body > * { animation: pl-in .38s var(--pl-ease) both; }
+.home-scene > .hero .hero-body > *:nth-child(1) { animation-delay: .02s; }
+.home-scene > .hero .hero-body > *:nth-child(2) { animation-delay: .06s; }
+.home-scene > .hero .hero-body > *:nth-child(3) { animation-delay: .10s; }
+.home-scene > .hero .hero-body > *:nth-child(4) { animation-delay: .14s; }
+.home-scene > .hero .hero-body > *:nth-child(5) { animation-delay: .18s; }
+
+.modes-scene .lv-row .lv { animation: pl-in .34s var(--pl-ease) both; }
+.modes-scene .lv-row .lv:nth-child(2) { animation-delay: .05s; }
+.modes-scene .lv-row .lv:nth-child(3) { animation-delay: .10s; }
+
+.bo-tier { animation: pl-in .34s var(--pl-ease) both; }
+.bo-tier:nth-child(2) { animation-delay: .05s; }
+.bo-tier:nth-child(3) { animation-delay: .10s; }
+
+/* 顶部导航当前项：下划线进入动画，替代生硬的切换 */
+.top-link.on::after { transform-origin: left center; animation: pl-underline .22s var(--pl-ease) both; }
+@keyframes pl-underline { from { transform: scaleX(.4); opacity: .4; } to { transform: scaleX(1); opacity: 1; } }
+
+/* ============================================================
+   6. 无障碍与性能兜底
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* ============================================================
+   7. 窄屏：只收紧间距，不改变任何布局结构
+   ============================================================ */
+@media (max-width: 720px) {
+  body { font-size: 15px; }
+  .hero-lead { margin-bottom: var(--s-5); }
+  .home-sec { padding: var(--s-6) 0; }
+  .bo-tier { padding: var(--s-4) !important; }
+  .lv, .daily-card, .collect-card, .ach-card { box-shadow: none !important; }
+}
+
+/* ============================================================================
+   设计完成度升级 · 第二批（2026-10-29）
+   ----------------------------------------------------------------------------
+   针对实测到的三处结构问题做细修，仍然只动排版、边框、间距与动效：
+     1. 顶部导航的"胶囊底块"与全站下划线体系冲突 → 统一成下划线
+     2. 选关页卡片里的装饰层溢出，形成一块发灰的大板 → 只清背景，不动卡片本体
+     3. 讨伐页进度条与阶头基线不齐 → 对齐件内节奏
+   ============================================================================ */
+
+/* ---------- 1. 顶部导航：胶囊 → 下划线 ---------- */
+/* 只作用于主菜单，右侧「设置」等链接不受影响 */
+.top-nav .top-link {
+  border-radius: 0 !important;
+  background: none !important;
+  padding: 8px 2px 10px !important;
+  margin: 0 10px;
+  font-size: 15px;
+  transition: color .16s var(--pl-ease, ease);
+}
+.top-right .top-link { margin: 0; }
+.top-nav .top-link.on {
+  background: none !important;
+  border-radius: 0 !important;
+  color: var(--cinnabar-text, var(--cinnabar)) !important;
+  box-shadow: none !important;
+  border-bottom: 2px solid currentColor !important;
+  padding-bottom: 8px !important;
+}
+.top-nav .top-link:hover { background: none !important; }
+.top-nav { gap: 6px; }
+
+/* ---------- 2. 选关页：清掉溢出的装饰底，卡本体不动 ---------- */
+.modes-scene .lv-art::before,
+.modes-scene .lv-art::after,
+.modes-scene .lv::before,
+.modes-scene .lv::after,
+.modes-scene .lv-chain::before,
+.modes-scene .lv-chain::after,
+.modes-scene .lv-evo::before,
+.modes-scene .lv-evo::after,
+.modes-scene .lv-break::before,
+.modes-scene .lv-break::after {
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* 卡头：编号与步骤词一条基线，步骤词右对齐 */
+.modes-scene .lv-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--edge);
+}
+.modes-scene .lv-step { margin-left: auto; }
+
+/* 分类标签：细线小签，替代实底块 */
+.modes-scene .lv-chapter-name,
+.modes-scene .lv-chapter-role,
+.modes-scene .lv-cap,
+.modes-scene .lv-story-tag {
+  font-size: 12px !important;
+  letter-spacing: .06em;
+  color: var(--ink-2) !important;
+  background: none !important;
+  border: 1px solid var(--edge);
+  border-radius: 3px;
+  padding: 1px 6px !important;
+}
+
+/* 字形托盘：极细边，托住字形 */
+/* 字形托盘：只留一圈细线做"位置提示"，不铺白底（避免变成白盒子） */
+.modes-scene .lv-plate {
+  border: 1px solid color-mix(in srgb, var(--edge) 72%, transparent) !important;
+  background: none !important;
+  border-radius: 3px !important;
+  padding: var(--s-3) !important;
+}
+.modes-scene .lv-plate .lv-glyph { opacity: .96; }
+
+/* ---------- 3. 讨伐页：进度条与阶头对齐 ---------- */
+.bo-progress { align-items: center; gap: var(--s-3); }
+.bo-progmeter {
+  height: 6px;
+  border-radius: 3px;
+  border: 1px solid var(--edge);
+  background: rgba(43, 35, 24, .05) !important;
+  overflow: hidden;
+}
+.bo-progfill { border-radius: 2px; transition: width .32s var(--pl-ease, ease); }
+.bo-progtext, .bo-prognext { font-size: 13px; color: var(--ink-2); }
+.bo-head { gap: var(--s-2); }
+.bo-sub { color: var(--ink-2); }
+
+.bo-tier-head { align-items: baseline; }
+.bo-tier-no {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .06em;
+}
+.bo-tier-beads { gap: 10px; }
+.bo-bead {
+  border-radius: 50%;
+  transition: transform .16s var(--pl-ease, ease), box-shadow .16s var(--pl-ease, ease);
+}
+.bo-bead:hover { transform: translateY(-1px); box-shadow: var(--pl-shadow, none); }
+
+/* ---------- 4. 首页：数据带与首屏比例 ---------- */
+.home-scene .hero .stat-band {
+  display: flex;
+  align-items: baseline;
+  gap: 0 !important;
+  border-top: 1px solid var(--edge);
+  padding-top: var(--s-4);
+}
+.home-scene .hero .stat-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 var(--s-5);
+  border-left: 1px solid var(--edge);
+}
+.home-scene .hero .stat-cell:first-child { padding-left: 0; border-left: 0; }
+.home-scene .hero .stat-cell:last-child { padding-right: 0; }
+.home-scene .hero .stat-cell b {
+  font-size: 21px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+.home-scene .hero .stat-cell span { font-size: 13px; }
+
+/* 宽屏：叙事与主视觉之间一条极细分隔，画面更"展陈" */
+@media (min-width: 1100px) {
+  .home-scene > .hero .hero-in {
+    position: relative;
+    padding-right: var(--s-6) !important;
+  }
+  .home-scene > .hero .hero-in::after {
+    content: "";
+    position: absolute;
+    top: 6%;
+    bottom: 12%;
+    right: 0;
+    width: 1px;
+    background: linear-gradient(180deg, rgba(43,35,24,0), var(--edge) 18%, var(--edge) 82%, rgba(43,35,24,0));
+  }
+}
+
+/* ---------- 5. 移动端可点区域不低于 44px ---------- */
+@media (max-width: 720px) {
+  .btn, .top-link, .sec-more, .lv-cta, .pc-go { min-height: 44px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; }
+}
+
+/* ---------- 6. 选关页最后收口：拉开卡片间距，骨片轮廓不再互相压 ---------- */
+.modes-scene .lv-row {
+  gap: 22px;
+  align-items: stretch;
+}
+.modes-scene .lv-slot { display: flex; }
+.modes-scene .lv { flex: 1 1 auto; }
+/* 古今对照的「今字」不做成大字水印，收成注脚体量 */
+.modes-scene .lv-modern {
+  font-size: 30px !important;
+  opacity: .42 !important;
+  letter-spacing: .02em;
+}
+.modes-scene .lv-arrow { opacity: .5; }
+
+/* ---------- 7. 讨伐页：导语归位，进度条收口 ---------- */
+/* 导语原先贴着视口左边、行长 100+ 字；收进内容栅格，做成"编者说明"的体量 */
+/* 实际结构里这段导语是 .scene.boss-raid 的直接子元素，用两条选择器都兜住 */
+.boss-raid > .lead,
+.bo-head > .lead,
+.bo-head p.lead {
+  max-width: 62ch;
+  margin: var(--s-4) auto 0;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--ink-2);
+  text-align: left;
+  padding: 0 var(--s-5);
+}
+.bo-progress {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 0 var(--s-5);
+}
+.bo-progmeter { flex: 1 1 auto; max-width: 520px; }
+.bo-beadglyphwrap, .bo-tier-beads { row-gap: 8px; }
