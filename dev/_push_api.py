@@ -38,8 +38,15 @@ SKIP_DIRS = {"_check", "_bak", "_edgeprof", "_docpages", "__pycache__", ".git",
              # 之前这份脚本没跟着 .gitignore 走，--dry 会把这堆全列成"待推送"，
              # 一不小心就是一次 1.2GB 的提交，所以在这里显式挡掉。
              "out"}
-# 目录名前缀：每一轮改动前留的备份目录（_backup_YYYYMMDD_xxx）只在本机有用
-SKIP_DIR_PREFIX = ("_backup",)
+# 目录名前缀：每一轮改动前留的备份目录（_backup_YYYYMMDD_xxx）只在本机有用。
+# _probe* / _shots：无头浏览器 profile 与截图目录（2026-10-29 又差点推 10944 个
+# 文件 / 974MB，就是 _shots 10443 个 + _probe2/3 372 个，必须一并挡掉）
+SKIP_DIR_PREFIX = ("_backup", "_probe", "_shots")
+
+# 路径前缀：开发期脚本与生成用的 spec 清单，.gitignore 里已列（dev/_*.py、
+# dev/_*.js、tools/specs_*.json 等），但本脚本是硬编码判断，不会去读 .gitignore，
+# 所以这里再对一遍——否则每次 --dry 都会多出 120 多个"新增"
+SKIP_PATH_PREFIX = ("dev/_", "tools/specs_", "tools/comfy_", "tools/gen_")
 
 # 刻意不推的文件。
 # deploy.ps1：与远端只差行尾符（远端 LF、本地 CRLF 是 Windows 解包带进来的）。
@@ -136,6 +143,9 @@ def main():
             rel = os.path.relpath(p, ROOT).replace("\\", "/")
             if rel in SKIP_FILES:
                 skipped.append((rel, "仅行尾符差异，见文件头说明"))
+                continue
+            if any(rel.startswith(pre) for pre in SKIP_PATH_PREFIX):
+                skipped.append((rel, "开发期脚本/生成清单，.gitignore 已忽略"))
                 continue
             if fn.endswith(SKIP_SUFFIX):
                 skipped.append((rel, "本机备份/临时副本"))
