@@ -1633,6 +1633,103 @@
   margin-top: 14px; padding-top: 11px; border-top: 1px dashed var(--edge);
 }
 
+/* ============================================================================
+   讨伐页底部行动栏（2026-10-29 重设计）
+
+   原来这一栏被 atmos.css 收进了「深色面板」组（和卜辞课面板、关卡结算同一套
+   墨底），可它长在**纸面**的关卡列表最底下：一条全宽黑带突然压在浅纸上，
+   而旁边那枚 `.btn.sm` 是透明底，深墨的字落在深墨底上——整块读起来就是
+   "一个空的黑胶囊"，这正是玩家看到的样子。
+
+   深墨块按项目口径只用于弹层 / 拓片详情 / 关卡结算三处，行动栏不在其中。
+   所以这里改回纸面：纸带当案面，朱砂主按钮是压上去的一枚手印，
+   返回退成一句轻声，靠右收口。结算视图本身是墨底，那一屏给了一条墨上分支，
+   只把文字提到浅色（原来那里的「再打一次 / 回到关卡」同样是墨字墨底，等于没字）。
+   ========================================================================== */
+.scene .wy-side {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 22px 0 2px; padding: 13px 16px;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, .92), rgba(255, 253, 246, 0)),
+    linear-gradient(180deg, #fbf5e6, #f3e9d3);
+  box-shadow:
+    inset 0 1px 0 #fffdf7,
+    0 14px 26px -22px rgba(43, 35, 24, .55);
+}
+
+/* 主操作：朱砂条，右侧一枚细尖角，指向"往里去" */
+.scene .wy-side .btn.primary {
+  --btn-h: 46px;
+  min-width: 186px;
+  padding: 0 28px;
+  border-radius: 12px;
+  gap: 10px;
+  font-size: 16px;
+  letter-spacing: .12em;
+}
+.scene .wy-side .btn.primary::after {
+  content: '';
+  width: 8px; height: 8px; margin-top: -3px;
+  border-top: 1.6px solid currentColor;
+  border-right: 1.6px solid currentColor;
+  transform: rotate(45deg);
+  opacity: .72;
+}
+
+/* 次操作：不占框，退成一枚"走开"的文字，靠右给行动栏收口 */
+.scene .wy-side .btn.sm {
+  --btn-h: 38px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: .05em;
+}
+.scene .wy-side .btn.primary + .btn.sm { margin-left: auto; }
+/* 不加箭头：结算页同时有三枚次操作（再打一次 / 回到关卡 / 清空记录），
+   箭头会落在语义不对的那一枚上。轻靠颜色与下划线表达可点。 */
+.scene .wy-side .btn.sm:hover {
+  color: var(--ink);
+  background: none;
+  border-color: transparent;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(91, 77, 58, .5);
+}
+
+/* 结算视图是墨底：同一条纸带会白得刺眼，那一屏回到墨上，只把文字提亮 */
+.scene:has(.bd-win) .wy-side {
+  border-color: rgba(255, 236, 200, .16);
+  background:
+    radial-gradient(70% 56% at 16% -6%, rgba(255, 226, 178, .09), transparent 66%),
+    linear-gradient(158deg, #241d17, #171411);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 220, .09),
+    0 16px 36px -20px rgba(12, 9, 6, .55);
+}
+.scene:has(.bd-win) .wy-side .btn.sm { color: #e3d5b8; }
+.scene:has(.bd-win) .wy-side .btn.sm:hover { color: #fff6e4; }
+.scene:has(.bd-win) .wy-side .chip {
+  color: #e3d5b8;
+  border-color: rgba(255, 236, 200, .22);
+  background: rgba(255, 236, 200, .06);
+}
+
+@media (max-width: 640px) {
+  .scene .wy-side { padding: 12px; gap: 10px; margin-top: 18px; }
+  .scene .wy-side .btn.primary { width: 100%; min-width: 0; }
+  .scene .wy-side .btn.primary + .btn.sm {
+    margin-left: 0; width: 100%; justify-content: center;
+  }
+}
+
 /* ---------- 关卡列表 ---------- */
 
 /* ---------- 关卡舞台 ---------- */
