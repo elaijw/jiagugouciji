@@ -1,7 +1,11 @@
 # 接入说明 · 字趣 · 甲骨构字记
 
 > 给接手的 AI 会话看。读完这一份就能继续，不必回翻历史。
-> 最后更新：本次会话结束时。
+>
+> **最后更新 2026-10-29**：本轮做完 **§7.12 —— 3D 王邑：实体甲骨文字、龟宝重制、三关解锁**。
+> 三个 case 先看那一节；尤其先读里面的**三条 ★ 坑**（存档丢档 / three.js 594 KB 加载超时 /
+> 根目录 4 GB 调试产物 + 推 GitHub 必须绕代理）—— 每一条都会浪费你一小时。
+> 下一步该做的是 **§7.12 末尾「还没做的」**：第二关端到端，以及第三关 BOSS 的 3D 战斗场景。
 
 ---
 
@@ -1050,6 +1054,21 @@ _check/_verify.js  →  104 pass / 0 fail, errs: []
   `gates {sky:true, land:true, plant:true, beast:false, life:false}`；三座封牌升起 2.51~2.55 m，另两座仍为 0
 - 语法：`dev/_syntax_probe.js` 全 OK；引用：`dev/_verify_deploy.js` **65 个引用全部精确命中**
 
+**线上实测**（GitHub Pages，`_check/_online.js`，`waitUntil:'domcontentloaded'` +
+` waitForFunction ready`）：
+
+```
+ready = true
+scene = {"meshes":321,"tris":68672,"colliders":83,"spots":52,"items":43,"pickables":194,"gates":5}
+gates = {"sky":true,"land":false,"plant":false,"beast":false,"life":false}
+4xx/失败请求 = 无        页面错误 = 无          线上 PASS
+```
+
+线上各项数字与本地**完全一致**（含 wd-boot 遮罩的 8 秒文案切换 `365 → 35622 → 35622` 字节）。
+
+> **测线上必须绕代理**（见下面那条），且别在 Pages 重建窗口里测——推送后约 90 秒内可能慢到
+> `Navigation timeout`。等两三分钟再测，或先用 `curl` 探一下首页是否 <1 s 再跑无头。
+
 ### ★ 一个会挡住发布的坑（务必先看）
 
 **推 GitHub 必须绕过本机代理。** 本机 `http_proxy=https_proxy=127.0.0.1:13893`（Steam++ 本地转发），
@@ -1065,6 +1084,25 @@ git push origin main
 
 另外远端已迁移到**小写**路径 `https://github.com/elaijw/jiagugouciji.git`
 （旧写法 `Elaijw38` 每次推送都被提示 `This repository moved`），`deploy.ps1` 里的地址已同步改掉。
+
+### ★ 又一个坑：`three.min.js` 594 KB，GitHub Pages 上必定超时（本轮已修）
+
+**现象**：线上 `#/world` 与 `#/museum` 打不开，报 `3D 引擎加载超时`，而所有资源都是 200。
+
+**根因**：`vendor/three.min.js` 实际 **594 KB**（不是 early 估计的 64 KB）。GitHub Pages 在国内
+实测同一份文件：**10.7 s / 15.1 s / 60 s 超时未完**（`du -sm vendor` 也只有 1 MB 的量级，容易被
+误判成"几十 KB 的小文件"，于是超时阈值定成了 15 s —— 等于线上必挂）。
+
+**修法**（`world3d.js` 与 `museum.js` 两处同样的 `loadThree`）：
+
+- 单轮超时 **12/15 s → 45 s**；失败**重试 2 次**（共约 135 s 窗口）
+- 重试时给 URL 加 `?retry=<时间戳>`，**绕开浏览器对那次失败响应的缓存**（不加的话第二次请求
+  根本不发，直接复用坏结果，重试形同虚设）
+- `world.js` 里加载遮罩本来就有（`wd-boot`："殷商王邑 / 正在夯土筑城…"），
+  新增：**超过 8 秒把文案换成"3D 引擎较大，正在下载…"** —— 别让玩家以为夯土真要夯一分钟
+
+**教训**：判断"文件多大"要用 `du`/`stat` 看真实字节，不要凭印象；给外部资源定超时，
+要按**最差网络**估，不是本机。
 
 ### ★ 另一个坑：仓库根目录堆了 4 GB 调试产物（本轮已清）
 
@@ -1112,10 +1150,15 @@ git push origin main
 ```powershell
 cd C:\DSH\字趣
 python -m http.server 8099
+#   #/world            ← **站点主体**：3D 殷商王邑（见 §7.12，实体字 + 龟宝 + 三关）
+#   #/museum           ← 3D 数字博物馆（见 §7.10）
 #   #/play/wangyi-map  ← 第二关：大地图选图入口 + 五个据点 + 分区插画
 #   #/play/bone-build  ← 第一关：龟宝入门课
 #   #/atlas            ← 拓片集
 ```
+
+> **跑 3D 相关的自查要绕代理**，否则无头浏览器连本地服务都会挂：
+> `unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy`（见 §7.12）。
 
 ```powershell
 # 出图给人看
