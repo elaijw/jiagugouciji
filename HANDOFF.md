@@ -98,9 +98,11 @@ python -m http.server 8099
 - **推送要走系统代理**：本机设了 `http://127.0.0.1:12450`，而 git 不知道，
   直连会 `Failed to connect to github.com:443`。用
   `git -c http.proxy=http://127.0.0.1:12450 push origin main`（只对这一条命令生效，不写配置）。
-- 工作区目前有**未提交**改动：`js/core/_data.js`、`js/core/levels.json`、
-  `js/modes/wangyi-map.js`、`css/modes.css`（第二关插画/排版相关）。
+- 工作区目前有**未提交**改动：`index.html`、`js/core/shell.js`、`README.md`、`HANDOFF.md`
+  与**新增未跟踪**的 `js/museum/`、`css/museum.css`、`vendor/`（= 本轮 3D 博物馆层，见「7.10」）；
+  另有历史遗留的 `blender/`（`.blend` 空白场景与 `blender_render/` 空目录，本轮未使用）。
 - `dev/` 与 `out/` 下有大量**未跟踪**的核查脚本与产出（地图、清单），未入仓库。
+  `_check/`（本轮验证用的 puppeteer 脚本与截图）已在 `.gitignore` 里，不入仓库。
 
 **上一次那版「绿金皮」已被撤回。** 撤回前把它存成了 git tag，随时可查：
 
@@ -349,6 +351,11 @@ js/core/
   _data.js                73 字形的几何（由 dev/_gen_glyph_parts.py 生成，勿手改）
   data.js / packs.js      构件池、字卡、内容包
 js/modes/                 bone-build.js / wangyi-map.js / boss-raid.js
+js/museum/                ★ 3D 博物馆（独立一层，删掉 6 处引用即可整体摘除，见「7.10」）
+  museum-tex.js           341 行  Canvas 贴图层：骨面 / 刻辞(真字形 Path2D) / 石地 / 竖排石牌 / 环境球
+  museum3d.js            1170 行  three.js 场景层：大厅 + 甲骨文展厅 + 自写轨道控制器 + 射线拾取
+  museum.js               731 行  UI/路由层：面板、六区 chip、龟宝、观展记录、2D 降级大厅
+vendor/three.min.js       608 KB   Three.js r149 UMD（MIT），**按需注入，不在 index.html 里**
 assets/                   oracle-bone.jpg(首页骨片照) wangyi-map.jpg(旧版 Agnes 底图)
                           wangyi-atlas.svg(当前原创王邑总图) guibao-front/side/back.png(龟宝设定图)
                           paper.png(纸纹，浅色面上用) bone.png(骨材质，页底用)
@@ -358,12 +365,14 @@ README.md                 给读者看的项目文档（含素材授权、设计
 
 **产物代码行数**（index.html + css×4 + js）：**8105 行 / 19 个文件**。
 （先前记的 9082 是错的，实测口径就是这个；以后以实测为准。）
+**本轮博物馆层另加 2814 行 / 4 个文件**（`museum-tex.js` 341 + `museum3d.js` 1170 +
+`museum.js` 731 + `css/museum.css` 572），不计入上面那行旧口径。
 
 **模式契约**：`App.modes.register({id,name,tagline,desc,icon,accent,tags,minPlayers,maxPlayers,status,layout,data,settings,mount,unmount})`
 `layout:'wide'` → 壳层给 `.app-shell` 加 `.layout-wide`。**`register()` 只复制列出的字段**，漏掉的键读不到。
 
 **存储**：`App.store`，前缀 `ziqu.`，全包 try/catch。
-`ziqu.wangyi` `{done:{分区:[字]}}` · `ziqu.bossraid` `{cleared:[],perfect:[]}` · `ziqu.bonebuild` `{done:[字]}` · `ziqu.achieved` `[]`
+`ziqu.wangyi` `{done:{分区:[字]}}` · `ziqu.bossraid` `{cleared:[],perfect:[]}` · `ziqu.bonebuild` `{done:[字]}` · `ziqu.achieved` `[]` · `ziqu.museum` `{seen:{字:时间戳}, v:1}`（观展记录，只增不减）
 
 ---
 
@@ -734,6 +743,209 @@ GH_TOKEN="$GH_TOKEN" python push_bosscodex.py         # 再真推
 缩到 120px 左右能把这一页的传输量砍掉约一个数量级。**尚未做，需要先定口径。**
 
 ---
+
+## 7.10 3D 数字博物馆（`#/museum`；**现在是站点主体**，见 §7.11）
+
+### 一句话
+
+原本是"在现有站点上**加一层**"：新增 `js/museum/` + `css/museum.css` + `vendor/three.min.js`，
+对上只动 `index.html` 几行脚本一行 CSS、`js/core/shell.js` 两处（导航项 + 路由分支）。
+**删掉这些引用，站点仍能退回没有展馆的样子**（2D 首页还在 `sceneHome`，只是默认不再指向它）。
+
+> 后续用户明确要求「直接把 3D 作为内容，原来的不需要了」，于是入口反过来：
+> **打开网站即进馆**。那次改动记在 §7.11，读这一节时要知道入口已不是首页。
+
+### 场景是真的 3D，不是贴图假装
+
+- **七间屋子**：大厅 / 甲骨文展厅 / 造字区 / 考古区 / BOSS 区 / 文明序厅 / 我的典藏区。
+  都是同一台 renderer 里的 `Group`，进门只切 `visible` + 移相机（附区每间隔 150 单位），
+  不重建渲染器，也不做跨屋的阻尼飞行（那等于穿墙）。
+- **大厅**：石质抛光地面（`stoneTex()` 现画）+ 两道铜环 + 中心台座 +
+  `卜` 字骨版（Blender 模型，落座按包围盒对齐台面）+ 六道门洞（门楣灯带 / 门柱 / 门槛 /
+  底部加色雾 veil / 地面 spill / 竖排石牌 / 字形徽章）+ 12 根柱 + 顶棚灯槽 +
+  正后方入口门廊（`entrance-arch.glb` + 门洞暖光 + 地面光斑）。
+- **甲骨文展厅**：12 件展品一字排开，每件独立台座（`pedestal.glb`）+ 骨版 + 展签；
+  半空悬一块四列竖行的表谱骨版（吊索 + 细框），另有一个玻璃展柜（`display-case.glb`）。
+- **骨版几何**：程序化那份走 p-范数圆角矩形轮廓 + 崩口 + 残断，用 `lineTo` 连（**不能用
+  `splineThru`** —— 样条会把直边拉成弧，26 个点一插值就成了鸭蛋，这是踩过的坑）；
+  Blender 那份是同一套轮廓思路的正式版。
+- **刻辞是真的字形**：`museum-tex.js` 用 `Path2D` 描 `App.glyphs.parts[字].pieces[].d`
+  的真实笔画路径，三道工序（暗槽 + 字身 + 亮边，末道 `globalCompositeOperation='lighter'`）
+  画进 canvas，同时出 `map` 和 `bump`。**所以骨上的字和你图鉴里的是同一份数据**，不是另画的图。
+
+### 交互（桌面 + 触屏同一套）
+
+| 操作 | 行为 |
+|---|---|
+| 拖拽 | **没选中展品时**转相机；**选中后**转这件展品（这是刻意的，看骨片要看背面） |
+| 滚轮 / 双指捏合 | 缩放（半径夹在 3.2–34） |
+| 点击 | 射线拾取 `pickables` → 开详情面板；`ctrl.moved < 7` 才算点击，防拖拽误触 |
+| 七区 chip | `setArea` 进厅/进展厅，七个区都是真的屋子 |
+| 顶栏按钮 | 聚光开关 / 声音 / 重置视角 / 返回大厅（**没有「退出 3D」**，馆就是首页） |
+| Esc | 关展签（不再等于"退出"） |
+
+相机**按画幅给两套预设**（`viewFor`），并做 FOV 自适应：
+`fov = aspect >= 1.2 ? 42 : min(57, 42 + (1.2-aspect)*19)`。竖屏手机因此不会被挤成一条缝。
+
+### 与其他功能的接法（P1）
+
+- 展品数据来自 `data/levels.json` 的 `zones` 对象（日 月 雨 山 川 泉 木 林 牛 鱼 门 鼎 12 件），
+  释义走 `BUILTIN_POOL`，字形 SVG 走 `App.glyphSvg`，笔画数等走 `App.glyphs`。
+- 详情面板底部两个出口：**去造字**（`#/play/bone-build`）、**去考古**（`#/play/wangyi-map`），
+  另加一条 `#/atlas`。构件行明确标注「组合示意，非整字原形」。
+- 观展记录存 `localStorage['ziqu.museum']`（`{seen:{字:ts}, v:1}`），「我的典藏区」显示
+  「已观展 N/12」，并与 `App.atlas.stats()` 的 `learned / percent` 并列。
+- 龟宝用**原有图片** `assets/guibao-front.png`，没重画。
+
+### 性能与降级
+
+- `three.min.js` **不在 `index.html` 里**，进 `#/museum` 才按需注入（12 秒超时兜底），
+  首页仍付 0 成本。
+- 实测（headless Edge + SwiftShader，1200×800）：大厅 **51–71 draw call / 16,000 三角形**
+  （视取景，拉近会剔掉外墙与柱）；展厅 **78 / 25,108**；附区 **19–68**（柜里亮着几件决定）；
+  竖屏手机 28–52。最大的一件模型是 `oracle-bone.glb`（11,232 面）。
+- 低端判定：`hardwareConcurrency<=4 || deviceMemory<=2 || 移动端 UA` → 关掉部分光源与阴影精度。
+- **WebGL 探测失败 → 2D 降级大厅**（`toFallback`，`data-fallback="1"` 隐藏 3D 专属控件：
+  骨片实拍 + 中央说明牌 + 六张展区卡 + 12 个展品按钮），功能不丢。
+- 离开路由（`App.on('route')` → `teardown`）遍历场景 dispose 几何/材质/贴图，
+  再 `renderer.dispose()` + `forceContextLoss()` + 移除 canvas。实测
+  `enter1 canvas:1 → leave1 canvas:0 → enter2 canvas:1 → leave2 canvas:0`，无泄漏报错。
+
+### 验证结论（本轮实测）
+
+| 项 | 命令 | 结果 |
+|---|---|---|
+| 引用完整性 | `node dev/_verify_deploy.js .` | 全部 60 个引用可精确命中 |
+| 语法 | `node dev/_syntax_probe.js` | 全部可解析，无缺失引用 |
+| 十路由回归 | `node _check/mu_regress.js` | 10 个路由全渲染，无 pageerror / console error；`canvas:0`（博物馆外） |
+| 进入/退出两轮 | `node _check/_twice.js` | canvas 1→0→1→0，无错误 |
+| `file://` 双击 | `node _check/_file.js` | `ready:true`，无错误（靠经典脚本注入，不用 ES module 就是为了这个） |
+| 关 WebGL | `node _check/_nogl.js` | `fallback:true, hasCanvas:false`，面板可开，无错误 |
+| 手机 390×844 | `node dev/_mobile.js …/#/museum` | 无横向溢出 / 无元素超出右缘 / 触控目标合格 |
+| 七区走查 + 交互断言 | `node _check/areas.js` | 造字 `build-ok/done:true`、考古 3/3、BOSS 4/4、典藏 `n:1`、离馆后 `canvas:0`、`errs:[]` |
+| 竖屏同一套 | `MU_MOBILE=1 node _check/areas.js` | 同上，全部通过 |
+| 四个 GLB 是否真读到 | `App.museum.api().models()` | `{bone:1,plastron:1,pedestal:1,case:1,arch:1}`（1=成功，2=失败已降级） |
+
+### 模型与素材来源（一句话：模型是自己建的，没有下载）
+
+- **外部下载项只有 1 个**：`vendor/three.min.js`（Three.js **r149** UMD，MIT，608,081 字节，
+  取自 `https://unpkg.com/three@0.149.0/build/three.min.js`）。选 UMD 而不是 ES module，
+  是为了 `file://` 双击仍能跑；UMD 里**没有** OrbitControls，轨道控制器是自己写的。
+  除此之外模型、贴图、音频全部自建 —— 音频是 Web Audio 现场合成，连一个 mp3 都没有。
+- **5 个 GLB 模型**：由 `tools/build_models.py` 驱动 Blender 4.5.10 LTS 无头生成。
+  `.blend` 源文件不入库 —— 脚本本身就是源，形状参数、材质分区、UV 都在里面，
+  重跑一次就重新生成，不存在"二进制源文件与导出物对不上"的问题。
+- **复用既有资产**：`assets/guibao-front.png`（龟宝，未改）、`data/levels.json`、
+  `js/core/leveldata.js` 的字形与笔画数据。配色全部取 `css/theme.css` 的 token。
+
+| 文件 | 字节 | 面数 | 用在 | 忠实 / 艺术 |
+|---|---|---|---|---|
+| `assets/models/oracle-bone.glb` | 256,272 | 11,232 tri / 2 材质 | 第一展厅中央那件 | 形态是艺术复原；刻辞取自真字形 |
+| `assets/models/turtle-plastron.glb` | 122,460 | 5,182 | 文明序厅的龟甲架 | 艺术复原 |
+| `assets/models/pedestal.glb` | 14,964 | 768 | 展厅 12 个台座 | 通用构件 |
+| `assets/models/display-case.glb` | 13,488 | 196 | 展厅玻璃展柜 | 通用构件 |
+| `assets/models/entrance-arch.glb` | 18,052 | 360 | 圆厅入口门廊 | 通用构件 |
+
+源场景另存一份 `blender/models-source.blend`（1.5 MB，16 个网格对象并排摆放），
+拿 Blender 打开就能逐个改；改完重跑 `tools/build_models.py` 会重导全部 GLB 并覆盖它。
+
+**读取器是自写的** `js/museum/glb.js`（约 200 行，零依赖）。原因：`examples/js/` 下的
+`GLTFLoader.js` 在 r149 之后已从 three 仓库移除，而 `examples/jsm/` 是 ESM，
+会破坏 `file://` 双击。它只实现 GLB 的常用子集（JSON/BIN 双 chunk、accessor（含
+interleaved stride）、node TRS/matrix、多 primitive、baseColorFactor、alphaMode=BLEND、
+doubleSided），遇到 Draco 或未知扩展**明确报错**，不静默画错。
+
+**加载失败一律可降级**：每件模型都有程序化替身，`getModel()` 成功才替换；
+失败只记 `modelState[key]=2`，原样保留程序化版本。`file://` 下没有 `fetch`，
+会直接走降级 —— 不报错、不白屏。
+
+### 已知限制（诚实交代，别在汇报里含糊）
+
+1. **展品不是真文物扫描**。骨版是 Blender 参数化建的（p-范数圆角矩形轮廓 + 崩口 +
+   残断 + 边缘收薄），裂纹是程序生成的发丝裂；展签与文档里都写明「数字复原模型」。
+2. **七个展区都是 3D 房间，但都很小**（14–17 米见方，一两件主体）。这是取舍：
+   一间屋子塞十几件，手机就掉帧了；"大馆感"靠取景和光，不靠面积。
+3. **环境音是合成的氛围垫底**，没有脚步、没有真实展厅的脉冲响应采样；
+   默认关，点「声音」才响。
+4. **阴影只有一张**（中心展台用的是 contact shadow 贴图，不是实时 shadow map），
+   附区全部关阴影 —— 低端机下这是刻意的取舍。
+5. **表谱骨版的四列是"行款形制"演示**，不是某一片出土卜辞的摹本；展签里写明了。
+6. **没有碰撞检测**：相机是轨道式的（球面约束），本来就不允许走进展品之间，
+   这不是第一人称漫游，也就不需要碰撞。
+
+
+### 下一步（要做的话，优先级从上到下）
+
+1. **骨面细节**：现在只有一张 1024 的 canvas 贴图，近距离看骨孔与裂口还是"平"的。
+   加一张法线贴图（或 2048 的 albedo + roughness）近景会明显不一样。
+2. **展签里的卜辞只有一行**：数据结构支持多行，但没排过真正的多列辞例。
+3. **入口门廊只是剪影**：门后是一块加色发光面，没有真的"另一间屋子"。
+   要做可以做成真能穿过去的第二进。
+4. **模型可以再省**：`oracle-bone.glb` 约 6.3k 面，侧面细分偏密；
+   若要照顾低端机，可再导一份 Draco 压缩版 + 一份低模，按设备选。
+
+
+## 7.11 把 3D 变成站点主体（入口反过来）
+
+### 一句话
+
+用户一句话定的调子：**「直接把 3D 作为内容，原来的不需要了」。**
+于是不再有"2D 首页 + 一个 3D 入口"，打开网站就是第一展厅；2D 页面降级成馆内的子页。
+
+### 改了什么
+
+| 文件 | 改动 |
+|---|---|
+| `js/core/shell.js` | `render()` 里把 `home` / `museum` 统一成展馆场景（`App.museum` 缺失时仍退回 `sceneHome`，不让路由卡死）；顺手把地址栏 `replaceState` 成 `#/museum`；玩法页返回按钮改成「← 回馆」，回的是出发的那个区 |
+| `js/museum/museum.js` | 顶栏去掉「离馆」和「退出 3D」，左边换成不可点的馆徽（`甲`）；中间区域名跟着展区变（`setBarName`）；`syncHash()` 让地址栏跟着展区走；`_zone` 记住"从哪个区出去的"；`#/museum/<区>` 支持任意展区深链（原来只有 gallery）；`syncStack()` 量底部浮层高度写进 `--stack-h` |
+| `css/museum.css` | `.mu-back` 从"返回按钮"改成馆徽（无 hover、无指针）；导览气泡改用 `--stack-h` 定位；竖屏把任务条搬到顶部、进任务区时收起气泡 |
+| `_check/areas.js`、`_check/_twice.js` | 断言从"离开到 `#/home`"改成"离开到 `#/atlas`"—— `#/home` 现在也是展馆，用它验不出 canvas 释放 |
+
+### 三个真 bug（都是这次改动暴露出来的，不是"看着不太好"）
+
+1. **路由改写把子路径吃掉了**。`r = { name:'museum', params:{ id:'' } }` 抹掉 `params.id`，
+   `#/museum/excavate` 永远落回大厅。改成保留 `id`。
+2. **同一个 hash 里换子路径会造出两套实例**。`route` 事件只在"离开 museum"时 teardown，
+   所以 `#/museum` → `#/museum/build` 时旧实例还活着，而 `S` 是模块级单例，两套互相覆盖
+   （表现：进了区 1 秒后又自己退回大厅）。修法：`scene()` 进门先 `if (S.alive) teardown()`。
+3. **`--stack-h` 被媒体查询盖掉**。基础规则改成了 `calc(var(--stack-h) + 10px)`，
+   但 760px 那条还写着 `bottom: calc(102px + ...)`，竖屏照样压在任务条上。
+   两处都得改，否则"桌面好了手机没好"。
+
+### 竖屏 HUD 的取舍
+
+手机上底部已经堆了「任务条 + 两行导览条」。把任务条留在底部，气泡再往上抬就会压住台面上
+那几个**要点的构件块**——等于挡住了操作。所以 ≤760px：
+
+- 任务条搬到顶部（顶栏下面那块是空墙，信息放这里不挡操作）
+- 进造字/考古/BOSS 时收起龟宝气泡（任务条已经把"要做什么"写全了，不重复说一遍）
+- 导览气泡在非任务区也放顶部
+
+桌面不变：气泡在左下、任务条在导览条上方，两者用 `--stack-h` 保证不打架。
+
+### 验证
+
+| 项目 | 结果 |
+|---|---|
+| 打开根路径 / `#/home` / `#/` | 都进 `#/museum`，`scene-museum` 生效、2D 顶栏隐藏、canvas 1 |
+| 顶栏按钮 | 只有 聚光 / 声音 / 重置视角 / 返回大厅；馆徽是 `DIV` |
+| `#/museum/excavate` 深链 | `area: excavate`、顶栏「考古任务区」 |
+| 区 → 去正式关卡 → 回馆 | 落回 `#/museum/excavate`、`area: excavate`、canvas 1 |
+| 2D 子页（`#/atlas`）点站名 | 回馆，canvas 1 |
+| 气泡 vs 任务条 / 导览条 | 桌面竖屏均不重叠（矩形求交验证） |
+| 七区走查（桌面 + `MU_MOBILE=1`） | 造字 `build-ok/done:true`、考古 3/3、BOSS 4/4、典藏 `n:1`、`errs:[]` |
+| 进→出→再进 | canvas 1→0→1→0 |
+| 关 WebGL | `fallback:true`，平面展厅，不白屏 |
+| `_verify_deploy` / `_syntax_probe` | 60/60、全通过 |
+
+### 没做的
+
+- **2D 首页没有物理删除**。`sceneHome` 还在，只是默认路由不再指向它——万一展馆脚本出问题，
+  退回 2D 首页这条路还留着。真要删，说一声。
+- **2D 子页的站名还是「字有骨气」**，而站点标题与展馆是「甲骨奇谭」。这是早前改名留下的
+  半截（`_backup_20261029_rename`），改字要改 4 处文案 + 品牌艺术字，属于内容决定，没擅自动。
+- 玩法页「回馆」只认"从区里出去"这一条路；直接开 `#/play/xxx` 再点回馆，落在第一展厅（没有出发地）。
+
 
 ## 8. 建议的第一步
 

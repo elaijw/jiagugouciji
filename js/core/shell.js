@@ -90,6 +90,7 @@
   var NAV_ITEMS = [
     { id: 'home',  label: '主页' },
     { id: 'modes', label: '开始游戏' },
+    { id: 'museum', label: '数字博物馆' },
     { id: 'atlas', label: '汉字图鉴' },
     { id: 'archive', label: '探索档案' },
     { id: 'howto', label: '玩法说明' }
@@ -100,6 +101,7 @@
       case 'home':  return 'home';
       case 'modes': return 'modes';
       case 'play':  return 'modes';      /* 对局属于「开始游戏」分支 */
+      case 'museum': return 'museum';    /* 3D 展馆是独立分支 */
       case 'atlas': return 'atlas';
       case 'archive': return 'archive';
       case 'howto': return 'howto';
@@ -562,6 +564,17 @@
       }
     };
     hero.appendChild(cue);
+
+    /* 3D 展馆入口：绝对定位，不参与 hero-body 的高度计算 ——
+       首屏那块"骨片 + 标题"的垂直居中不能被多出来的一个按钮顶歪。
+       主入口在顶栏的「数字博物馆」，这里是给首屏的一条近路。 */
+    var muEntry = App.el('a', 'hero-mu-entry');
+    muEntry.href = '#/museum';
+    muEntry.setAttribute('aria-label', '进入 3D 数字博物馆');
+    muEntry.appendChild(App.el('span', 'hero-mu-tag', '3D'));
+    muEntry.appendChild(App.el('span', 'hero-mu-tx', '进数字博物馆'));
+    muEntry.appendChild(App.el('span', 'hero-mu-ar', '→'));
+    hero.appendChild(muEntry);
 
     wrap.appendChild(hero);
 
@@ -1759,11 +1772,16 @@
       if (sh) { sh.classList.add('layout-wide'); }
     }
     var bar = App.el('div', 'play-bar');
-    var back = App.el('button', 'btn sm', '← 返回');
+    /* 返回 = 回馆。展馆就是本站的主体，玩法是馆里走出去的一间屋子，
+       玩完当然回馆 —— 而且是回到刚才那间屋子，不是丢回穿堂。 */
+    var back = App.el('button', 'btn sm', '← 回馆');
     back.onclick = function () {
       if (currentMode && currentMode.unmount) { try { currentMode.unmount(host); } catch (e) {} }
       currentMode = null;
-      go('modes');
+      var z = (App.museum && App.museum._zone) || '';
+      if (App.museum) { App.museum._zone = ''; }
+      if (z && z !== 'hall') { location.hash = '#/museum/' + z; }
+      else { go(App.museum ? 'museum' : 'modes'); }
     };
     bar.appendChild(back);
     bar.appendChild(App.el('span', 'chip', mode.name));
@@ -1804,6 +1822,19 @@
   }
   function render() {
     var r = parseHash();
+    /* 展馆就是首页：根路径、#/、#/home、#/museum 都直接进 3D。
+       App.museum 没加载到（脚本出错 / 主动停用）时退回原来的 2D 首页，
+       路由不会把整站卡死。 */
+    if ((r.name === 'home' || r.name === 'museum') && App.museum) {
+      /* 保留 params.id：#/museum/excavate 这种"直接落在某个区"的深链要能走通 */
+      r = { name: 'museum', params: { id: r.params.id } };
+      /* 地址栏也写成 #/museum，别一边显示 #/home 一边是展厅 */
+      try {
+        if (!location.hash || location.hash === '#/home' || location.hash === '#/') {
+          history.replaceState(null, '', '#/museum');
+        }
+      } catch (e) {}
+    }
     /* 离开对局时先卸载上一个模式，避免定时器残留 */
     if (current.name === 'play' && (r.name !== 'play' || r.params.id !== current.params.id)) {
       if (currentMode && currentMode.unmount) { try { currentMode.unmount(App.$('modeHost')); } catch (e) {} }
@@ -1840,6 +1871,11 @@
     else if (r.name === 'atlas') scene = sceneAtlas();
     else if (r.name === 'archive') scene = sceneArchive();
     else if (r.name === 'howto' || r.name === 'plan') scene = sceneHowto();
+    /* 3D 展馆：独立一层，渲染器由 App.museum 自己管（含 WebGL 不可用时的降级）。
+       没加载到这一层时退回首页，不让路由把整站卡死。 */
+    else if (r.name === 'museum' && App.museum) scene = App.museum.scene();
+    /* 3D 王邑（聚落世界）：与展馆并列的另一片三维空间，渲染器由 App.world 自管。 */
+    else if (r.name === 'world' && App.world) scene = App.world.scene();
     else scene = sceneHome();
     root.appendChild(scene);
     window.scrollTo(0, 0);

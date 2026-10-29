@@ -1,0 +1,385 @@
+/* ============================================================================
+   甲骨奇谭 · 3D 王邑（聚落世界）
+   ----------------------------------------------------------------------------
+   配色沿用展馆令牌（--ink / --bone / --edge / --bronze），不另起一套。
+   三维画面负责空间与氛围，HUD 只用"纸面 + 骨白"的最小元素：
+   一顶栏、一靠近提示、一摇杆、一面碑文面板。
+
+   结构：
+     1. 全屏接管与画布
+     2. 顶栏
+     3. 靠近提示 / 气泡 / 操作提示
+     4. 移动端摇杆与查看键
+     5. 碑文面板（地点碑 / 单字 / 探方 / 城门）
+     6. 加载与失败
+     7. 响应式
+   ========================================================================= */
+
+.app-shell.scene-world .top { display: none; }
+.app-shell.scene-world .wrap { max-width: none; padding: 0; margin: 0; }
+.app-shell.scene-world + .footer { display: none; }
+body.wd-lock { overflow: hidden; }
+
+/* ---------------------------------------------------------------------------
+   1. 全屏接管与画布
+   ------------------------------------------------------------------------ */
+.wd-scene {
+  position: fixed; inset: 0; z-index: 40;
+  background: #0b0805;
+  color: var(--on-dark, #f2e9d8);
+  overflow: hidden;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  -webkit-tap-highlight-color: transparent;
+}
+.wd-stage { position: absolute; inset: 0; }
+.wd-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+/* 上下压边：把三维画面收进"天与地"之间，HUD 才有落点 */
+.wd-scene::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background:
+    radial-gradient(125% 95% at 50% 46%, rgba(0,0,0,0) 40%, rgba(0,0,0,.5) 100%),
+    linear-gradient(180deg, rgba(8,6,4,.9) 0%, rgba(8,6,4,0) 17%,
+                    rgba(8,6,4,0) 76%, rgba(8,6,4,.92) 100%);
+}
+
+/* ---------------------------------------------------------------------------
+   2. 顶栏
+   ------------------------------------------------------------------------ */
+.wd-bar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 6;
+  display: flex; align-items: center; gap: var(--s-4, 16px);
+  padding: 12px clamp(12px, 3vw, 26px);
+  background: linear-gradient(180deg, rgba(10,8,6,.82) 0%, rgba(10,8,6,0) 100%);
+}
+.wd-back {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px 7px 9px; border-radius: 999px;
+  color: var(--bone, #e8dfcb); text-decoration: none;
+  border: 1px solid rgba(232,223,203,.18);
+  background: rgba(20,15,10,.5);
+  transition: border-color .18s, background .18s;
+}
+.wd-back:hover { border-color: rgba(232,223,203,.42); background: rgba(30,23,15,.72); }
+.wd-back-glyph { width: 20px; height: 20px; opacity: .9; }
+.wd-back-glyph svg { width: 100%; height: 100%; display: block; }
+.wd-back-t { font-size: 13px; letter-spacing: .06em; }
+
+.wd-place { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.24; }
+.wd-place-name {
+  font-family: var(--font-serif, serif); font-size: 17px; font-weight: 600;
+  letter-spacing: .12em; color: var(--bone, #e8dfcb);
+}
+.wd-place-sub {
+  font-size: 11.5px; letter-spacing: .16em; color: rgba(232,223,203,.52);
+  margin-top: 2px;
+}
+
+.wd-acts { display: flex; gap: 8px; flex: 0 0 auto; }
+.wd-btn {
+  appearance: none; cursor: pointer;
+  font: inherit; font-size: 12.5px; letter-spacing: .06em;
+  color: rgba(232,223,203,.82);
+  padding: 7px 13px; border-radius: 999px;
+  border: 1px solid rgba(232,223,203,.16);
+  background: rgba(20,15,10,.46);
+  transition: color .16s, border-color .16s, background .16s;
+}
+.wd-btn:hover { color: var(--bone, #e8dfcb); border-color: rgba(232,223,203,.4); }
+.wd-btn.is-on { color: #f0c98d; border-color: rgba(240,201,141,.45); }
+
+/* ---------------------------------------------------------------------------
+   3. 靠近提示 / 气泡 / 操作提示
+   ------------------------------------------------------------------------ */
+.wd-near {
+  position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
+  z-index: 7; display: inline-flex; align-items: baseline; gap: 10px;
+  padding: 10px 18px; border-radius: 999px; cursor: pointer;
+  background: rgba(18,13,9,.78);
+  border: 1px solid rgba(240,201,141,.34);
+  box-shadow: 0 10px 30px rgba(0,0,0,.42);
+  backdrop-filter: blur(8px);
+  animation: wd-rise .26s ease-out;
+}
+.wd-near[hidden] { display: none; }
+.wd-near-name {
+  font-family: var(--font-serif, serif); font-size: 15px; letter-spacing: .08em;
+  color: #f5e6c8;
+}
+.wd-near-hint { font-size: 12px; letter-spacing: .08em; color: rgba(240,201,141,.86); }
+@keyframes wd-rise {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.wd-say {
+  position: absolute; left: 50%; bottom: 152px; transform: translate(-50%, 6px);
+  z-index: 7; max-width: min(560px, 82vw);
+  padding: 10px 16px; border-radius: 12px;
+  font-size: 13.5px; line-height: 1.6; text-align: center;
+  color: rgba(240,233,216,.94);
+  background: rgba(14,10,7,.72);
+  border: 1px solid rgba(232,223,203,.12);
+  opacity: 0; pointer-events: none;
+  transition: opacity .3s, transform .3s;
+}
+.wd-say.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+.wd-tip {
+  position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%);
+  z-index: 5; display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; letter-spacing: .06em; color: rgba(232,223,203,.5);
+  transition: opacity .6s;
+}
+.wd-tip.is-fade { opacity: 0; }
+.wd-tip-k {
+  padding: 2px 7px; border-radius: 5px;
+  border: 1px solid rgba(232,223,203,.18);
+  color: rgba(232,223,203,.72);
+  font-size: 10.5px; letter-spacing: .04em;
+}
+
+/* ---------------------------------------------------------------------------
+   4. 移动端摇杆与查看键
+   ------------------------------------------------------------------------ */
+.wd-stick, .wd-tap { display: none; }
+
+/* 触屏优先按指针类型判断，但很多移动浏览器/模拟器报 fine，
+   所以再叠一条窄屏兜底 —— 否则手机上根本没有摇杆，只能拖视角。 */
+@media (pointer: coarse), (max-width: 760px) {
+  .wd-stick {
+    display: block; position: absolute; z-index: 7;
+    left: 20px; bottom: 22px; width: 116px; height: 116px;
+    border-radius: 50%;
+    border: 1px solid rgba(232,223,203,.16);
+    background: radial-gradient(circle at 50% 50%, rgba(30,23,15,.5), rgba(12,9,6,.34));
+    touch-action: none;
+  }
+  .wd-stick-knob {
+    position: absolute; left: 50%; top: 50%; width: 46px; height: 46px;
+    margin: -23px 0 0 -23px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 34%, rgba(240,222,190,.9), rgba(168,146,110,.72));
+    box-shadow: 0 4px 14px rgba(0,0,0,.4);
+    transition: transform .08s linear;
+  }
+  .wd-tap {
+    display: block; position: absolute; z-index: 7;
+    right: 22px; bottom: 32px; width: 78px; height: 78px; border-radius: 50%;
+    font: inherit; font-size: 14px; letter-spacing: .1em; cursor: pointer;
+    color: rgba(232,223,203,.62);
+    background: rgba(18,13,9,.6);
+    border: 1px solid rgba(232,223,203,.18);
+    transition: color .2s, border-color .2s, background .2s;
+  }
+  .wd-tap.is-on {
+    color: #2a1c0c; font-weight: 600;
+    background: radial-gradient(circle at 42% 34%, #f5dfae, #cda86e);
+    border-color: rgba(245,223,174,.8);
+    box-shadow: 0 0 0 6px rgba(240,201,141,.12);
+  }
+  .wd-tip { display: none; }
+  .wd-near { bottom: 116px; }
+  .wd-say { bottom: 176px; }
+}
+
+/* ---------------------------------------------------------------------------
+   5. 碑文面板
+   ------------------------------------------------------------------------ */
+.wd-panel {
+  position: absolute; z-index: 9;
+  top: 74px; right: clamp(12px, 2.4vw, 26px); bottom: 76px;
+  width: min(412px, 34vw);
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 20px 22px 24px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(246,240,228,.975), rgba(236,227,210,.965));
+  color: #2b2118;
+  border: 1px solid rgba(110,88,58,.28);
+  box-shadow: 0 22px 60px rgba(0,0,0,.55);
+  animation: wd-slide .3s cubic-bezier(.2,.9,.3,1);
+}
+.wd-panel[hidden] { display: none; }
+@keyframes wd-slide {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.wd-panel::-webkit-scrollbar { width: 8px; }
+.wd-panel::-webkit-scrollbar-thumb { background: rgba(90,68,40,.28); border-radius: 4px; }
+.wd-scene.is-panel .wd-near { display: none; }
+
+.wd-p-head { display: flex; gap: 14px; align-items: flex-start; }
+.wd-p-glyph {
+  flex: 0 0 auto; width: 54px; height: 54px; border-radius: 10px;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 40% 32%, #fffaf0, #e6dcc6);
+  border: 1px solid rgba(110,88,58,.24);
+  color: #3a2c1d;
+}
+.wd-p-obglyph { width: 40px; height: 40px; }
+.wd-p-obglyph svg { width: 100%; height: 100%; display: block; }
+.wd-p-meta { flex: 1 1 auto; min-width: 0; }
+.wd-p-kicker {
+  margin: 0 0 3px; font-size: 10.5px; letter-spacing: .2em;
+  color: rgba(74,56,34,.62); text-transform: uppercase;
+}
+.wd-p-title {
+  margin: 0; font-family: var(--font-serif, serif);
+  font-size: 22px; line-height: 1.2; letter-spacing: .04em; color: #241a11;
+}
+.wd-p-sub { margin: 5px 0 0; font-size: 12.5px; line-height: 1.55; color: rgba(58,42,25,.7); }
+.wd-p-x {
+  flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%;
+  appearance: none; cursor: pointer; font-size: 18px; line-height: 1;
+  color: rgba(58,42,25,.66); background: transparent;
+  border: 1px solid rgba(110,88,58,.24);
+}
+.wd-p-x:hover { color: #241a11; border-color: rgba(110,88,58,.5); }
+
+.wd-p-meter { margin: 16px 0 4px; display: flex; align-items: center; gap: 10px; }
+.wd-p-meter-t { font-size: 11.5px; letter-spacing: .08em; color: rgba(58,42,25,.66); white-space: nowrap; }
+.wd-p-meter-bar {
+  flex: 1 1 auto; height: 4px; border-radius: 2px; overflow: hidden;
+  background: rgba(90,68,40,.16);
+}
+.wd-p-meter-bar i { display: block; height: 100%; background: linear-gradient(90deg, #b08a4e, #d8b072); }
+
+.wd-p-lead { margin: 14px 0 0; font-size: 13px; line-height: 1.7; color: rgba(58,42,25,.78); }
+.wd-p-foot { margin: 16px 0 0; font-size: 12px; line-height: 1.65; color: rgba(58,42,25,.6); }
+
+/* 字形格 */
+.wd-p-grid {
+  margin: 16px 0 0; display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+}
+.wd-p-cell {
+  appearance: none; cursor: pointer; padding: 8px 4px 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  border-radius: 8px; background: rgba(255,252,244,.7);
+  border: 1px solid rgba(110,88,58,.2);
+  color: rgba(58,42,25,.42);
+  transition: color .16s, border-color .16s, background .16s, transform .16s;
+}
+.wd-p-cell:hover { transform: translateY(-1px); border-color: rgba(110,88,58,.46); background: #fffdf7; }
+.wd-p-cell.is-known {
+  color: #5d3f1d;
+  border-color: rgba(176,138,78,.66);
+  background: linear-gradient(180deg, #fff8e9, #f2e4c9);
+  box-shadow: inset 0 0 0 1px rgba(216,176,114,.24);
+}
+.wd-p-cell-glyph { width: 34px; height: 34px; }
+.wd-p-cell-glyph svg { width: 100%; height: 100%; display: block; }
+.wd-p-cell-ch { font-size: 10.5px; letter-spacing: .06em; }
+
+/* 探方里的骨片 */
+.wd-p-grid-3 { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.wd-p-bone {
+  appearance: none; cursor: pointer; position: relative;
+  padding: 18px 8px 12px; display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+  color: #3a2c1d;
+  background:
+    radial-gradient(120% 100% at 30% 10%, #fbf3e0 0%, #e9dcc0 58%, #d9c8a6 100%);
+  border: none;
+  border-radius: 46% 54% 52% 48% / 40% 42% 58% 60%;
+  box-shadow: inset 0 0 0 1px rgba(120,96,62,.22), 0 4px 12px rgba(0,0,0,.14);
+  transition: transform .18s, box-shadow .18s;
+}
+.wd-p-bone:hover { transform: translateY(-2px) rotate(-.6deg); box-shadow: inset 0 0 0 1px rgba(120,96,62,.34), 0 8px 18px rgba(0,0,0,.2); }
+.wd-p-bone-glyph { width: 40px; height: 44px; opacity: .9; }
+.wd-p-bone-glyph svg { width: 100%; height: 100%; display: block; }
+.wd-p-bone-t { font-size: 10px; letter-spacing: .08em; color: rgba(74,56,34,.6); }
+
+/* 单字：今字 / 甲骨形对照 */
+.wd-p-pair { margin: 18px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wd-p-now, .wd-p-ob {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 8px 10px; border-radius: 10px;
+  background: rgba(255,252,244,.72);
+  border: 1px solid rgba(110,88,58,.18);
+}
+.wd-p-now-ch { font-family: var(--font-serif, serif); font-size: 40px; line-height: 1.05; color: #241a11; }
+.wd-p-ob-glyph { width: 52px; height: 52px; color: #3a2c1d; }
+.wd-p-ob-glyph svg { width: 100%; height: 100%; display: block; }
+.wd-p-now-k { font-size: 10px; letter-spacing: .16em; color: rgba(74,56,34,.52); }
+.wd-p-none { font-size: 11px; color: rgba(74,56,34,.5); padding: 18px 0; }
+
+.wd-p-dl { margin: 16px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.wd-p-row { display: grid; grid-template-columns: 52px 1fr; gap: 10px; align-items: start; }
+.wd-p-row dt {
+  font-size: 11px; letter-spacing: .14em; color: rgba(74,56,34,.5);
+  padding-top: 2px;
+}
+.wd-p-row dd { margin: 0; font-size: 13.5px; line-height: 1.7; color: #2f2418; }
+.wd-p-back { margin-top: 16px; }
+
+/* ---------------------------------------------------------------------------
+   6. 加载与失败
+   ------------------------------------------------------------------------ */
+.wd-boot {
+  position: absolute; inset: 0; z-index: 8;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: radial-gradient(120% 90% at 50% 42%, #241a12 0%, #0b0805 74%);
+  transition: opacity .5s;
+}
+.wd-boot-k {
+  margin: 0; font-family: var(--font-serif, serif); font-size: 30px;
+  letter-spacing: .34em; color: rgba(240,229,206,.92);
+}
+.wd-boot-t { margin: 0; font-size: 12px; letter-spacing: .22em; color: rgba(240,229,206,.44); }
+
+.wd-fail {
+  position: absolute; inset: 0; z-index: 9;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: 30px; text-align: center;
+  background: radial-gradient(120% 90% at 50% 42%, #241a12 0%, #0b0805 76%);
+}
+.wd-fail b { font-size: 18px; color: #e8dfcb; letter-spacing: .06em; }
+.wd-fail p { margin: 0; max-width: 34em; font-size: 13px; line-height: 1.7; color: rgba(232,223,203,.6); }
+
+/* ---------------------------------------------------------------------------
+   7. 响应式
+   ------------------------------------------------------------------------ */
+@media (max-width: 900px) {
+  .wd-panel { width: min(360px, 46vw); }
+}
+@media (max-width: 760px) {
+  .wd-bar { padding: 10px 12px; gap: 10px; }
+  .wd-place-name { font-size: 15px; letter-spacing: .08em; }
+  .wd-place-sub { font-size: 10.5px; }
+  .wd-back-t { display: inline; font-size: 12px; }
+  .wd-back { padding: 6px 10px 6px 8px; gap: 6px; }
+  .wd-back-glyph { width: 16px; height: 16px; }
+  .wd-acts .wd-btn { padding: 6px 10px; font-size: 11.5px; }
+  .wd-panel {
+    top: auto; left: 10px; right: 10px; bottom: 10px;
+    width: auto; max-height: 68vh;
+    padding: 16px 16px 20px;
+    border-radius: 16px;
+    animation: wd-up .3s cubic-bezier(.2,.9,.3,1);
+  }
+  @keyframes wd-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .wd-p-title { font-size: 19px; }
+  .wd-p-grid { grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); }
+}
+@media (max-height: 520px) {
+  .wd-panel { max-height: 82vh; }
+}
+
+/* ---------------------------------------------------------------------------
+   8. 与展馆的交界：顶栏的「出城 · 王邑」是一枚链接按钮
+   ------------------------------------------------------------------------ */
+a.mu-btn {
+  text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  white-space: nowrap;
+}
+.mu-btn-world {
+  color: #f0c98d;
+  border-color: rgba(240,201,141,.42);
+  background: rgba(240,201,141,.10);
+}
+.mu-btn-world:hover { border-color: rgba(240,201,141,.72); background: rgba(240,201,141,.18); }

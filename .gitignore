@@ -44,3 +44,6 @@ dev/_*.py
 tools/specs_*.json
 tools/comfy_*.py
 tools/gen_*.py
+
+# Blender 自动备份（无需入库）
+*.blend1
