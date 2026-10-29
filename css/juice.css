@@ -113,14 +113,35 @@ html.juice-frozen #juice-layer * {
 .scene.boss-raid.juice-phase-3 .bd-figure-art { filter: saturate(.55) contrast(1.15) brightness(1.04); }
 
 /* ---------- 通关收束 ---------- */
-.juice-finale .bd-figure,
-.juice-finale .bd-winfig {
-  animation: juice-collapse 1000ms cubic-bezier(.3, .7, .2, 1) both;
+/* 收束只给「战场」上那一尊，而且收完要回到常态（backwards）。
+   原来这一条把 .bd-winfig 也写了进来——可 .bd-winfig 只长在结算页，
+   结果就是：刚赢下来那一屏，玩家最该看清的那个字先从 1 淡到 0
+   （1 秒），到 1.2 秒类被摘掉时又突然全亮跳回来。看起来就是「字没了」。
+   同时 .bd-figure 用 both 停在 opacity 0：赢完 1.2 秒内点「下一关」，
+   新开那一关的立绘会直接是透明的——「下一关的字看不到」就是这么来的。 */
+.scene.boss-raid.juice-finale .bd-field .bd-figure {
+  animation: juice-brace 420ms cubic-bezier(.3, .7, .2, 1) backwards;
+}
+/* 结算页反过来：字从「散」聚到「在」，并且停在「在」。
+   这一屏的落点是「你认出了这个字」，它不能消失，只能刚刚出现。 */
+.scene.boss-raid.juice-finale .bd-win .bd-winfig {
+  animation: juice-gather 620ms cubic-bezier(.2, .7, .3, 1) both;
+}
+/* 战场那一尊只「顶一下」：收束感交给 stagefilm 与 severed，不再靠淡出。 */
+@keyframes juice-brace {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.03); }
+  100% { transform: scale(1); }
 }
 @keyframes juice-collapse {
   0%   { transform: scale(1); opacity: 1; }
   35%  { transform: scale(1.04); opacity: 1; }
   100% { transform: scale(.92); opacity: .0; }
+}
+@keyframes juice-gather {
+  0%   { transform: scale(.94); opacity: 0; }
+  55%  { opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 /* ---------- 笔画斩断：沿原路径淡出一次 ---------- */
@@ -166,8 +187,8 @@ html.juice-frozen #juice-layer * {
   .juice-crack { animation: none; opacity: .85; }
   .juice-crack-path { animation: none; stroke-dashoffset: 0; }
   .juice-stagefilm { animation: none; opacity: .12; }
-  .juice-finale .bd-figure,
-  .juice-finale .bd-winfig { animation: none; }
+  .scene.boss-raid.juice-finale .bd-field .bd-figure,
+  .scene.boss-raid.juice-finale .bd-win .bd-winfig { animation: none; }
   .juice-severed path,
   .juice-severed polyline { animation: none; opacity: .5; }
   .juice-num { animation-duration: 0.01ms; }
