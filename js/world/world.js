@@ -320,6 +320,12 @@
 
     requestAnimationFrame(function () {
       if (!S.alive) { return; }
+      /* three.min.js 有 594 KB，GitHub Pages 在国内可能要几十秒。
+         8 秒还没就绪就把文案换成实话 —— 别让玩家以为"夯土"真的要夯一分钟。 */
+      var slowT = setTimeout(function () {
+        var t = boot.querySelector('.wd-boot-t');
+        if (t && boot.parentNode) { t.textContent = '3D 引擎较大，正在下载…'; }
+      }, 8000);
       App.world3d.create(stage, {
         onTap: function () { /* 轻点画面＝空点，不做事，避免走动时误触 */ },
         onHover: function (h) {
@@ -372,6 +378,7 @@
           S.sub.textContent = name;
         }
       }, function (err, api) {
+        clearTimeout(slowT);
         if (!S.alive) { if (api && api.dispose) { api.dispose(); } return; }
         if (err) {
           S.err = err.message;

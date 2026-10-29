@@ -96,16 +96,26 @@
   /* ---------- 按需注入 Three.js ----------
      首页不该为一个 600KB 的库付代价：只有真的走到 #/museum 才加载。
      file:// 下用传统 script 注入，不走 import（模块会被 CORS 拦）。 */
-  function loadThree(done) {
+  /* 同 world3d.js：three.min.js 594 KB，GitHub Pages 国内实测 10~60 秒且常被掐断，
+     旧逻辑 12 秒硬超时 → 线上展馆打不开。改为 45 秒 + 重试 2 次（重试加时间戳破缓存）。 */
+  var LOAD_TIMEOUT = 45000, LOAD_TRIES = 2;
+
+  function loadThree(done, tries) {
     if (window.THREE) { done(null); return; }
+    tries = tries || 0;
     var s = document.createElement('script');
     var finished = false;
     var timer = setTimeout(function () {
       if (finished) { return; }
       finished = true;
-      done(new Error('加载超时'));
-    }, 12000);
-    s.src = THREE_SRC;
+      if (tries < LOAD_TRIES) { retry(); } else { done(new Error('加载超时')); }
+    }, LOAD_TIMEOUT);
+    function retry() {
+      clearTimeout(timer);
+      s.onload = s.onerror = null;
+      setTimeout(function () { loadThree(done, tries + 1); }, 600);
+    }
+    s.src = THREE_SRC + (tries ? '?retry=' + Date.now() : '');
     s.async = true;
     s.onload = function () {
       if (finished) { return; }
@@ -117,7 +127,7 @@
       if (finished) { return; }
       finished = true;
       clearTimeout(timer);
-      done(new Error('脚本加载失败'));
+      if (tries < LOAD_TRIES) { retry(); } else { done(new Error('脚本加载失败')); }
     };
     document.head.appendChild(s);
   }

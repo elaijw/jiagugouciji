@@ -17,25 +17,38 @@
 
   var THREE_SRC = 'vendor/three.min.js';
 
-  function loadThree(done) {
+  /* three.min.js 实际 594 KB。GitHub Pages 在国内实测下载 10~60 秒且经常被中途掐断，
+     而旧逻辑 15 秒硬超时 = 线上必定"3D 引擎加载超时"、页里一片黑。
+     改成：单轮 45 秒 + 失败重试 2 次；重试时给 URL 加时间戳，绕开浏览器对那次
+     失败响应的缓存（不然第二次请求根本不发，直接复用坏结果）。 */
+  var LOAD_TIMEOUT = 45000, LOAD_TRIES = 2;
+
+  function loadThree(done, tries) {
     if (window.THREE) { done(null); return; }
+    tries = tries || 0;
     var s = document.createElement('script');
-    var done1 = false;
+    var finished = false;
     var timer = setTimeout(function () {
-      if (done1) { return; }
-      done1 = true; done(new Error('3D 引擎加载超时'));
-    }, 15000);
-    s.src = THREE_SRC;
+      if (finished) { return; }
+      finished = true;
+      if (tries < LOAD_TRIES) { retry(); } else { done(new Error('3D 引擎加载超时')); }
+    }, LOAD_TIMEOUT);
+    function retry() {
+      clearTimeout(timer);
+      s.onload = s.onerror = null;
+      setTimeout(function () { loadThree(done, tries + 1); }, 600);
+    }
+    s.src = THREE_SRC + (tries ? '?retry=' + Date.now() : '');
     s.async = true;
     s.onload = function () {
-      if (done1) { return; }
-      done1 = true; clearTimeout(timer);
+      if (finished) { return; }
+      finished = true; clearTimeout(timer);
       done(window.THREE ? null : new Error('THREE 未就绪'));
     };
     s.onerror = function () {
-      if (done1) { return; }
-      done1 = true; clearTimeout(timer);
-      done(new Error('3D 引擎加载失败'));
+      if (finished) { return; }
+      finished = true;
+      if (tries < LOAD_TRIES) { retry(); } else { done(new Error('3D 引擎加载失败')); }
     };
     document.head.appendChild(s);
   }
