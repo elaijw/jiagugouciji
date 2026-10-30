@@ -1294,6 +1294,59 @@
     return tex;
   }
 
+  /* 有虚影时，字要"让路"：
+     原来字是深褐实心（0x241a0e），压在鼎/眼上就是一块黑。
+     这里把字改成浅骨色 + 38% 不透明 + 不写深度，变成"淡描"，
+     物的轮廓就能透过来 —— 读完字再看物，两层都在。 */
+  function setGlyphGhostMode(grp, on) {
+    /* 叠在实物上的字：加色混合、低不透明度 —— 只"加一层金光"，
+       不会把鼎/眼睛糊住；离场时逐项还原。 */
+    var T = S.st && S.st.T;
+    var gs = grp.userData.glyphs || [];
+    for (var k = 0; k < gs.length; k++) {
+      gs[k].traverse(function (m) {
+        if (!m.material || Array.isArray(m.material)) { return; }
+        var mat = m.material;
+        if (on) {
+          if (!m.userData._origMat) {
+            m.userData._origMat = {
+              color: mat.color ? mat.color.clone() : null,
+              emissive: mat.emissive ? mat.emissive.clone() : null,
+              emissiveIntensity: mat.emissiveIntensity,
+              opacity: mat.opacity,
+              transparent: mat.transparent,
+              depthWrite: mat.depthWrite,
+              blending: mat.blending
+            };
+            m.material = mat.clone();
+            mat = m.material;
+          }
+          if (mat.color) { mat.color.setHex(0xffc27a); }
+          if (mat.emissive) { mat.emissive.setHex(0xff8a34); }
+          if (mat.emissiveIntensity != null) { mat.emissiveIntensity = 0.55; }
+          mat.transparent = true;
+          mat.opacity = 0.36;
+          mat.depthWrite = false;
+          if (T) { mat.blending = T.AdditiveBlending; }
+          m.renderOrder = 6;   /* 画在实物之后，才能在"上面"加光 */
+        } else if (m.userData._origMat) {
+          var o = m.userData._origMat;
+          if (o.color && mat.color) { mat.color.copy(o.color); }
+          if (o.emissive && mat.emissive) { mat.emissive.copy(o.emissive); }
+          if (o.emissiveIntensity != null) { mat.emissiveIntensity = o.emissiveIntensity; }
+          mat.transparent = o.transparent;
+          mat.opacity = o.opacity;
+          mat.depthWrite = o.depthWrite;
+          if (o.blending != null) { mat.blending = o.blending; }
+          m.renderOrder = 0;
+          m.userData._origMat = null;
+        }
+      });
+    }
+  }
+
+
+
   function ghostOn(grp, d) {
     var st = S.st;
     var T = st.T;
@@ -1324,17 +1377,18 @@
       }
       var pw = 1.30, ph = 1.46;
       var plane = new T.Mesh(new T.PlaneGeometry(pw, ph), mat);
-      plane.position.set(0, 0.02, faceZ);
-      plane.renderOrder = 3;
+      plane.position.set(0, 0.02, faceZ + 0.06);
+      plane.renderOrder = 4;
       grp.add(plane);
       grp.userData.ghost = plane;
+      setGlyphGhostMode(grp, true);
 
       /* 淡入到 0.62：看得清是"虚影"，又不遮掉字 */
       var t0 = performance.now();
       (function fade() {
         if (!plane.parent) { return; }
         var k = Math.min(1, (performance.now() - t0) / 700);
-        mat.opacity = 0.58 * (1 - Math.pow(1 - k, 3));
+        mat.opacity = 0.72 * (1 - Math.pow(1 - k, 3));
         if (k < 1) { requestAnimationFrame(fade); }
       })();
     }
@@ -1352,11 +1406,12 @@
   function ghostOff(grp) {
     var g = grp && grp.userData && grp.userData.ghost;
     if (!g) { return; }
+    setGlyphGhostMode(grp, false);
     var mat = g.material;
     var t0 = performance.now();
     (function fade() {
       var k = Math.min(1, (performance.now() - t0) / 420);
-      mat.opacity = 0.58 * (1 - k);
+      mat.opacity = 0.72 * (1 - k);
       if (k < 1) { requestAnimationFrame(fade); }
       else if (g.parent) { g.parent.remove(g); }
       if (k >= 1 && grp.userData) { grp.userData.ghost = null; }
@@ -1509,8 +1564,18 @@
     /* 实物改由骨面虚影承担（ghostOn）；3D 实物模型先不生成。
        想恢复把 SHOW_3D_PROP 改 true。 */
     var SHOW_3D_PROP = false;
-    var maker = PROPS[d.make];
-    if (!maker || !SHOW_3D_PROP) { return; }
+    var maker = SHOW_3D_PROP ? PROPS[d.make] : null;
+    if (!maker) {
+      /* 没有 3D 实物（虚影模式下就是这样）：仍然要进 show 态 ——
+         卡片、提示、收回按钮全靠这一步。之前直接 return，
+         状态卡在 unveil，6 秒后被守卫踢回 idle，收回按钮根本没出来。 */
+      S.mode = 'show';
+      S.stateSince = 0;
+      S.busy = false;
+      card(true, d);
+      say('<b>提示</b>：这就是「' + d.now + '」画的东西。看完点「收回」。', 9000);
+      return;
+    }
     if (S.prop && S.prop.root) { S.plot.remove(S.prop.root); }
 
     var ctl = maker(T);
@@ -1629,6 +1694,7 @@
         p.userData.ghost.parent.remove(p.userData.ghost);
         p.userData.ghost = null;
       }
+      setGlyphGhostMode(p, false);   /* 收回/复位：字要回到深色实心 */
     });
     S.lookLock = false;
     card(false);
