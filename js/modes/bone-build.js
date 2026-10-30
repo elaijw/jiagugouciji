@@ -368,6 +368,20 @@
       lesson.appendChild(U.el('p', 'bb-eyebrow', '先观察，再动手'));
       lesson.appendChild(U.el('h2', 'bb-question-title', '这个字由哪些构件组成？'));
       lesson.appendChild(U.el('p', 'bb-question-note', '点选下方的甲骨构件；需要几个构件，就选几个。'));
+
+      /* 步骤条：这一关只有两步（选够 → 提交），写在题面下，
+         省得玩家盯着六个构件猜"选到几个才算完"。 */
+      var got = state.selected.length, total = need.length;
+      var step = U.el('div', 'bb-step');
+      if (got === 0) {
+        step.innerHTML = '<span class="n">1</span><span>从下面<b>构件台</b>点选构件（共 <b>' + total + '</b> 个）</span>';
+      } else if (got < total) {
+        step.innerHTML = '<span class="n">1</span><span>已选 <b>' + got + ' / ' + total +
+          '</b>　·　再点同一块可以取消</span>';
+      } else {
+        step.innerHTML = '<span class="n">2</span><span>选够了，点<b>「拼好，听龟宝讲解」</b>提交</span>';
+      }
+      lesson.appendChild(step);
       /* 题面同时给两种字形：左边甲骨（真构件拼合示意），右边今字。
          关掉这一条（改成 false）就退回"只给今字"的老样子。
          说明：旧的自由对战模式里写过"直接给拼好的甲骨形＝剧透答案"，
@@ -635,6 +649,7 @@
      ============================================================ */
   function mount(host, ctx) {
     var U = App, $ = U.$;
+    injectBBUI();
     var pack = ctx.primaryPack;
     if (!pack) { host.appendChild(U.el('p', 'lead', '没有可用的字包。')); return; }
 
@@ -906,6 +921,29 @@
     }
 
     var boardBuilt = false;
+  /* ---------- 第一关：步骤条与可点性（2026-10-30 补） ---------- */
+  function injectBBUI() {
+    if (document.getElementById('bb-ui-style')) { return; }
+    var st = document.createElement('style');
+    st.id = 'bb-ui-style';
+    st.textContent = [
+      '.bb-step{display:flex;align-items:center;gap:9px;margin:10px 0 2px;padding:8px 14px;',
+      'border:1px solid var(--edge,#dcd5c5);background:var(--bone-white,#fffefa);',
+      'color:var(--ink-2,#5b4d3a);font-size:13.5px;line-height:1.5;letter-spacing:.02em}',
+      '.bb-step b{color:var(--ink,#2b2318)}',
+      '.bb-step .n{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;',
+      'background:var(--bronze,#a58147);color:#fff;font-size:11px;flex:0 0 auto}',
+      '.bb-step.hide{display:none}',
+      '.pieces .piece{position:relative;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease}',
+      '.pieces .piece:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(43,35,24,.18)}',
+      '.pieces .piece:active{transform:translateY(-1px)}',
+      '.pieces .piece.used{cursor:default;opacity:.42}',
+      '.pieces .piece.used::after{content:"✓";position:absolute;right:4px;top:2px;font-size:12px;',
+      'color:var(--patina,#337663)}'
+    ].join('');
+    document.head.appendChild(st);
+  }
+
     function buildBoard() {
       if (boardBuilt) return;
       boardBuilt = true;
@@ -922,6 +960,11 @@
       bar.appendChild(chip('轮到', '<b id="mpTurn">甲</b>'));
       bar.appendChild(chip('难度', DIFF_DEF[S.diff].label));
       board.appendChild(bar);
+
+      /* 步骤条：这一关只有三步，写在题面下面，省得玩家猜"现在该干什么" */
+      var stepBB = U.el('div', 'bb-step');
+      stepBB.id = 'mpStep';
+      board.appendChild(stepBB);
 
       /* 计时 */
       var timer = U.el('div', 'timer');
@@ -1105,7 +1148,9 @@
           var s = modern ? null : obSvg(S.filled[i], 30, 'slotsvg');
           if (s) { d.appendChild(s); } else { d.textContent = glyphOf(S.filled[i]); }
           (function (idx) {
-            d.onclick = function () { S.filled.splice(idx, 1); renderSlots(); renderPieces(); };
+            d.onclick = function () {
+              S.filled.splice(idx, 1); renderSlots(); renderPieces(); updateStepBB();
+            };
           })(i);
         }
         el.appendChild(d);
@@ -1160,6 +1205,35 @@
     function stopTimer() { if (tickId) { clearInterval(tickId); tickId = null; } }
 
     /* ---------- 发牌 ---------- */
+    /* ---------- 步骤条 ---------- */
+    function needOf(c) {
+      return String((c && c.w) || '').split('+').filter(Boolean).length;
+    }
+    function updateStepBB() {
+      var el = $('mpStep');
+      if (!el) { return; }
+      if (!S.running || S.over || !S.cur) {
+        el.classList.add('hide');
+        return;
+      }
+      el.classList.remove('hide');
+      var need = needOf(S.cur);
+      var got = S.filled.length;
+      var html;
+      if (S.challengeOpen) {
+        html = '<span class="n">3</span><span><b>质问台</b>：从右边挑字补满空位，再点「抢答：这就是正解」</span>';
+      } else if (got === 0) {
+        html = '<span class="n">1</span><span>从下面<b>构件台</b>挑出能拼成「<b>' + S.cur.g +
+          '</b>」的构件（共 ' + need + ' 个）</span>';
+      } else if (got < need) {
+        html = '<span class="n">1</span><span>已放 <b>' + got + ' / ' + need +
+          '</b>　·　继续挑；点空位可取下</span>';
+      } else {
+        html = '<span class="n">2</span><span>放满了，点<b>「契刻」</b>提交判定</span>';
+      }
+      el.innerHTML = html;
+    }
+
     function newCard() {
       var pool = poolFor(S.diff, CARDS).filter(function (c) { return !S.usedCards[c.g]; });
       if (!pool.length) { endGame(); return; }
@@ -1173,7 +1247,7 @@
       $('mpChPanel').className = 'console hidden';
       $('mpDivine').className = 'panel hidden';
       $('mpVerdict').className = 'verdict';
-      renderCard(); renderSlots(); renderPieces(); renderScore();
+      renderCard(); renderSlots(); renderPieces(); renderScore(); updateStepBB();
 
       var lim = limitOf(c, R());
       S.timeLimit = lim;
@@ -1187,11 +1261,11 @@
       var need = String(S.cur.w || '').split('+').filter(Boolean).length;
       if (S.filled.length >= need) { U.toast('已经放满 ' + need + ' 个构件了'); return; }
       S.filled.push(name);
-      renderSlots(); renderPieces();
+      renderSlots(); renderPieces(); updateStepBB();
     }
     function clearFill() {
       S.filled = [];
-      renderSlots(); renderPieces();
+      renderSlots(); renderPieces(); updateStepBB();
     }
 
     function submit() {

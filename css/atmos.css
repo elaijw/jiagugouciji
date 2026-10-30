@@ -660,3 +660,46 @@ hr, .hr {
   padding-left: var(--s-3);
   border-left: 2px solid rgba(166, 62, 47, .62);
 }
+
+/* ---------- 入门课：可点性 + 步骤条（2026-10-30 补） ---------- */
+.bb-intro-choice {
+  position: relative;
+  cursor: pointer;
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+.bb-intro-choice:hover { transform: translateY(-3px); }
+.bb-intro-choice:active { transform: translateY(-1px); }
+.bb-intro-choice.selected::after {
+  content: "✓";
+  position: absolute;
+  right: 8px;
+  top: 4px;
+  font-size: 13px;
+  color: #b4492f;
+}
+/* 第一关是浅色纸面，步骤条得用墨色 —— 之前写成了浅字，在骨纸上等于隐形 */
+.bb-step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 9px 13px;
+  border: 1px solid rgba(43, 35, 24, .16);
+  border-radius: 2px;
+  background: rgba(43, 35, 24, .045);
+  color: rgba(43, 35, 24, .82);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.bb-step b { color: #8c3a24; font-weight: 600; }
+.bb-step .n {
+  display: inline-grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #b4492f;
+  color: #fff;
+  font-size: 11px;
+}
