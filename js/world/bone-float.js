@@ -893,32 +893,54 @@
      叠在雾与远山之后，给夜空一条缓慢流动的金色光带。
      读不到图就整段跳过 —— 不因为缺一张贴图让场景变黑。
      --------------------------------------------------------------- */
+  /* 星空顶：程序化的星点，不用贴图 ——
+     两层星（细碎的白 + 少量偏金的），撒在半径 120 的球面上。
+     深底 + 细星就是"星空顶"，不会带进任何底色。 */
   function starVeil(st) {
     var T = st.T;
-    var loader = new T.TextureLoader();
-    loader.load('assets/gen/sky2.png', function (tex) {
-      tex.colorSpace = T.SRGBColorSpace;
-      tex.wrapS = T.RepeatWrapping;
-      tex.wrapT = T.ClampToEdgeWrapping;
-      /* 球面 UV 会把整张图（含下半部的湖面）铺到地平线以下，
-         结果脚下变成粉色。只取图的上半幅（天空+星云），横向重复两次加密星点。 */
-      tex.repeat.set(2, 0.5);
-      tex.offset.set(0, 0.5);
-      /* 贴到穹顶而不是插一块平面：人是站在中间转着看的，
-         一张平面只能盖住一个方向，穹顶才是 360°。 */
-      var dome = st.dome;
-      if (dome && dome.material) {
-        dome.material.map = tex;
-        dome.material.color = new T.Color(0x8c84a4);
-        dome.material.needsUpdate = true;
-        st.skyTex = tex;
+    var rnd = (function (seed) {
+      return function () {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        return seed / 0x7fffffff;
+      };
+    })(20261030);
+
+    var sky = new T.Group();
+    st.scene.add(sky);
+
+    function makeStars(count, size, color, opacity) {
+      var pos = new Float32Array(count * 3);
+      for (var i = 0; i < count; i++) {
+        /* 球面均匀分布，且只取上半球偏多（脚下不需要星） */
+        var u = rnd() * 2 - 1;
+        var phi = rnd() * Math.PI * 2;
+        var r = 120;
+        var y = u;   /* 全向铺开：脚下也是星 */
+        var k = Math.sqrt(1 - y * y);
+        pos[i * 3] = Math.cos(phi) * k * r;
+        pos[i * 3 + 1] = y * r;
+        pos[i * 3 + 2] = Math.sin(phi) * k * r;
       }
-      /* 穹顶慢慢转，星云就有"流转"的意思 */
-      st.onTick(function (dt) {
-        if (st.skyTex) { st.skyTex.offset.x = (st.skyTex.offset.x + dt * 0.0016) % 1; }
+      var geo = new T.BufferGeometry();
+      geo.setAttribute('position', new T.BufferAttribute(pos, 3));
+      var mat = new T.PointsMaterial({
+        color: color, size: size, sizeAttenuation: false,
+        transparent: true, opacity: opacity, depthWrite: false, fog: false
       });
-    }, undefined, function () { /* 加载失败就保留原渐变天穹 */ });
+      var pts = new T.Points(geo, mat);
+      sky.add(pts);
+      return pts;
+    }
+
+    makeStars(1400, 1.4, 0xe8eeff, 0.85);
+    makeStars(220, 2.2, 0xffe6bd, 0.9);
+
+    /* 只转星顶，不转场景：极慢，像天在动而不是地在转 */
+    st.onTick(function (dt) {
+      sky.rotation.y += dt * 0.0025;
+    });
   }
+
 
 
   /* 观星台脚下的一层暖光：让"台"从地面浮起来，而不是贴在地上 */
@@ -1056,21 +1078,23 @@
     }
     /* 雾色不能几乎是黑的：山色与雾色都接近黑，混出来还是一团黑，
        三层远山就退成一张剪纸。雾提到紫灰，山才有远近浓淡。 */
-    st.scene.fog = new T.FogExp2(0x2a2233, 0.0175);
+    st.scene.fog = new T.FogExp2(0x0b1220, 0.0175);
+    /* 星空顶：中性深蓝偏黑，不要再偏紫 —— 紫一多就像"宇宙风"，
+       这一关要的是"夜里站在台上"，不是太空海报。 */
     skyDome(st, [
-      [0.00, '#0a0812'], [0.28, '#15111f'], [0.42, '#221a28'],
-      [0.480, '#2c2233'], [0.508, '#33283a'], [1.00, '#1a1420']
+      [0.00, '#05070e'], [0.30, '#080c18'], [0.46, '#0b1120'],
+      [0.500, '#0d1424'], [0.540, '#0a1020'], [1.00, '#06080f']
     ]);
 
     /* 三层远山：近深远淡，雾把它们分开 —— 才有"层叠"，不是一排剪影 */
     /* 山色必须比雾色（0x2a2233）更深：雾里的山是"暗影"，
        比雾还亮就成了前排的浅紫塔，把骨片压下去。 */
-    farHills(st, 46, 72, 22, 5, 11, 0x2b2434, 7);
-    farHills(st, 76, 108, 18, 9, 18, 0x272132, 13);
-    farHills(st, 116, 150, 14, 14, 26, 0x241f2d, 19);
+    /* 这一关改成纯星空环境：不再画山。
+       山会把画面拉回"地面风景"，而这里要的是"浮在星海里的一块台"。 */
 
     stoneDeck(st);
     cloudSea(st);
+    /* 云海只留很薄一层，当"浮台下的雾"，不要挡住星 */
     starVeil(st);
     var altar = observatory(st);
     altarGlow(st, -1.98);
