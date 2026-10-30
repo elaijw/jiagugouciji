@@ -1376,6 +1376,9 @@
     var texLoader = null;
 
     function loadFaces() {
+      /* 名录墙已废弃（用户：这个部分没有用）。留代码不留画面：
+         这一区现在直接进"守字之骨"三阶段关卡，不再摆墙。 */
+      return;
       if (facesLoaded) { return; }
       facesLoaded = true;
       var entries = (App.levels && App.levels.bossCodex &&
