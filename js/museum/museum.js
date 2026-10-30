@@ -542,6 +542,15 @@
   function enterZone(id) {
     var z = zoneById(id);
     if (!z) { return; }
+
+    /* 浮空骨片区不再走"考古任务"那一层：点门就直接进骨片空间。
+       （挖掘 mini-game 的代码还在，想恢复把这行删掉即可） */
+    if (id === 'excavate') {
+      if (App.museum) { App.museum._zone = S.area; }
+      location.hash = '#/play/bone-float';
+      return;
+    }
+
     setBarName(id);
 
     /* 有 3D：每一道门后都是一间真的屋子，走过去，不跳页 */

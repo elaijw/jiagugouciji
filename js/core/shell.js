@@ -1889,7 +1889,16 @@
     else if (r.name === 'howto' || r.name === 'plan') scene = sceneHowto();
     /* 3D 展馆：独立一层，渲染器由 App.museum 自己管（含 WebGL 不可用时的降级）。
        没加载到这一层时退回首页，不让路由把整站卡死。 */
-    else if (r.name === 'museum' && App.museum) scene = App.museum.scene();
+    else if (r.name === 'museum' && App.museum) {
+      /* 浮空骨片区这一层"考古任务"已经撤掉：深链直接落到骨片空间。
+         放在这里而不是 App.museum.scene() 里 return —— 那边 return 会让
+         scene 变成 undefined，root.appendChild 直接抛错。 */
+      if (r.params && r.params.id === 'excavate') {
+        location.replace('#/play/bone-float');
+        return;
+      }
+      scene = App.museum.scene();
+    }
     /* 王邑 3D 已舍弃。旧书签 #/world 不再进入那片聚落，直接落到数字博物馆，
        不给白屏、也不留一个"点进去是首页"的空路由。 */
     else if (r.name === 'world') scene = (App.museum ? App.museum.scene() : sceneHome());
