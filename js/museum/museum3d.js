@@ -1122,7 +1122,9 @@
       new T.PlaneGeometry(7.0, 1.37),
       new T.MeshBasicMaterial({ map: bSignTex, transparent: true })
     );
-    bSign.position.set(0, 5.1, -12.6);
+    /* 说明牌就挂在工作台正上方：默认视角一进来就能读到题面，
+       原来放在 z=-12.6 的后墙上，要抬头退后才能看见。 */
+    bSign.position.set(0, 3.15, -2.5);
     buildG.add(bSign);
 
     /* 构件方块：顶上刻字，其余五面是石头 */
@@ -1164,6 +1166,54 @@
     var blockGeo = new T.BoxGeometry(0.56, 0.56, 0.56);
 
     var bState = { idx: 0, picks: [], blocks: [], done: false, flash: 0, solved: 0, target: null };
+
+    /* 成字的金屑：一次 90 颗，散开后受重力落下、逐渐淡出 */
+    var sparks = null, sparkData = null;
+    function spawnSparks(origin, count, color) {
+      var N = count || 90;
+      if (sparks && sparks.parent) { sparks.parent.remove(sparks); }
+      var pos = new Float32Array(N * 3);
+      var vel = [];
+      for (var i = 0; i < N; i++) {
+        pos[i * 3] = origin.x; pos[i * 3 + 1] = origin.y; pos[i * 3 + 2] = origin.z;
+        var a = Math.random() * Math.PI * 2;
+        var up = 0.9 + Math.random() * 1.5;
+        var sp = 0.5 + Math.random() * 1.2;
+        vel.push(new T.Vector3(Math.cos(a) * sp, up, Math.sin(a) * sp));
+      }
+      var geo = new T.BufferGeometry();
+      geo.setAttribute('position', new T.BufferAttribute(pos, 3));
+      var mat = new T.PointsMaterial({
+        color: color || 0xffd9a0, size: 0.055, transparent: true, opacity: 1,
+        depthWrite: false, blending: T.AdditiveBlending, fog: false
+      });
+      sparks = new T.Points(geo, mat);
+      sparks.userData.age = 0;
+      buildG.add(sparks);
+      sparkData = vel;
+      if (App.museumAudio && App.museumAudio.good) { App.museumAudio.good(); }
+      else if (App.museumAudio && App.museumAudio.click) { App.museumAudio.click(); }
+    }
+
+    function stepSparks(dt) {
+      if (!sparks || !sparks.parent) { return; }
+      var arr = sparks.geometry.attributes.position.array;
+      sparks.userData.age += dt;
+      for (var i = 0; i < sparkData.length; i++) {
+        var v = sparkData[i];
+        v.y -= dt * 2.6;
+        arr[i * 3] += v.x * dt;
+        arr[i * 3 + 1] += v.y * dt;
+        arr[i * 3 + 2] += v.z * dt;
+        if (arr[i * 3 + 1] < 0.05) { arr[i * 3 + 1] = 0.05; v.y *= -0.28; v.x *= 0.7; v.z *= 0.7; }
+      }
+      sparks.geometry.attributes.position.needsUpdate = true;
+      sparks.material.opacity = Math.max(0, 1 - sparks.userData.age / 1.8);
+      if (sparks.userData.age > 1.8) {
+        if (sparks.parent) { sparks.parent.remove(sparks); }
+        sparks = null;
+      }
+    }
 
     function buildPair() {
       /* 每次换一个字。取模保证多少次都不会越界 */
@@ -1252,6 +1302,9 @@
           if (App.progress && p.word && p.word.g) {
             App.progress.add('build', String(p.word.g));   /* 三关收口也记一笔 */
           }
+          spawnSparks(new T.Vector3(0, 1.7, -2.5), 90, 0xffd9a0);
+          /* 让馆里的任务条立刻刷新（否则还停在"拼出上一字 0/2"） */
+          if (App.emit) { App.emit('museum-build', { solved: bState.solved, target: p.word.g, done: true }); }
           paintBuildSign('成 字 「' + p.word.g + '」',
             '骨上这道刻好了 —— 下一个字马上摆上台',
             '已拼成 ' + bState.solved + ' 字', 'rgba(255,214,150,.96)');
@@ -1262,6 +1315,7 @@
           }, 1900);
           return { kind: 'build-ok', word: p.word };
         }
+        if (App.museumAudio && App.museumAudio.part) { App.museumAudio.part(); }
         paintBuildSign('差 一 点',
           '这两块拼不成「' + p.word.g + '」',
           '点亮的方块再点一次就取下来，重新挑', 'rgba(226,150,120,.94)');
@@ -2261,6 +2315,7 @@
             mt.emissive.setHex(b.up ? 0x4a3410 : 0x000000);
           }
         });
+        stepSparks(dt);
         if (bState.flash > 0) {
           bState.flash = Math.max(0, bState.flash - dt * 0.55);
           var gl2 = bState.flash;

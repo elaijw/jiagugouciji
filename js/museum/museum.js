@@ -633,6 +633,13 @@
     document.body.classList.remove('mu-play-lock');
   }
 
+  /* 造字区每拼成一个字，任务条要跟着变（不然还写着上一字的 0/2） */
+  if (App.on) {
+    App.on('museum-build', function () {
+      if (S.alive && S.area === 'build') { updateTask(); }
+    });
+  }
+
   function enterZone(id) {
     var z = zoneById(id);
     if (!z) { return; }
