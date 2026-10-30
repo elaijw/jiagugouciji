@@ -884,6 +884,54 @@
   }
 
   /* ---------------------------------------------------------------
+     远景星尘背景板：用 qwen/SDXL 出的那张"星河"当远景，
+     叠在雾与远山之后，给夜空一条缓慢流动的金色光带。
+     读不到图就整段跳过 —— 不因为缺一张贴图让场景变黑。
+     --------------------------------------------------------------- */
+  function starVeil(st) {
+    var T = st.T;
+    var loader = new T.TextureLoader();
+    loader.load('assets/gen/stars.png', function (tex) {
+      tex.colorSpace = T.SRGBColorSpace;
+      /* 图本身是暖褐的，直接铺会和夜景的紫打架：
+         用 color 做乘法把它压回冷调，opacity 再降一档，只当"远景的星河"。 */
+      var mat = new T.MeshBasicMaterial({
+        map: tex, transparent: true, opacity: 0.58,
+        color: 0x9a92b6,
+        depthWrite: false, fog: false, toneMapped: false
+      });
+      var w = 150, h = 100;
+      var plane = new T.Mesh(new T.PlaneGeometry(w, h), mat);
+      plane.position.set(0, 16, -54);
+      st.scene.add(plane);
+      /* 极慢的横向漂移：一条"星河"在动，但慢到不会分神 */
+      st.onTick(function (dt) {
+        plane.position.x = Math.sin(st.t * 0.035) * 6 - 4;
+      });
+    }, undefined, function () { /* 加载失败：静默跳过 */ });
+  }
+
+  /* 观星台脚下的一层暖光：让"台"从地面浮起来，而不是贴在地上 */
+  function altarGlow(st, y) {
+    var T = st.T;
+    var cv = App.stage3d.canvas(256, 256), c = cv.getContext('2d');
+    var g = c.createRadialGradient(128, 128, 8, 128, 128, 124);
+    g.addColorStop(0, 'rgba(255,214,150,.55)');
+    g.addColorStop(0.45, 'rgba(220,170,110,.20)');
+    g.addColorStop(1, 'rgba(220,170,110,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(128, 128, 126, 0, 6.2832); c.fill();
+    var mat = new T.MeshBasicMaterial({
+      map: App.stage3d.tex(cv), transparent: true, depthWrite: false,
+      blending: T.AdditiveBlending, fog: false, toneMapped: false
+    });
+    var m = new T.Mesh(new T.PlaneGeometry(9.5, 9.5), mat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(0, y, 0);
+    st.scene.add(m);
+    return m;
+  }
+
+  /* ---------------------------------------------------------------
      观星台：这一关的空间中心。
      三层石台 + 一圈矮栏 + 台面刻环；骨片绕着它浮。
      全部程序化几何，不用模型文件，控制包体与加载时间。
@@ -1013,7 +1061,9 @@
 
     stoneDeck(st);
     cloudSea(st);
+    starVeil(st);
     var altar = observatory(st);
+    altarGlow(st, -1.98);
 
     /* 六片骨绕观星台排成一圈：高度错开，前低后高，
        每片都朝向圆心 —— 这样镜头在原地看着的是"围起来的场"，不是一排浮板。 */
@@ -1070,6 +1120,8 @@
     st.scene.add(rim);
 
     dust(st, 380, 8, 32, 0xd8c49a);
+    /* 第二层浮尘：更密、更亮、范围更大 —— "繁星流转"靠这一层 */
+    dust(st, 620, 12, 46, 0xe8c68a);
 
     var plot = new T.Group();
     st.root.add(plot);

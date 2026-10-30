@@ -104,6 +104,16 @@
     '@keyframes bd3hit{0%{opacity:.9}100%{opacity:0}}',
 
     /* 胜利面板 */
+    /* Boss 立绘：阶段开始浮出 2.6 秒，不挡题面 */
+    '.bd3-face{position:absolute;left:20px;bottom:86px;z-index:5;width:138px;',
+    'pointer-events:none;opacity:0;transform:translateX(-18px);',
+    'transition:opacity .5s ease,transform .5s ease}',
+    '.bd3-face.on{opacity:.96;transform:none}',
+     '.bd3-face.idle{opacity:.42;transform:none}',
+    '.bd3-face img{width:100%;display:block;border-radius:3px;',
+    'box-shadow:0 18px 40px rgba(0,0,0,.55);border:1px solid rgba(214,186,126,.28)}',
+    '.bd3-face span{display:block;margin-top:6px;text-align:center;font-size:11.5px;',
+    'letter-spacing:.22em;color:#c9b48c}',
     '.bd3-win{position:absolute;inset:0;z-index:9;display:none;place-items:center;',
     'background:radial-gradient(circle at 50% 45%,rgba(24,18,12,.72),rgba(8,7,10,.94))}',
     '.bd3-win.on{display:grid}',
@@ -511,7 +521,12 @@
 
     var win = el('div', 'bd3-win');
 
-    [top, task, src, sayBox, flash, win, fade, load].forEach(function (n) { root.appendChild(n); });
+    var face = el('div', 'bd3-face');
+    face.innerHTML = '<img src="assets/gen/boss.png" alt="守字之骨">' +
+      '<span>守 字 之 骨</span>';
+    [top, task, src, sayBox, flash, face, win, fade, load].forEach(function (n) {
+      root.appendChild(n);
+    });
 
     S.ui = { top: top, stages: stages, name: nm, hp: hpI, q: q, tip: tip,
              src: src, say: sayBox, flash: flash, fade: fade, load: load, win: win };
@@ -874,10 +889,24 @@
     }
   }
 
+  /* 立绘浮出：进阶段时亮 2.6 秒，然后收回，避免长期挡画面 */
+  function showFace() {
+    var f = S.root && S.root.querySelector('.bd3-face');
+    if (!f) { return; }
+    f.classList.add('on');
+    f.classList.remove('idle');
+    if (S._faceT) { clearTimeout(S._faceT); }
+    S._faceT = setTimeout(function () {
+      f.classList.remove('on');
+      f.classList.add('idle');   /* 收起后不消失，留在角落当"这位是 Boss" */
+    }, 2600);
+  }
+
   function startPhase1() {
     setPhase(1);
     clearWidgets();
     summonPhase(1);
+    showFace();
     var st = S.st;
     var boss = S.boss;
     engraveWhole(boss, PHASE1_CHAR, 1.72);
@@ -965,6 +994,7 @@
     setPhase(2);
     clearWidgets();
     summonPhase(2);
+    showFace();
     var st = S.st, boss = S.boss;
     var strokes = engraveStrokes(boss, PHASE2_CHAR, 1.72);
     S.strokeRefs = strokes;
@@ -1055,6 +1085,7 @@
     setPhase(3);
     clearWidgets();
     summonPhase(3);
+    showFace();
     var st = S.st, boss = S.boss;
     /* 这一阶段 Boss 不放空，而是"释放封印"：骨版上刻回完整的本字「泉」，
        让玩家一边看着这个字，一边补它守着的句子。
@@ -1484,6 +1515,7 @@
       S.t0 = performance.now();
       setHp(100);
       startPhase1();
+      showFace();
 
       var ld = S.ui.load;
       ld.classList.add('off');
