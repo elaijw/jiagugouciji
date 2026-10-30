@@ -1309,12 +1309,26 @@
     var T2 = S.st.T;
     var f = S.forward || lookDir(T2, S.look);
     var cam = S.st.camera.position;
-    var tx = cam.x + f.x * 3.05;
-    var ty = cam.y + f.y * 3.05 + 0.10;
-    var tz = cam.z + f.z * 3.05;
+
+    /* 按实际 FOV 算"放多大、放多远"：
+       骨片原始宽约 1.5，放大到 2.0 后约 3.0 米宽；
+       要让它在画面里占约 55% 高度，距离 = 半宽 / tan(fov/2) / 0.55。
+       上一版写死 3.05 米 + 2.62 倍，直接把骨片怼到脸上，只看得见一角。 */
+    var fov = (S.st.camera.fov || 48) * Math.PI / 180;
+    var plateW = 1.52 * 2.0;
+    var dist = (plateW * 0.5) / Math.tan(fov / 2) / 0.58;
+    dist = Math.max(4.2, Math.min(7.2, dist));
+
+    /* 右向量：让骨片偏左一点，给实物留出右侧位置 */
+    var up = new T2.Vector3(0, 1, 0);
+    var right = new T2.Vector3().crossVectors(f, up).normalize();
+
+    var tx = cam.x + f.x * dist - right.x * 0.55;
+    var ty = cam.y + f.y * dist + 0.02;
+    var tz = cam.z + f.z * dist - right.z * 0.55;
 
     grp.rotation.y = Math.atan2(cam.x - tx, cam.z - tz);
-    tw(grp, { px: tx, py: ty, pz: tz, sx: 2.62, sy: 2.62, sz: 2.62, rz: 0 }, 0.72, easeInOut, function () {
+    tw(grp, { px: tx, py: ty, pz: tz, sx: 2.0, sy: 2.0, sz: 2.0, rz: 0 }, 0.72, easeInOut, function () {
       unveil(grp, d);
     });
   }
@@ -1374,7 +1388,20 @@
 
     var ctl = maker(T);
     var root = ctl.root;
-    root.position.set(0, 2.05, 3.15);
+
+    /* 实物必须出现在"你正在看的那个方向"，而不是老代码里写死的世界坐标。
+       构图：骨片偏左、实物偏右，两者都在视线正前方。 */
+    var cam = S.st.camera.position;
+    var f = S.forward || new T.Vector3(0, 0, 1);
+    var up = new T.Vector3(0, 1, 0);
+    var right = new T.Vector3().crossVectors(f, up).normalize();
+    var pd = 4.6;
+    root.position.set(
+      cam.x + f.x * pd + right.x * 1.35,
+      cam.y + f.y * pd - 0.08,
+      cam.z + f.z * pd + right.z * 1.35
+    );
+    root.rotation.y = Math.atan2(cam.x - root.position.x, cam.z - root.position.z);
     root.scale.setScalar(0.03);
 
     /* 跟身一盏暖光：暗场里新长出来的东西不能是黑的 */
@@ -1389,7 +1416,8 @@
     S.plot.add(root);
     S.prop = ctl;
 
-    tw(root, { sz: 1, sx: 1, sy: 1, pz: 3.65, py: 1.72 }, 0.95, easeBack, function () {
+    tw(root, { sz: 1, sx: 1, sy: 1,
+               pz: root.position.z, py: root.position.y }, 0.95, easeBack, function () {
       S.mode = 'show';
       S.stateSince = 0;
       card(true, d);
@@ -1406,7 +1434,11 @@
        每个景物可以自己声明 fade：发光的（日）必须让骨片退得更狠，
        否则那块半透明的骨片正好糊在太阳上，太阳成了"骨片里的一个亮点"。 */
     var fo = d.fade == null ? 0.78 : d.fade;
-    tw(grp, { pz: 1.95, op: fo, sx: 1.95, sy: 1.95, sz: 1.95 }, 0.8, easeOut);
+    /* 骨片退到实物后方：沿视线再退 1.2 米，并缩小一点当背景 */
+    var back = new T.Vector3().copy(S.forward || new T.Vector3(0, 0, 1)).multiplyScalar(1.25);
+    tw(grp, { px: grp.position.x + back.x, py: grp.position.y + 0.03,
+              pz: grp.position.z + back.z,
+              op: fo, sx: 1.55, sy: 1.55, sz: 1.55 }, 0.8, easeOut);
   }
 
   /* 收回：景物缩回骨片，骨片飞回原位 */
