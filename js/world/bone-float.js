@@ -1231,13 +1231,136 @@
       drag.x = e.clientX; drag.y = e.clientY;
       drag.moved += Math.abs(dx) + Math.abs(dy);
       if (S.lookLock || S.mode !== 'idle') { return; }
-      S.look.yaw += dx * 0.0045;
-      S.look.pitch = Math.max(-0.72, Math.min(0.72, S.look.pitch - dy * 0.0045));
+      S.look.yaw += dx * 0.0056;
+      S.look.pitch = Math.max(-1.15, Math.min(1.15, S.look.pitch - dy * 0.0056));
     });
     var end = function () { drag = null; };
+    /* 滚轮缩放：看细节时能拉近，看全貌时能退开 */
+    st.el.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      if (S.lookLock) { return; }
+      var cam = st.camera;
+      cam.fov = Math.max(30, Math.min(72, (cam.fov || 48) + (e.deltaY > 0 ? 3 : -3)));
+      cam.updateProjectionMatrix();
+    }, { passive: false });
+
     st.el.addEventListener('pointerup', end);
     st.el.addEventListener('pointercancel', end);
     st.el.addEventListener('pointerleave', end);
+  }
+
+  /* ============================================================
+     骨面虚影
+     ------------------------------------------------------------
+     生成的实物图不是另立一块牌子，而是"投影在骨面上"：
+       图 → 画布加径向 alpha 羽化 → 贴到骨片正面的 UV 平面
+     这样字与物在同一块骨上，才像拓片上的层叠。
+     ============================================================ */
+  var GHOST_SRC = {
+    shan: 'assets/gen/obj_shan.png',
+    shui: 'assets/gen/obj_shui.png',
+    mu:   'assets/gen/obj_mu.png',
+    ri:   'assets/gen/obj_ri.png',
+    mue:  'assets/gen/obj_mue.png',
+    ding: 'assets/gen/obj_ding.png'
+  };
+  var _ghostCache = {};
+
+  function ghostTexture(st, key) {
+    if (_ghostCache[key]) { return _ghostCache[key]; }
+    var tex = st.T ? null : null;
+    return null;   /* 真正的加载走 ghostOn 的异步路径 */
+  }
+
+  function softMaskTexture(st, img) {
+    var T = st.T;
+    var N = 512;
+    var cv = App.stage3d.canvas(N, N);
+    var c = cv.getContext('2d');
+    c.clearRect(0, 0, N, N);
+    /* 先铺图（cover 裁成正方形），再用径向渐变把四周擦掉 */
+    var side = Math.min(img.width, img.height);
+    var sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+    c.drawImage(img, sx, sy, side, side, 0, 0, N, N);
+    c.globalCompositeOperation = 'destination-in';
+    var g = c.createRadialGradient(N / 2, N / 2, N * 0.16, N / 2, N / 2, N * 0.50);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.62, 'rgba(255,255,255,.92)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = g;
+    c.beginPath(); c.arc(N / 2, N / 2, N * 0.52, 0, 6.2832); c.fill();
+    c.globalCompositeOperation = 'source-over';
+    var tex = App.stage3d.tex(cv);
+    return tex;
+  }
+
+  function ghostOn(grp, d) {
+    var st = S.st;
+    var T = st.T;
+    var key = d.make;
+    var src = GHOST_SRC[key];
+    if (!src) { return; }
+    if (grp.userData.ghost) { return; }
+
+    function build(tex) {
+      if (S.focus !== grp) { return; }
+      var mat = new T.MeshBasicMaterial({
+        map: tex, transparent: true, opacity: 0,
+        depthWrite: false, fog: false, toneMapped: false
+      });
+      /* 骨片本体约 1.52 宽、1.76 高，虚影略小一圈，四边留出骨面。
+         关键：虚影必须落在骨面"之上"、字"之下" ——
+         骨面在 z≈0.15~0.25（有倒角微凸），字在 fz≈0.286。
+         一开始放到 0.20 被骨面挡住，所以只看得到字、看不到虚影。 */
+      /* 骨片是带倒角的挤出体，实测正面最高点 z≈0.292（不是 0.15）。
+         所以直接用几何包围盒算：贴在"骨面最高点之上 1.8cm"，
+         虚影就压在字前面一点点，字透过 58% 的透明度还看得见。 */
+      var body = grp.children[0];
+      var faceZ = 0.30;
+      if (body && body.geometry) {
+        body.geometry.computeBoundingBox();
+        var bb = body.geometry.boundingBox;
+        if (bb && bb.max) { faceZ = bb.max.z + 0.018; }
+      }
+      var pw = 1.30, ph = 1.46;
+      var plane = new T.Mesh(new T.PlaneGeometry(pw, ph), mat);
+      plane.position.set(0, 0.02, faceZ);
+      plane.renderOrder = 3;
+      grp.add(plane);
+      grp.userData.ghost = plane;
+
+      /* 淡入到 0.62：看得清是"虚影"，又不遮掉字 */
+      var t0 = performance.now();
+      (function fade() {
+        if (!plane.parent) { return; }
+        var k = Math.min(1, (performance.now() - t0) / 700);
+        mat.opacity = 0.58 * (1 - Math.pow(1 - k, 3));
+        if (k < 1) { requestAnimationFrame(fade); }
+      })();
+    }
+
+    if (_ghostCache[key]) { build(_ghostCache[key]); return; }
+    var loader = new T.TextureLoader();
+    loader.load(src, function (img) {
+      img.colorSpace = T.SRGBColorSpace;
+      var tex = softMaskTexture(st, img.image || img);
+      _ghostCache[key] = tex;
+      build(tex);
+    }, undefined, function () { /* 加载失败：不显示虚影，保留字形 */ });
+  }
+
+  function ghostOff(grp) {
+    var g = grp && grp.userData && grp.userData.ghost;
+    if (!g) { return; }
+    var mat = g.material;
+    var t0 = performance.now();
+    (function fade() {
+      var k = Math.min(1, (performance.now() - t0) / 420);
+      mat.opacity = 0.58 * (1 - k);
+      if (k < 1) { requestAnimationFrame(fade); }
+      else if (g.parent) { g.parent.remove(g); }
+      if (k >= 1 && grp.userData) { grp.userData.ghost = null; }
+    })();
   }
 
   function hoverAt(ndc) {
@@ -1315,7 +1438,7 @@
        要让它在画面里占约 55% 高度，距离 = 半宽 / tan(fov/2) / 0.55。
        上一版写死 3.05 米 + 2.62 倍，直接把骨片怼到脸上，只看得见一角。 */
     var fov = (S.st.camera.fov || 48) * Math.PI / 180;
-    var plateW = 1.52 * 2.0;
+    var plateW = 1.52 * 2.25;
     var dist = (plateW * 0.5) / Math.tan(fov / 2) / 0.58;
     dist = Math.max(4.2, Math.min(7.2, dist));
 
@@ -1323,12 +1446,12 @@
     var up = new T2.Vector3(0, 1, 0);
     var right = new T2.Vector3().crossVectors(f, up).normalize();
 
-    var tx = cam.x + f.x * dist - right.x * 0.55;
+    var tx = cam.x + f.x * dist;
     var ty = cam.y + f.y * dist + 0.02;
-    var tz = cam.z + f.z * dist - right.z * 0.55;
+    var tz = cam.z + f.z * dist;
 
     grp.rotation.y = Math.atan2(cam.x - tx, cam.z - tz);
-    tw(grp, { px: tx, py: ty, pz: tz, sx: 2.0, sy: 2.0, sz: 2.0, rz: 0 }, 0.72, easeInOut, function () {
+    tw(grp, { px: tx, py: ty, pz: tz, sx: 2.25, sy: 2.25, sz: 2.25, rz: 0 }, 0.72, easeInOut, function () {
       unveil(grp, d);
     });
   }
@@ -1339,6 +1462,7 @@
     S.stateSince = 0;
     glyphGlowTo(grp, 1.35, 0.5);
     setGlyphAlpha(grp, 1);
+    ghostOn(grp, d);
     setTimeout(function () {
       if (S.mode !== 'unveil' || S.focus !== grp) { return; }
       spawnProp(grp, d);
@@ -1382,8 +1506,11 @@
   function spawnProp(grp, d) {
     S.stateSince = 0;
     var T = S.st.T;
+    /* 实物改由骨面虚影承担（ghostOn）；3D 实物模型先不生成。
+       想恢复把 SHOW_3D_PROP 改 true。 */
+    var SHOW_3D_PROP = false;
     var maker = PROPS[d.make];
-    if (!maker) { return; }
+    if (!maker || !SHOW_3D_PROP) { return; }
     if (S.prop && S.prop.root) { S.plot.remove(S.prop.root); }
 
     var ctl = maker(T);
@@ -1466,6 +1593,7 @@
       }, 0.78, easeInOut, function () {
         setGlyphGlow(grp, 0.10);
         setGlyphAlpha(grp, 0.03);
+        ghostOff(grp);
         backToIdle();
       });
     } else {
@@ -1497,6 +1625,10 @@
       setOpacity(p, 1);
       setGlyphGlow(p, 0.10);
       setGlyphAlpha(p, 0.03);
+      if (p.userData.ghost && p.userData.ghost.parent) {
+        p.userData.ghost.parent.remove(p.userData.ghost);
+        p.userData.ghost = null;
+      }
     });
     S.lookLock = false;
     card(false);
