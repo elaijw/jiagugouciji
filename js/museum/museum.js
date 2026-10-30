@@ -638,6 +638,75 @@
     App.on('museum-build', function () {
       if (S.alive && S.area === 'build') { updateTask(); }
     });
+    /* 造字区拼对一个字：先讲课，再进下一个 */
+    App.on('museum-build-solved', function (d) {
+      if (!S.alive || S.area !== 'build' || !d || !d.word) { return; }
+      openBuildLesson(d);
+    });
+  }
+
+  /* 拼对之后的讲解卡：甲骨形 / 今字 / 释义 / 卜辞 / 知识点 + 下一个字 */
+  function openBuildLesson(d) {
+    var w = d.word || {};
+    openPanel(function (p) {
+      panelHead(p, w.g || '', '造字探索区 · 第 ' + ((d.seq || 0) + 1) + ' / ' + (d.total || 5) + ' 题');
+      var body = App.el('div', 'mu-p-body');
+      var pair = App.el('div', 'mu-p-pair');
+      var now = App.el('div', 'mu-p-now');
+      now.appendChild(App.el('span', 'mu-p-now-ch', w.g || ''));
+      now.appendChild(App.el('span', 'mu-p-now-k', '今字'));
+      pair.appendChild(now);
+      var ob = App.el('div', 'mu-p-ob');
+      var obsvg = glyphNode(w.g, 'mu-p-ob-glyph');
+      if (obsvg) {
+        ob.appendChild(obsvg);
+      } else if (d.pair && d.pair.length) {
+        /* 合体字在字库里没有整字字形：按构件左右并置画出来，
+           这正是商人当时的写法，也比留一块空白强。 */
+        var pairBox = App.el('div', 'mu-p-ob-pair');
+        d.pair.forEach(function (ch) {
+          var g1 = glyphNode(ch, 'mu-p-ob-piece');
+          if (g1) { pairBox.appendChild(g1); }
+          else { pairBox.appendChild(App.el('span', 'mu-p-ob-piece-t', ch)); }
+        });
+        ob.appendChild(pairBox);
+      } else {
+        ob.appendChild(App.el('span', 'mu-p-none', '无整字字形'));
+      }
+      ob.appendChild(App.el('span', 'mu-p-now-k', '甲骨字形'));
+      pair.appendChild(ob);
+      body.appendChild(pair);
+
+      var dl = App.el('dl', 'mu-p-dl');
+      row(dl, '构件', (d.pair || []).join(' + '));
+      if (w.mean) { row(dl, '释义', w.mean); }
+      if (w.src) { row(dl, '卜辞', w.src); }
+      if (w.lv) { row(dl, '释读', w.lv); }
+      row(dl, '已经在甲骨上刻好了', '这是第 ' + (d.solved || 1) + ' 个拼成的字');
+      body.appendChild(dl);
+      body.appendChild(App.el('p', 'mu-p-note',
+        '字形是拼出来的：两个构件各占一边，合起来才是这个字。\n' +
+        '甲骨文里同一个字常有几种写法，这里只取最通行的一种。'));
+
+      var acts = App.el('div', 'mu-p-acts');
+      var next = App.el('button', 'mu-btn mu-btn-primary', '下一个字 →');
+      next.type = 'button';
+      next.onclick = function () {
+        if (S.api && S.api.buildNext) {
+          var r = S.api.buildNext();
+          say('第 ' + (r.seq + 1) + ' / ' + r.total + ' 题：「' + r.target + '」，挑两块构件放上台面。');
+        }
+        closePanel();
+        updateTask();
+      };
+      acts.appendChild(next);
+      var stay = App.el('button', 'mu-btn', '再看看这块骨');
+      stay.type = 'button';
+      stay.onclick = closePanel;
+      acts.appendChild(stay);
+      body.appendChild(acts);
+      p.appendChild(body);
+    });
   }
 
   function enterZone(id) {

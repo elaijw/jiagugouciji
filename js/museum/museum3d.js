@@ -1201,6 +1201,11 @@
 
     var bState = { idx: 0, picks: [], blocks: [], done: false, flash: 0, solved: 0, target: null };
 
+    /* 一局 5 题，和第一关入门课一个量级；顺序固定，便于"第 N / 5" */
+    var DECK_N = 5;
+    var bDeck = BUILDABLE.slice(0, DECK_N);
+    if (!bDeck.length) { bDeck = BUILDABLE.slice(); }
+
     /* 成字的金屑：一次 90 颗，散开后受重力落下、逐渐淡出 */
     var sparks = null, sparkData = null;
     function spawnSparks(origin, count, color) {
@@ -1251,7 +1256,7 @@
 
     function buildPair() {
       /* 每次换一个字。取模保证多少次都不会越界 */
-      var w = BUILDABLE[bState.idx % BUILDABLE.length];
+      var w = bDeck[bState.idx % bDeck.length];
       var pair = String(w.w).split('+');
       var distract = [];
       for (var i = 0; i < ALL_COMPS.length && distract.length < 2; i++) {
@@ -1278,7 +1283,7 @@
 
       bState.target = p.word;
       paintBuildSign(
-        '拼 出 「' + p.word.g + '」',
+        '第 ' + (bState.idx % bDeck.length + 1) + ' / ' + bDeck.length + '　拼 出 「' + p.word.g + '」',
         '需要 ' + p.pair.length + ' 块构件：从下排四块里挑出来　·　已拼成 ' + bState.solved + ' 字',
         '',
         null, p.pair, p.word.g
@@ -1338,16 +1343,17 @@
             App.progress.add('build', String(p.word.g));   /* 三关收口也记一笔 */
           }
           spawnSparks(new T.Vector3(0, 1.7, -2.5), 90, 0xffd9a0);
-          /* 让馆里的任务条立刻刷新（否则还停在"拼出上一字 0/2"） */
-          if (App.emit) { App.emit('museum-build', { solved: bState.solved, target: p.word.g, done: true }); }
           paintBuildSign('成 字 「' + p.word.g + '」',
-            '骨上这道刻好了 —— 下一个字马上摆上台　·　已拼成 ' + bState.solved + ' 字',
+            '骨上这道刻好了 —— 看完讲解再点「下一个字」',
             '', 'rgba(255,214,150,.96)', p.pair, p.word.g);
-          setTimeout(function () {
-            if (!bState.done) { return; }
-            bState.idx += 1;
-            buildLayout();
-          }, 1900);
+          /* 交给馆里弹讲解卡；玩家点「下一个字」才 buildNext() */
+          if (App.emit) {
+            App.emit('museum-build', { solved: bState.solved, target: p.word.g, done: true });
+            App.emit('museum-build-solved', {
+              word: p.word, pair: p.pair, seq: bState.idx % bDeck.length,
+              total: bDeck.length, solved: bState.solved
+            });
+          }
           return { kind: 'build-ok', word: p.word };
         }
         if (App.museumAudio && App.museumAudio.part) { App.museumAudio.part(); }
@@ -2458,11 +2464,19 @@
         return { pair: p.pair, target: p.word.g };
       },
       buildTap: buildTap,
+      /* 看完讲解 → 下一题（由馆里的卡片按钮调用） */
+      buildNext: function () {
+        bState.idx += 1;
+        bState.done = false;
+        var p = buildLayout();
+        return { target: p.word.g, seq: bState.idx % bDeck.length, total: bDeck.length };
+      },
       buildState: function () {
         return {
           done: bState.done, picks: bState.picks.slice(),
           solved: bState.solved,
           target: bState.target ? bState.target.g : null,
+          seq: bState.idx % bDeck.length, total: bDeck.length,
           need: bState.target ? String(bState.target.w || '').split('+').filter(Boolean).length : 2,
           blocks: bState.blocks.map(function (b) { return b.ch; })
         };

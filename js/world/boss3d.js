@@ -1018,7 +1018,9 @@
     if (!st) { return; }
     var T = st.T;
     var grp = new T.Group();
-    grp.position.set(0, 0.02, 3.35);
+    /* 原来在 3.35，正好落在四片构件骨（z=4.2）后面 —— 玩家点不到守阵兽。
+       挪到构件骨之前，先看见、先打。 */
+    grp.position.set(0, 0.02, 5.15);
 
     var ringMat = new T.MeshBasicMaterial({
       color: 0xffd9a0, transparent: true, opacity: 0.0,
@@ -1057,6 +1059,18 @@
     beast.position.set(0, -1.1, 0.06);
     beast.scale.setScalar(0.02);
     grp.add(beast);
+
+    /* 隐形大球：兽体本身是多面体 + 细腿，射线很容易从缝里穿过去。
+       给它一个 r=1.1 的透明球当点击区，点哪儿都算点中。 */
+    var hit = new T.Mesh(
+      new T.SphereGeometry(1.1, 12, 10),
+      new T.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    );
+    hit.position.set(0, 0.55, 0.06);
+    hit.userData.guard = true;
+    hit.userData.pickable = true;
+    grp.add(hit);
+    S.guardHit = hit;
 
     var lamp = new T.PointLight(0xffb066, 0, 9, 2);
     lamp.position.set(0, 0.6, 0.2);
@@ -1109,10 +1123,17 @@
     var re = 1 - Math.pow(1 - rise, 3);
     g.beast.position.y = -1.1 + (g.beastY + 1.1) * re
       + Math.sin(g.t * 1.6) * 0.05 * re;
-    g.beast.scale.setScalar(0.02 + 1.55 * re);
+    g.beast.scale.setScalar(0.02 + 1.72 * re);
     g.beast.rotation.y += dt * 0.75;
     g.beast.rotation.z = Math.sin(g.t * 1.1) * 0.06;
     /* 受击：短暂的横向抖动 + 放大，让"打中了"有手感 */
+    /* 点击球跟着兽体升降 */
+    if (S.guardHit && S.guard && !S.guard.dead) {
+      S.guardHit.position.y = g.beast.position.y + 0.55;
+      S.guardHit.visible = true;
+    } else if (S.guardHit) {
+      S.guardHit.visible = false;
+    }
     if (S.guard && S.guard.hitT > 0) {
       S.guard.hitT -= dt;
       var hk = Math.max(0, S.guard.hitT / 0.24);
