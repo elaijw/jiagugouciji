@@ -625,9 +625,177 @@
     return o;
   }
 
+  /* ============================================================
+     法阵与阶段召唤
+     ------------------------------------------------------------
+     每一阶段开始时，Boss 在身前亮起一座法阵，并从阵里召出一只阶段怪物：
+       一阶 骨甲虫（护着构件）  二阶 骨蛇（护着笔画）  三阶 羽骨鸟（护着残句）
+     全是程序化几何：环 + 字纹 + 简单体块，不引入模型文件。
+     怪物只做"守阵"表演，不参与判定 —— 判定仍然是原来的构件/笔画/古句。
+     ============================================================ */
+  var SIGIL_RUNES = ['日', '月', '山', '水', '木', '火', '土', '人'];
+
+  function makeBeast(T, phase) {
+    var g = new T.Group();
+    var bone = new T.MeshStandardMaterial({
+      color: 0xd8c9a6, roughness: 0.72, metalness: 0.06,
+      emissive: new T.Color(0x3a2410), emissiveIntensity: 0.22
+    });
+    var glow = new T.MeshStandardMaterial({
+      color: 0xffce8c, roughness: 0.35, metalness: 0.1,
+      emissive: new T.Color(0xff8c3c), emissiveIntensity: 0.85,
+      transparent: true, opacity: 0.92
+    });
+
+    if (phase === 1) {
+      /* 骨甲虫：六边形甲壳 + 六条短腿 */
+      var body = new T.Mesh(new T.IcosahedronGeometry(0.40, 0), bone);
+      body.scale.set(1.15, 0.72, 1.0);
+      g.add(body);
+      var core = new T.Mesh(new T.OctahedronGeometry(0.17, 0), glow);
+      core.position.y = 0.16;
+      g.add(core);
+      for (var i = 0; i < 6; i++) {
+        var a = (i / 6) * Math.PI * 2;
+        var leg = new T.Mesh(new T.CylinderGeometry(0.035, 0.05, 0.34, 6), bone);
+        leg.position.set(Math.cos(a) * 0.42, -0.16, Math.sin(a) * 0.42);
+        leg.rotation.z = Math.cos(a) * 0.7;
+        leg.rotation.x = -Math.sin(a) * 0.7;
+        g.add(leg);
+      }
+    } else if (phase === 2) {
+      /* 骨蛇：一串骨球盘成螺旋 */
+      for (var k = 0; k < 9; k++) {
+        var r = 0.13 - k * 0.008;
+        var seg = new T.Mesh(new T.SphereGeometry(Math.max(0.06, r), 10, 8), k === 8 ? glow : bone);
+        var ang = k * 0.62;
+        seg.position.set(Math.cos(ang) * (0.36 - k * 0.028), -0.34 + k * 0.085, Math.sin(ang) * (0.36 - k * 0.028));
+        g.add(seg);
+      }
+      var head = new T.Mesh(new T.ConeGeometry(0.12, 0.26, 8), bone);
+      head.position.set(0.06, 0.46, 0.02);
+      head.rotation.z = -0.5;
+      g.add(head);
+    } else {
+      /* 羽骨鸟：纺锤身 + 两片骨翼 */
+      var torso = new T.Mesh(new T.ConeGeometry(0.22, 0.62, 8), bone);
+      torso.rotation.x = Math.PI;
+      g.add(torso);
+      var skull = new T.Mesh(new T.SphereGeometry(0.14, 12, 10), glow);
+      skull.position.y = 0.36;
+      g.add(skull);
+      var beak = new T.Mesh(new T.ConeGeometry(0.05, 0.24, 6), bone);
+      beak.position.set(0, 0.34, 0.20);
+      beak.rotation.x = Math.PI / 2;
+      g.add(beak);
+      for (var w = 0; w < 2; w++) {
+        var wing = new T.Mesh(new T.PlaneGeometry(0.52, 0.24), new T.MeshStandardMaterial({
+          color: 0xe6d6b2, roughness: 0.8, metalness: 0.04,
+          emissive: new T.Color(0x2a1a0c), emissiveIntensity: 0.2,
+          side: T.DoubleSide
+        }));
+        wing.position.set(w ? 0.32 : -0.32, 0.06, 0);
+        wing.rotation.z = w ? -0.5 : 0.5;
+        g.add(wing);
+      }
+    }
+    return g;
+  }
+
+  function summonPhase(n) {
+    var st = S.st;
+    if (!st) { return; }
+    var T = st.T;
+    var grp = new T.Group();
+    grp.position.set(0, 0.02, 3.35);
+
+    var ringMat = new T.MeshBasicMaterial({
+      color: 0xffd9a0, transparent: true, opacity: 0.0,
+      side: T.DoubleSide, depthWrite: false
+    });
+    var r1 = new T.Mesh(new T.RingGeometry(1.55, 1.68, 80), ringMat);
+    r1.rotation.x = -Math.PI / 2;
+    grp.add(r1);
+    var r2 = new T.Mesh(new T.RingGeometry(0.86, 0.95, 64), ringMat.clone());
+    r2.rotation.x = -Math.PI / 2;
+    grp.add(r2);
+
+    var runes = [];
+    for (var i = 0; i < SIGIL_RUNES.length; i++) {
+      var ch = SIGIL_RUNES[i];
+      if (!(App.worldGlyph && App.worldGlyph.hasGlyph(ch))) { continue; }
+      var gm = App.worldGlyph.glyphMesh(ch, 0.34, {
+        color: 0x2a1c0c, emissive: 0xffb264, glow: 0.9
+      });
+      if (!gm) { continue; }
+      var a = (i / SIGIL_RUNES.length) * Math.PI * 2;
+      gm.position.set(Math.cos(a) * 1.24, 0.02, Math.sin(a) * 1.24);
+      gm.rotation.x = -Math.PI / 2 + 0.30;
+      gm.rotation.z = -a;
+      gm.traverse(function (m) {
+        if (m.material && !Array.isArray(m.material)) {
+          m.material.transparent = true;
+          m.material.opacity = 0;
+        }
+      });
+      grp.add(gm);
+      runes.push(gm);
+    }
+
+    var beast = makeBeast(T, n);
+    beast.position.set(0, -1.1, 0.06);
+    beast.scale.setScalar(0.02);
+    grp.add(beast);
+
+    var lamp = new T.PointLight(0xffb066, 0, 9, 2);
+    lamp.position.set(0, 0.6, 0.2);
+    grp.add(lamp);
+
+    addWidget(grp);
+    S.sigil = {
+      grp: grp, r1: r1, r2: r2, runes: runes, beast: beast, lamp: lamp,
+      t: 0, phase: n, beastY: 1.75
+    };
+  }
+
+  function tickSigil(dt) {
+    var g = S.sigil;
+    if (!g || !g.grp.parent) { return; }
+    g.t += dt;
+    var k = Math.min(1, g.t / 1.1);
+    var e = 1 - Math.pow(1 - k, 3);
+
+    g.r1.material.opacity = 0.72 * e;
+    g.r2.material.opacity = 0.38 * e;
+    g.lamp.intensity = 2.6 * e;
+
+    g.r1.rotation.z -= dt * 0.55;
+    g.r2.rotation.z += dt * 0.85;
+
+    for (var i = 0; i < g.runes.length; i++) {
+      var m = g.runes[i];
+      var pulse = 0.55 + 0.45 * Math.sin(g.t * 2.2 + i * 0.8);
+      m.traverse(function (o) {
+        if (o.material && !Array.isArray(o.material)) {
+          o.material.opacity = 0.95 * e * pulse;
+        }
+      });
+    }
+
+    /* 召唤物从阵里升起来，然后悬着转 */
+    var rise = Math.min(1, Math.max(0, (g.t - 0.25) / 0.9));
+    var re = 1 - Math.pow(1 - rise, 3);
+    g.beast.position.y = -1.1 + (g.beastY + 1.1) * re
+      + Math.sin(g.t * 1.6) * 0.05 * re;
+    g.beast.scale.setScalar(0.02 + 1.55 * re);
+    g.beast.rotation.y += dt * 0.75;
+    g.beast.rotation.z = Math.sin(g.t * 1.1) * 0.06;
+  }
+
   function startPhase1() {
     setPhase(1);
     clearWidgets();
+    summonPhase(1);
     var st = S.st;
     var boss = S.boss;
     engraveWhole(boss, PHASE1_CHAR, 1.72);
@@ -714,6 +882,7 @@
   function startPhase2() {
     setPhase(2);
     clearWidgets();
+    summonPhase(2);
     var st = S.st, boss = S.boss;
     var strokes = engraveStrokes(boss, PHASE2_CHAR, 1.72);
     S.strokeRefs = strokes;
@@ -803,6 +972,7 @@
   function startPhase3() {
     setPhase(3);
     clearWidgets();
+    summonPhase(3);
     var st = S.st, boss = S.boss;
     /* 这一阶段 Boss 不放空，而是"释放封印"：骨版上刻回完整的本字「泉」，
        让玩家一边看着这个字，一边补它守着的句子。
@@ -1033,6 +1203,7 @@
   function tick(dt, t) {
     if (!S.alive || !S.st) { return; }
     var T = S.st.T;
+    tickSigil(dt);
 
     /* Boss 待机：浮 + 护盾转 */
     var b = S.boss;

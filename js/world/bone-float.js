@@ -743,7 +743,7 @@
     var fz = depth * 0.5 + depth * 0.42 + 0.006;
     if (App.worldGlyph && App.worldGlyph.hasGlyph(data.ch)) {
       var gm = App.worldGlyph.glyphMesh(data.ch, size * 0.52, {
-        color: 0x241a0e, emissive: 0xffb264, glow: 0.20
+        color: 0x241a0e, emissive: 0xffb264, glow: 0.04
       });
       if (gm) {
         gm.position.z = fz;
@@ -883,6 +883,71 @@
     return g;
   }
 
+  /* ---------------------------------------------------------------
+     观星台：这一关的空间中心。
+     三层石台 + 一圈矮栏 + 台面刻环；骨片绕着它浮。
+     全部程序化几何，不用模型文件，控制包体与加载时间。
+     --------------------------------------------------------------- */
+  function observatory(st) {
+    var T = st.T;
+    var g = new T.Group();
+    g.name = 'observatory';
+
+    var stone = new T.MeshStandardMaterial({
+      color: 0x6d5940, roughness: 0.94, metalness: 0.02
+    });
+    var stoneTop = new T.MeshStandardMaterial({
+      color: 0x8a7350, roughness: 0.86, metalness: 0.04,
+      emissive: new T.Color(0x2a1c0c), emissiveIntensity: 0.14
+    });
+    var brass = new T.MeshStandardMaterial({
+      color: 0x8f7444, roughness: 0.55, metalness: 0.55,
+      emissive: new T.Color(0x2a1e0c), emissiveIntensity: 0.2
+    });
+
+    function disc(rTop, rBot, h, y, mat) {
+      var m = new T.Mesh(new T.CylinderGeometry(rTop, rBot, h, 44), mat);
+      m.position.y = y;
+      m.castShadow = true;
+      m.receiveShadow = true;
+      g.add(m);
+      return m;
+    }
+
+    /* 三层台阶，越往上越小 */
+    disc(2.42, 2.62, 0.34, -2.02, stone);
+    disc(1.86, 2.06, 0.30, -1.70, stone);
+    disc(1.28, 1.42, 0.28, -1.41, stoneTop);
+
+    /* 台面 + 台面外圈铜环（"观星"的那道环） */
+    disc(1.02, 1.10, 0.14, -1.20, stoneTop);
+    var ring = new T.Mesh(new T.TorusGeometry(1.12, 0.035, 8, 64), brass);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = -1.12;
+    g.add(ring);
+
+    /* 八根矮栏柱：围出"台"的边界，也给画面加竖向节奏 */
+    for (var i = 0; i < 8; i++) {
+      var a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+      var post = new T.Mesh(new T.CylinderGeometry(0.055, 0.07, 0.46, 10), stone);
+      post.position.set(Math.cos(a) * 1.72, -1.34, Math.sin(a) * 1.72);
+      post.castShadow = true;
+      g.add(post);
+      var cap = new T.Mesh(new T.SphereGeometry(0.075, 10, 8), brass);
+      cap.position.set(Math.cos(a) * 1.72, -1.09, Math.sin(a) * 1.72);
+      g.add(cap);
+    }
+
+    /* 台面正中一枚浅浅的刻环：镜头推近时能看出这不是一块普通圆盘 */
+    var mark = new T.Mesh(new T.TorusGeometry(0.62, 0.012, 6, 48), brass);
+    mark.rotation.x = Math.PI / 2;
+    mark.position.y = -1.126;
+    g.add(mark);
+
+    st.scene.add(g);
+    return g;
+  }
+
   function stoneDeck(st) {
     var T = st.T;
     var g = new T.Group();
@@ -948,16 +1013,31 @@
 
     stoneDeck(st);
     cloudSea(st);
+    var altar = observatory(st);
 
-    /* 六片骨：三个深度、四个高度，不是一排 */
-    var LAYOUT = [
-      { x: -3.55, y: 1.42, z: -0.90, ry: 0.70, s: 1.02 },  // 山
-      { x: 3.30, y: 2.02, z: -2.30, ry: -0.62, s: 0.92 },  // 水
-      { x: -4.55, y: 0.12, z: 1.30, ry: 0.86, s: 0.80 },   // 木
-      { x: -0.55, y: 3.42, z: -4.20, ry: 0.34, s: 0.78 },  // 日（最远最高）
-      { x: 4.35, y: 0.42, z: 0.75, ry: -0.78, s: 0.84 },   // 目
-      { x: 0.55, y: 0.62, z: 1.55, ry: -0.22, s: 0.96 }    // 鼎（最近）
+    /* 六片骨绕观星台排成一圈：高度错开，前低后高，
+       每片都朝向圆心 —— 这样镜头在原地看着的是"围起来的场"，不是一排浮板。 */
+    var RING_R = 4.75;
+    var RING = [
+      { a:  -84, y: 0.52, s: 1.00 },   // 左
+      { a:  -28, y: 1.02, s: 0.90 },   // 左后
+      { a:   28, y: 0.66, s: 0.94 },   // 后
+      { a:   84, y: 1.28, s: 0.88 },   // 右
+      { a:  140, y: 0.60, s: 0.92 },   // 右后
+      { a:  200, y: 1.12, s: 0.86 }    // 左后（远）
     ];
+    var LAYOUT = RING.map(function (r) {
+      var rad = r.a * Math.PI / 180;
+      var x = Math.cos(rad) * RING_R;
+      var z = Math.sin(rad) * RING_R * 0.74;
+      return {
+        x: x, y: r.y, z: z,
+        /* 骨片正面朝镜头：环是环，但字得看得见。
+           完全朝圆心会让左右两片变成"侧立的骨板"，只剩一条厚边。 */
+        ry: Math.atan2(-x, 12.4 - z),
+        s: r.s
+      };
+    });
 
     var plates = [];
     for (var i = 0; i < PLATES.length; i++) {
@@ -975,6 +1055,8 @@
       plates.push(grp);
     }
     S.plates = plates;
+    /* 初始：六片骨上都看不到字，必须点了才显 */
+    plates.forEach(function (p) { setGlyphAlpha(p, 0.03); });
 
     /* 暖主光从左上前，冷边光从右下后：两盏才夹得出骨片的厚度 */
     var key = new T.PointLight(0xffb877, 9.5, 26, 2);
@@ -998,14 +1080,15 @@
       /* 踏石顶面实测在 y = -2.094。原来写 -2.24，比石面低 0.146 ——
          立体龟只是小腿埋进石头里，看不出来；换成 2D 立牌就是整截脚被切掉。
          摆到石面上。 */
-      gb.root.position.set(-2.05, -2.094, 2.15);
-      gb.root.rotation.y = 0.30;
+      /* 站到观星台台面上：台顶面在 y = -1.13，龟宝脚底对齐 */
+      gb.root.position.set(0.10, -1.13, 0.62);
+      gb.root.rotation.y = 0.22;
       st.root.add(gb.root);
       S.guibao = gb;
     }
 
-    st.camera.position.set(0, 2.05, 11.6);
-    st.camera.lookAt(new T.Vector3(0, 1.28, 0));
+    st.camera.position.set(0, 2.35, 12.4);
+    st.camera.lookAt(new T.Vector3(0, 0.92, 0));
   }
 
   /* ==========================================================================
@@ -1026,13 +1109,15 @@
       var prev = S.hovered;
       var ps = prev.userData.base.s;
       tw(prev, { sx: ps, sy: ps, sz: ps }, 0.22, easeOut);
-      setGlyphGlow(prev, 0.20);
+      setGlyphGlow(prev, 0.10);
+      setGlyphAlpha(prev, 0.03);
     }
     S.hovered = target;
     if (target) {
       var s = target.userData.base.s;
       tw(target, { sx: s * 1.07, sy: s * 1.07, sz: s * 1.07 }, 0.22, easeBack);
-      setGlyphGlow(target, 0.60);
+      setGlyphGlow(target, 0.45);
+      setGlyphAlpha(target, 0.34);
       st.el.style.cursor = 'pointer';
     } else {
       st.el.style.cursor = '';
@@ -1081,10 +1166,26 @@
     S.mode = 'unveil';
     S.stateSince = 0;
     glyphGlowTo(grp, 1.35, 0.5);
+    setGlyphAlpha(grp, 1);
     setTimeout(function () {
       if (S.mode !== 'unveil' || S.focus !== grp) { return; }
       spawnProp(grp, d);
     }, 420);
+  }
+
+  /* 字形的透明度：未点开前几乎看不见，点开后亮起来。
+     只有"点了才知道这是哪个字"——这是这一关的核心设计。 */
+  function setGlyphAlpha(grp, a) {
+    var gs = (grp.userData && grp.userData.glyphs) || [];
+    for (var i = 0; i < gs.length; i++) {
+      gs[i].traverse(function (m) {
+        if (m.material && !Array.isArray(m.material)) {
+          m.material.transparent = true;
+          m.material.opacity = a;
+          m.material.depthWrite = a > 0.5;
+        }
+      });
+    }
   }
 
   function glyphGlowTo(grp, target, dur) {
@@ -1173,7 +1274,8 @@
         px: b.x, py: b.y, pz: b.z, ry: b.ry, rz: b.rz,
         sx: b.s, sy: b.s, sz: b.s, op: 1
       }, 0.78, easeInOut, function () {
-        setGlyphGlow(grp, 0.20);
+        setGlyphGlow(grp, 0.10);
+        setGlyphAlpha(grp, 0.03);
         backToIdle();
       });
     } else {
@@ -1205,7 +1307,8 @@
       p.rotation.set(0, b.ry, b.rz);
       p.scale.setScalar(b.s);
       setOpacity(p, 1);
-      setGlyphGlow(p, 0.20);
+      setGlyphGlow(p, 0.10);
+      setGlyphAlpha(p, 0.03);
     });
     if (S.st && S.st.flyTo) { S.st.flyTo({ pos: [0, 2.05, 11.6], look: [0, 1.28, 0], dur: 0.5 }); }
     card(false);
