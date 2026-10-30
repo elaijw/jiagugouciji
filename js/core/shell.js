@@ -1894,7 +1894,8 @@
          放在这里而不是 App.museum.scene() 里 return —— 那边 return 会让
          scene 变成 undefined，root.appendChild 直接抛错。 */
       if (r.params && r.params.id === 'excavate') {
-        location.replace('#/play/bone-float');
+        /* 深链改成"落回馆里"，玩法由馆内嵌入层打开 */
+        location.replace('#/museum');
         return;
       }
       scene = App.museum.scene();

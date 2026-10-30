@@ -734,3 +734,26 @@ body.mu-lock { overflow: hidden; }
 @media (max-width: 720px) {
   .mu-sum-cells { grid-template-columns: repeat(6, 1fr); }
 }
+
+/* ---------- 馆内玩法层（占位：玩法自己是一层全屏，z-index 400） ---------- */
+body.mu-play-lock { overflow: hidden; }
+.mu-play { position: fixed; inset: 0; z-index: 350; pointer-events: none; }
+.mu-play-host { width: 100%; height: 100%; }
+.mu-play-exit {
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 900;
+  pointer-events: auto;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: .08em;
+  color: #f4e6c8;
+  background: rgba(26, 20, 15, .92);
+  border: 1px solid rgba(214, 186, 126, .5);
+  border-radius: 3px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+.mu-play-exit:hover { background: rgba(60, 46, 32, .95); border-color: #ffce8c; }

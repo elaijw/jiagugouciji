@@ -548,6 +548,76 @@
     S.wrap.style.setProperty('--stack-h', Math.round(h) + 'px');
   }
 
+  /* ============================================================
+     馆内玩法层（博物馆 = 外壳，玩法在馆里开）
+     ------------------------------------------------------------
+     以前每个玩法是一个独立页面 #/play/xxx，从馆里点进去等于"离开博物馆"。
+     现在改成馆内全屏嵌入：上方一条「← 回馆 / 重开」，下面是玩法本体。
+     玩法模块本身不改（mount/unmount 原样复用）。
+     ============================================================ */
+  function openPlay(id, title) {
+    closePlay();
+    var mode = App.modes && App.modes.get ? App.modes.get(id) : null;
+    if (!mode || !mode.mount) {
+      location.hash = '#/play/' + id;   /* 兜底：玩法没注册就走老路由 */
+      return;
+    }
+    /* 玩法模块自己就是一层全屏（.bsp-root / .bd3-root，z-index 400），
+       并且自带「← 回馆」「重开」。所以这里只放一层不拦事件的占位，
+       z-index 必须低于 400 —— 第一版设成 600，玩法整个被压在黑底下面。 */
+    var ov = App.el('div', 'mu-play');
+    ov.id = 'muPlay';
+    ov.setAttribute('data-mode', id);
+    var host = App.el('div', 'mu-play-host');
+    ov.appendChild(host);
+
+    /* 馆自己的出口：压在玩法顶栏之上（z-index 900），点它一定出得去 */
+    var exit = App.el('button', 'mu-play-exit', '← 回馆');
+    exit.type = 'button';
+    exit.onclick = closePlay;
+    ov.appendChild(exit);
+
+    document.body.appendChild(ov);
+    document.body.classList.add('mu-play-lock');
+    S.play = { id: id, ov: ov, mode: mode, host: host };
+    try {
+      mode.mount(host, App.modes.buildContext(mode));
+      S.play.shown = true;
+      /* 玩法的顶栏要等 three.js 加载完才建出来，这里轮询几秒接管「回馆」。
+         否则从馆里打开时 hash 本来就是 #/museum，点回馆不触发 hashchange，出不去。 */
+      var tries = 0;
+      (function hookBack() {
+        var root = document.querySelector('.bsp-root, .bd3-root');
+        if (root) {
+          [].forEach.call(root.querySelectorAll('button, a'), function (b) {
+            if (b.dataset && b.dataset.muBack) { return; }
+            if (!/回\s*馆/.test(b.textContent || '')) { return; }
+            if (b.dataset) { b.dataset.muBack = '1'; }
+            b.onclick = function (ev) {
+              if (ev && ev.preventDefault) { ev.preventDefault(); }
+              closePlay();
+              return false;
+            };
+          });
+        }
+        if (++tries < 12) { setTimeout(hookBack, 600); }
+      })();
+    } catch (err) {
+      host.innerHTML = '';
+      host.appendChild(App.el('p', 'lead', '玩法加载出错：' + (err && err.message)));
+      if (window.console && console.error) { console.error('[博物馆] 玩法挂载失败', err); }
+    }
+  }
+
+  function closePlay() {
+    if (!S.play) { return; }
+    var p = S.play;
+    S.play = null;
+    try { if (p.mode.unmount) { p.mode.unmount(p.host); } } catch (e) {}
+    if (p.ov && p.ov.parentNode) { p.ov.parentNode.removeChild(p.ov); }
+    document.body.classList.remove('mu-play-lock');
+  }
+
   function enterZone(id) {
     var z = zoneById(id);
     if (!z) { return; }
@@ -555,8 +625,9 @@
     /* 浮空骨片区不再走"考古任务"那一层：点门就直接进骨片空间。
        （挖掘 mini-game 的代码还在，想恢复把这行删掉即可） */
     if (id === 'excavate') {
-      if (App.museum) { App.museum._zone = S.area; }
-      location.hash = '#/play/bone-float';
+      /* 不再离开博物馆：直接在馆内开骨片空间 */
+      setBarName(id);
+      openPlay('bone-float', '浮空骨片区 · 骨片浮空');
       return;
     }
 
@@ -643,10 +714,11 @@
         S.sum.appendChild(cells);
 
         var where = App.el('div', 'mu-sum-acts');
-        [['#/play/bone-build', '第一关'], ['#/play/bone-float', '骨片空间'], ['#/play/boss-3d', '守字之骨']]
+        [['bone-build', '第一关'], ['bone-float', '骨片空间'], ['boss-3d', '守字之骨']]
           .forEach(function (kv) {
-            var a3 = App.el('a', 'mu-btn mu-btn-sm', kv[1]);
-            a3.href = kv[0];
+            var a3 = App.el('button', 'mu-btn mu-btn-sm', kv[1]);
+            a3.type = 'button';
+            a3.onclick = function () { openPlay(kv[0]); };
             where.appendChild(a3);
           });
         S.sum.appendChild(where);
@@ -668,8 +740,9 @@
       S.taskN.textContent = bs ? ((bs.done ? '已成字' : bs.picks.length + ' / 2')) : '';
       S.taskAgain.hidden = false;
       S.taskAgain.textContent = '换一个字';
-      S.taskGo.href = '#/play/bone-build';
+      S.taskGo.removeAttribute('href');
       S.taskGo.textContent = '去造字关';
+      S.taskGo.onclick = function (ev) { ev.preventDefault(); openPlay('bone-build', '造字探索区'); };
     } else if (id === 'excavate') {
       var ds = (S.api && S.api.digState) ? S.api.digState() : null;
       S.taskK.textContent = '考古任务区';
@@ -677,8 +750,9 @@
       S.taskN.textContent = ds ? ('已出土 ' + ds.found + ' / ' + ds.total) : '';
       S.taskAgain.hidden = false;
       S.taskAgain.textContent = '重新填土';
-      S.taskGo.href = '#/play/bone-float';
+      S.taskGo.removeAttribute('href');
       S.taskGo.textContent = '去骨片空间';
+      S.taskGo.onclick = function (ev) { ev.preventDefault(); openPlay('bone-float', '浮空骨片区 · 骨片浮空'); };
     } else {
       var bst = (S.api && S.api.bossState) ? S.api.bossState() : null;
       S.taskK.textContent = 'BOSS 挑战区';
@@ -686,8 +760,9 @@
       S.taskN.textContent = bst && bst.idx >= 0
         ? ('已拆 ' + bst.broken + ' / ' + bst.total) : '先选一尊';
       S.taskAgain.hidden = true;
-      S.taskGo.href = '#/play/boss-3d';
+      S.taskGo.removeAttribute('href');
       S.taskGo.textContent = '去讨伐';
+      S.taskGo.onclick = function (ev) { ev.preventDefault(); openPlay('boss-3d', '守字之骨区 · 三阶段'); };
     }
     /* 文字填完再量一次：任务条可能因为文案换行而变高 */
     syncStack();
@@ -855,8 +930,12 @@
 
       /* 与既有玩法的连接：这两条都是真入口 */
       var acts = App.el('div', 'mu-p-acts');
-      var a1 = App.el('a', 'mu-btn mu-btn-primary', obj ? '去骨片空间找这个字' : '去造字任务');
-      a1.href = obj ? '#/play/bone-float' : '#/play/bone-build';
+      var a1 = App.el('button', 'mu-btn mu-btn-primary', obj ? '去骨片空间找这个字' : '去造字任务');
+      a1.type = 'button';
+      a1.onclick = function () {
+        if (obj) { openPlay('bone-float', '浮空骨片区 · 骨片浮空'); }
+        else { openPlay('bone-build', '造字探索区'); }
+      };
       acts.appendChild(a1);
       var a2 = App.el('a', 'mu-btn', '汉字图鉴');
       a2.href = '#/atlas';
@@ -1170,14 +1249,17 @@
       }
 
       var acts = App.el('div', 'mu-p-acts');
-      var g1 = App.el('a', 'mu-btn', '去第一关');
-      g1.href = '#/play/bone-build';
+      var g1 = App.el('button', 'mu-btn', '去第一关');
+      g1.type = 'button';
+      g1.onclick = function () { openPlay('bone-build', '造字探索区'); };
       acts.appendChild(g1);
-      var g2e = App.el('a', 'mu-btn', '去骨片空间');
-      g2e.href = '#/play/bone-float';
+      var g2e = App.el('button', 'mu-btn', '去骨片空间');
+      g2e.type = 'button';
+      g2e.onclick = function () { openPlay('bone-float', '浮空骨片区 · 骨片浮空'); };
       acts.appendChild(g2e);
-      var g3 = App.el('a', 'mu-btn', '去守字之骨');
-      g3.href = '#/play/boss-3d';
+      var g3 = App.el('button', 'mu-btn', '去守字之骨');
+      g3.type = 'button';
+      g3.onclick = function () { openPlay('boss-3d', '守字之骨区 · 三阶段'); };
       acts.appendChild(g3);
       var a1 = App.el('a', 'mu-btn mu-btn-primary', '探索档案');
       a1.href = '#/archive';
@@ -1271,6 +1353,7 @@
 
   /* ---------- 释放 ---------- */
   function teardown() {
+    closePlay();
     S.alive = false;
     S.ready = false;
     if (S.off) { try { S.off(); } catch (e) {} S.off = null; }
