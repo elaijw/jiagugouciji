@@ -1413,6 +1413,13 @@
   /* ================= 胜利 / 败退 ================= */
   function win() {
     clearWidgets();
+    if (App.progress) {
+      App.progress.boss({
+        cleared: true,
+        secs: Math.max(1, Math.round((performance.now() - (S.t0 || performance.now())) / 1000)),
+        wrong: S.wrong || 0
+      });
+    }
     S.phase = 9;
     var T = S.st.T;
     var boss = S.boss;

@@ -676,3 +676,28 @@ body.mu-lock { overflow: hidden; }
   .mu-task-n { order: 3; font-size: 12px; }
   .mu-task .mu-btn { order: 4; min-height: 28px; padding: 0 10px; }
 }
+
+/* ---------- 典藏区 · 今日所得 ---------- */
+.mu-sum {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--stack-h, 96px) + 16px);
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 16px;
+  border-radius: 3px;
+  background: rgba(18, 14, 11, .78);
+  border: 1px solid rgba(214, 186, 126, .26);
+  color: #e2d3b4;
+  font-size: 13px;
+  letter-spacing: .04em;
+  backdrop-filter: blur(8px);
+  max-width: min(760px, 92vw);
+}
+.mu-sum b { color: #ffce8c; font-weight: 600; }
+.mu-sum-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.mu-sum .mu-btn-sm { padding: 4px 12px; font-size: 12px; text-decoration: none; }

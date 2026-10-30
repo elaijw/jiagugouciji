@@ -125,6 +125,8 @@
   var PROGRESS_KEY = 'bonebuild';
 
   function markLearned(g) {
+    /* 三关收口：博物馆典藏区要读这份 */
+    if (App.progress && g) { App.progress.add('build', String(g)); }
     if (!g) { return; }
     var p = App.store.get(PROGRESS_KEY, null);
     if (!p || typeof p !== 'object' ||

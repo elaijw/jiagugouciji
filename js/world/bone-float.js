@@ -1518,6 +1518,7 @@
     glyphGlowTo(grp, 1.35, 0.5);
     setGlyphAlpha(grp, 1);
     ghostOn(grp, d);
+    if (App.progress && d && d.ch) { App.progress.add('float', d.ch); }
     setTimeout(function () {
       if (S.mode !== 'unveil' || S.focus !== grp) { return; }
       spawnProp(grp, d);

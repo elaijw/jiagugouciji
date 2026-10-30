@@ -241,6 +241,15 @@
     });
     wrap.appendChild(dock);
     S.dock = dock;
+
+    /* ---------- 今日所得（典藏区专用 HUD） ----------
+       三关的进度收在 App.progress 里；进了典藏区就在这显示一行，
+       不用弹窗、不打断看柜子。 */
+    var sum = App.el('div', 'mu-sum');
+    sum.id = 'muSum';
+    sum.hidden = true;
+    wrap.appendChild(sum);
+    S.sum = sum;
     /* 导览条是居中一整条，宽窄会随窗口变（手机折成两行），
        所以底部这几个浮层的位置不写死像素，改成量出来的 --stack-h。 */
     window.addEventListener('resize', syncStack);
@@ -596,6 +605,31 @@
     var t = S.task;
     if (!t) { return; }
     var id = S.area;
+    /* 典藏区：显示三关收口的"今日所得" */
+    if (S.sum) {
+      var isColl = (id === 'collection');
+      var pg = (App.progress && App.progress.summary) ? App.progress.summary() : null;
+      if (isColl && pg && (pg.total || (pg.boss && pg.boss.cleared))) {
+        S.sum.hidden = false;
+        S.sum.innerHTML = '';
+        var line = App.el('div', 'mu-sum-line');
+        line.innerHTML = '今日所得　·　认过 <b>' + pg.total + '</b> 个字　·　骨片点开 <b>' +
+          pg.floatN + '</b> 片　·　守字之骨 ' +
+          ((pg.boss && pg.boss.cleared) ? '<b>已通过</b>' : '未通过');
+        S.sum.appendChild(line);
+        var where = App.el('div', 'mu-sum-acts');
+        [['#/play/bone-build', '第一关'], ['#/play/bone-float', '骨片空间'], ['#/play/boss-3d', '守字之骨']]
+          .forEach(function (kv) {
+            var a3 = App.el('a', 'mu-btn mu-btn-sm', kv[1]);
+            a3.href = kv[0];
+            where.appendChild(a3);
+          });
+        S.sum.appendChild(where);
+      } else {
+        S.sum.hidden = true;
+      }
+    }
+
     var show = !S.fallback && (id === 'build' || id === 'excavate' || id === 'boss');
     t.hidden = !show;
     if (S.wrap) { S.wrap.classList.toggle('has-task', show); }
@@ -1079,7 +1113,47 @@
         body.appendChild(box);
       }
 
+      /* ---------- 今日所得：三关的东西收到这里 ---------- */
+      var pg = (App.progress && App.progress.summary) ? App.progress.summary() : null;
+      if (pg && (pg.total || (pg.boss && pg.boss.cleared))) {
+        body.appendChild(App.el('p', 'mu-p-k', '今日所得 · 三关收口'));
+        var got = App.el('div', 'mu-p-nums');
+        [['认过的字', pg.total + ''],
+         ['骨片点开', pg.floatN + ''],
+         ['守字之骨', (pg.boss && pg.boss.cleared) ? '已通过' : '未通过']
+        ].forEach(function (kv) {
+          var cc = App.el('div', 'mu-p-num');
+          cc.appendChild(App.el('b', null, kv[1]));
+          cc.appendChild(App.el('span', null, kv[0]));
+          got.appendChild(cc);
+        });
+        body.appendChild(got);
+
+        if (pg.chars.length) {
+          var chips = App.el('div', 'mu-p-seen');
+          pg.chars.slice(0, 24).forEach(function (ch) {
+            var b2 = App.el('button', 'mu-p-seenitem');
+            b2.type = 'button';
+            var g2 = glyphNode(ch, 'mu-p-seen-g');
+            if (g2) { b2.appendChild(g2); }
+            b2.appendChild(App.el('span', null, ch));
+            b2.onclick = function () { openExhibit(ch, false); };
+            chips.appendChild(b2);
+          });
+          body.appendChild(chips);
+        }
+      }
+
       var acts = App.el('div', 'mu-p-acts');
+      var g1 = App.el('a', 'mu-btn', '去第一关');
+      g1.href = '#/play/bone-build';
+      acts.appendChild(g1);
+      var g2e = App.el('a', 'mu-btn', '去骨片空间');
+      g2e.href = '#/play/bone-float';
+      acts.appendChild(g2e);
+      var g3 = App.el('a', 'mu-btn', '去守字之骨');
+      g3.href = '#/play/boss-3d';
+      acts.appendChild(g3);
       var a1 = App.el('a', 'mu-btn mu-btn-primary', '探索档案');
       a1.href = '#/archive';
       acts.appendChild(a1);
