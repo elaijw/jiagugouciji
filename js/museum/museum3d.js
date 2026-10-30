@@ -1098,22 +1098,31 @@
     buildG.add(work.mesh);
     pickables.push(work.mesh);
 
-    /* 台前说明牌 */
-    var bSignCv = App.museumTex.canvas(1024, 160);
-    var bsc = bSignCv.getContext('2d');
-    bsc.textAlign = 'center';
-    bsc.textBaseline = 'middle';
-    bsc.fillStyle = 'rgba(232,220,194,.9)';
-    bsc.font = '600 62px "Songti SC","Noto Serif SC",serif';
-    bsc.fillText('造 字 探 索 区', 512, 62);
-    bsc.fillStyle = 'rgba(232,220,194,.46)';
-    bsc.font = '400 30px "Songti SC","Noto Serif SC",serif';
-    bsc.fillText('把两个构件搬上台面，骨上就会多刻一道 —— 这个字就成形了', 512, 122);
+    /* 台前说明牌：这块牌子就是题面，要能随进度重绘 */
+    var bSignCv = App.museumTex.canvas(1024, 200);
+    var bSignTex = canvasTex(bSignCv, { srgb: true });
+    function paintBuildSign(kicker, main, sub, tint) {
+      var c = bSignCv.getContext('2d');
+      c.clearRect(0, 0, 1024, 200);
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillStyle = tint || 'rgba(232,220,194,.92)';
+      c.font = '600 58px "Songti SC","Noto Serif SC",serif';
+      c.fillText(kicker, 512, 46);
+      c.fillStyle = 'rgba(232,220,194,.66)';
+      c.font = '400 34px "Songti SC","Noto Serif SC",serif';
+      c.fillText(main, 512, 112);
+      c.fillStyle = 'rgba(232,220,194,.40)';
+      c.font = '400 26px "Songti SC","Noto Serif SC",serif';
+      c.fillText(sub, 512, 166);
+      bSignTex.needsUpdate = true;
+    }
+    paintBuildSign('造 字 探 索 区', '把两块构件搬上台面，骨上就会多刻一道', '');
     var bSign = new T.Mesh(
-      new T.PlaneGeometry(6.4, 1.0),
-      new T.MeshBasicMaterial({ map: canvasTex(bSignCv, { srgb: true }), transparent: true })
+      new T.PlaneGeometry(7.0, 1.37),
+      new T.MeshBasicMaterial({ map: bSignTex, transparent: true })
     );
-    bSign.position.set(0, 5.2, -12.6);
+    bSign.position.set(0, 5.1, -12.6);
     buildG.add(bSign);
 
     /* 构件方块：顶上刻字，其余五面是石头 */
@@ -1154,7 +1163,7 @@
     var blockSideMtl = std({ color: 0x6b5c49, roughness: 0.76, metalness: 0.10 });
     var blockGeo = new T.BoxGeometry(0.56, 0.56, 0.56);
 
-    var bState = { idx: 0, picks: [], blocks: [], done: false, flash: 0 };
+    var bState = { idx: 0, picks: [], blocks: [], done: false, flash: 0, solved: 0, target: null };
 
     function buildPair() {
       /* 每次换一个字。取模保证多少次都不会越界 */
@@ -1182,6 +1191,13 @@
       bState.picks = [];
       bState.done = false;
       work.recarve([]);
+
+      bState.target = p.word;
+      paintBuildSign(
+        '拼 出 「' + p.word.g + '」',
+        '需要 ' + p.pair.length + ' 块构件：从下排四块里挑出来',
+        '已拼成 ' + bState.solved + ' 字 · 点方块放上台面，再点一次取下'
+      );
 
       var n = p.list.length;
       p.list.forEach(function (ch, i) {
@@ -1232,8 +1248,35 @@
         if (ok) {
           bState.done = true;
           bState.flash = 1;
+          bState.solved += 1;
+          if (App.progress && p.word && p.word.g) {
+            App.progress.add('build', String(p.word.g));   /* 三关收口也记一笔 */
+          }
+          paintBuildSign('成 字 「' + p.word.g + '」',
+            '骨上这道刻好了 —— 下一个字马上摆上台',
+            '已拼成 ' + bState.solved + ' 字', 'rgba(255,214,150,.96)');
+          setTimeout(function () {
+            if (!bState.done) { return; }
+            bState.idx += 1;
+            buildLayout();
+          }, 1900);
           return { kind: 'build-ok', word: p.word };
         }
+        paintBuildSign('差 一 点',
+          '这两块拼不成「' + p.word.g + '」',
+          '点亮的方块再点一次就取下来，重新挑', 'rgba(226,150,120,.94)');
+        bState.flash = 1;
+        setTimeout(function () {
+          if (bState.done) { return; }
+          bState.picks = [];
+          bState.blocks.forEach(function (b) { b.up = false; });
+          work.recarve([]);
+          paintBuildSign(
+            '拼 出 「' + p.word.g + '」',
+            '需要 ' + p.pair.length + ' 块构件：从下排四块里挑出来',
+            '已拼成 ' + bState.solved + ' 字 · 点方块放上台面，再点一次取下'
+          );
+        }, 1200);
         return { kind: 'build-no', word: p.word };
       }
       return { kind: 'build-tap', picks: bState.picks.slice() };
@@ -2328,6 +2371,9 @@
       buildState: function () {
         return {
           done: bState.done, picks: bState.picks.slice(),
+          solved: bState.solved,
+          target: bState.target ? bState.target.g : null,
+          need: bState.target ? String(bState.target.w || '').split('+').filter(Boolean).length : 2,
           blocks: bState.blocks.map(function (b) { return b.ch; })
         };
       },

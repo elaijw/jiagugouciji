@@ -758,8 +758,13 @@
     if (id === 'build') {
       var bs = (S.api && S.api.buildState) ? S.api.buildState() : null;
       S.taskK.textContent = '造字探索区';
-      S.taskTx.textContent = '把两个构件搬上台面，骨上就会多刻一道';
-      S.taskN.textContent = bs ? ((bs.done ? '已成字' : bs.picks.length + ' / 2')) : '';
+      S.taskTx.textContent = bs && bs.target
+        ? ('拼出「' + bs.target + '」：放 ' + bs.need + ' 块构件，放错会自动退回')
+        : '把两块构件搬上台面，骨上就会多刻一道';
+      S.taskN.textContent = bs
+        ? ((bs.done ? '已成字' : bs.picks.length + ' / ' + bs.need) +
+           (bs.solved ? '　·　已拼成 ' + bs.solved + ' 字' : ''))
+        : '';
       S.taskAgain.hidden = false;
       S.taskAgain.textContent = '换一个字';
       S.taskGo.removeAttribute('href');
