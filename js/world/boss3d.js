@@ -758,6 +758,124 @@
      所以：常驻一条"第几步 · 做什么 · 还差多少"，
      再给守阵兽头顶挂一个跟随标签，明确它是可点的。
      ============================================================ */
+  /* ============================================================
+     悬停 / 光环
+     ------------------------------------------------------------
+     这一关的三种可点对象（构件骨片、笔画段、古句字骨）在静止时长得一样，
+     光靠步骤条说"点下面四片"还是不够 —— 鼠标移上去要立刻有反应：
+     抬起 6%、边缘发光、鼠标变手型。
+     ============================================================ */
+  function isPickableObj(o) {
+    if (!o || !o.userData) { return false; }
+    if (o.userData.alive === false) { return false; }
+    return o.userData.tag === 'comp' || o.userData.tag === 'opt' ||
+      o.userData.strokeIndex != null;
+  }
+
+  function findPickable(hits) {
+    for (var i = 0; i < hits.length; i++) {
+      var p = hits[i].object;
+      while (p) {
+        if (isPickableObj(p)) { return p; }
+        p = p.parent;
+      }
+    }
+    return null;
+  }
+
+  function hoverOn(o) {
+    if (!o.userData._hover) {
+      o.userData._hover = {
+        sx: o.scale.x, sy: o.scale.y, sz: o.scale.z,
+        glow: o.userData.hoverGlow == null ? null : o.userData.hoverGlow
+      };
+    }
+    var k = 1.06;
+    o.scale.set(o.userData._hover.sx * k, o.userData._hover.sy * k, o.userData._hover.sz * k);
+    o.traverse(function (m) {
+      if (m.material && !Array.isArray(m.material) && m.material.emissive) {
+        if (m.userData._hoverEmissive == null) {
+          m.userData._hoverEmissive = m.material.emissiveIntensity;
+        }
+        m.material.emissiveIntensity = Math.max(m.material.emissiveIntensity || 0, 0.55);
+        m.material.emissive.setHex(0xffb264);
+      }
+    });
+  }
+
+  function hoverOff(o) {
+    var h = o.userData._hover;
+    if (h) {
+      o.scale.set(h.sx, h.sy, h.sz);
+      o.userData._hover = null;
+    }
+    o.traverse(function (m) {
+      if (m.material && !Array.isArray(m.material) && m.material.emissive &&
+          m.userData._hoverEmissive != null) {
+        m.material.emissiveIntensity = m.userData._hoverEmissive;
+        m.userData._hoverEmissive = null;
+      }
+    });
+  }
+
+  function bindHover(st) {
+    var hovered = null;
+    st.el.addEventListener('pointermove', function (e) {
+      if (S.intro || S.phase === 9) {
+        if (hovered) { hoverOff(hovered); hovered = null; st.el.style.cursor = ''; }
+        return;
+      }
+      var hits = [];
+      try { hits = st.raycast(st.ndc(e.clientX, e.clientY)) || []; } catch (err) { hits = []; }
+      var ob = findPickable(hits);
+      if (ob === hovered) { return; }
+      if (hovered && hovered.parent) { hoverOff(hovered); }
+      hovered = ob;
+      if (hovered) { hoverOn(hovered); }
+      st.el.style.cursor = hovered ? 'pointer' : '';
+    });
+    st.el.addEventListener('pointerleave', function () {
+      if (hovered) { hoverOff(hovered); hovered = null; }
+      st.el.style.cursor = '';
+    });
+    S._hoverRef = function () { if (hovered) { hoverOff(hovered); hovered = null; } };
+  }
+
+  /* 光环：第二阶段的"该点这一截"，除了烧红，再给一圈呼吸的光 */
+  function ensureHalo() {
+    if (S.halo) { return S.halo; }
+    var T = S.st.T;
+    var mat = new T.MeshBasicMaterial({
+      color: 0xffb264, transparent: true, opacity: 0.6,
+      side: T.DoubleSide, depthWrite: false, depthTest: false, fog: false,
+      blending: T.AdditiveBlending, toneMapped: false
+    });
+    var halo = new T.Mesh(new T.RingGeometry(0.52, 0.66, 48), mat);
+    halo.renderOrder = 8;
+    S.st.scene.add(halo);
+    S.halo = halo;
+    return halo;
+  }
+
+  function updateHalo(dt, t) {
+    var pd = S.phaseData;
+    var ref = (pd && pd.target != null && S.strokeRefs) ? S.strokeRefs[pd.target] : null;
+    var halo = S.halo;
+    if (S.phase !== 2 || !ref || !ref.parent || ref.userData.alive === false) {
+      if (halo) { halo.visible = false; }
+      return;
+    }
+    halo = ensureHalo();
+    halo.visible = true;
+    var T = S.st.T;
+    var wp = new T.Vector3();
+    ref.getWorldPosition(wp);
+    halo.position.copy(wp);
+    halo.scale.setScalar(1 + Math.sin(t * 3.1) * 0.12);
+    halo.material.opacity = 0.45 + Math.sin(t * 3.1) * 0.22;
+    halo.quaternion.copy(S.st.camera.quaternion);
+  }
+
   function updateStep() {
     var u = S.ui && S.ui.step;
     if (!u) { return; }
@@ -1451,6 +1569,7 @@
     var T = S.st.T;
     tickSigil(dt);
     positionTag();
+    updateHalo(dt, t);
 
     /* Boss 待机：浮 + 护盾转 */
     var b = S.boss;
@@ -1629,6 +1748,7 @@
 
       st.onTick(tick);
       st.onPick(onPick);
+      bindHover(st);
 
       S.t0 = performance.now();
       setHp(100);
@@ -1650,6 +1770,11 @@
   }
 
   function unmount() {
+    if (S._hoverRef) { S._hoverRef(); S._hoverRef = null; }
+    if (S.halo) {
+      if (S.halo.parent) { S.halo.parent.remove(S.halo); }
+      S.halo = null;
+    }
     S.alive = false;
     if (S._kd) { window.removeEventListener('keydown', S._kd); S._kd = null; }
     for (var i = 0; i < S.timer.length; i++) { clearTimeout(S.timer[i]); }
