@@ -20,6 +20,10 @@
   'use strict';
   if (!App || !App.modes) { return; }
 
+  /* 龟宝暂不完全介入关卡：立牌与胜利页形象都由这个开关控制。
+     要恢复就改 true（两关一起回来）。 */
+  var SHOW_GB = false;
+
   /* ================= CSS ================= */
   var CSS = [
     '.bd3-root{position:fixed;inset:0;z-index:400;overflow:hidden;background:#08070c;',
@@ -543,7 +547,7 @@
        而是重新绷紧到 55 —— 原型阶段不做失败态，免得演示时卡在空血里。 */
     if (v <= 0) {
       S.hp = 55;
-      say('<b>龟宝</b>：它把护盾又绷紧了一层。慢慢来，别乱点。', 2600);
+      say('<b>提示</b>：它把护盾又绷紧了一层。慢慢来，别乱点。', 2600);
     } else {
       S.hp = Math.min(100, v);
     }
@@ -584,7 +588,7 @@
       killGuard();
     } else {
       refreshTip();
-      say('<b>龟宝</b>：打中了，还差 ' + gd.hp + ' 下。', 1600);
+      say('<b>提示</b>：打中了，还差 ' + gd.hp + ' 下。', 1600);
     }
   }
 
@@ -613,7 +617,7 @@
       return true;
     });
     refreshTip();
-    say('<b>龟宝</b>：守阵的' + gd.name + '散了，去拆它的字。', 2600);
+    say('<b>提示</b>：守阵的' + gd.name + '散了，去拆它的字。', 2600);
   }
   function say(html, ms) {
     S.ui.say.innerHTML = html;
@@ -967,7 +971,7 @@
       /* 用 tick 做飞行动画，见 tickWidgets */
       d.need.splice(d.need.indexOf(ch), 1);
       d.got.push(ch);
-      say('<b>龟宝</b>：拆下来了——「' + ch + '」。', 2200);
+      say('<b>提示</b>：拆下来了——「' + ch + '」。', 2200);
       if (!d.need.length) {
         later(function () { phase1Done(); }, 900);
       } else {
@@ -979,7 +983,7 @@
       S.wrong++;
       obj.userData.kick = 0.4;
       shakeBoss(0.25);
-      say('<b>龟宝</b>：这片拼不出「' + PHASE1_CHAR + '」。它一半是水，一半是石头。', 2600);
+      say('<b>提示</b>：这片拼不出「' + PHASE1_CHAR + '」。它一半是水，一半是石头。', 2600);
       setHp(S.hp - 4);
     }
   }
@@ -1029,7 +1033,7 @@
       flash('hit');
       setHp(S.hp - 14);
       d.remain--;
-      say('<b>龟宝</b>：断了一段。', 1200);
+      say('<b>提示</b>：断了一段。', 1200);
       if (d.remain <= 0) {
         S.busy = true;
         later(function () {
@@ -1044,7 +1048,7 @@
       S.wrong++;
       obj.userData.kick = 0.35;
       shakeBoss(0.2);
-      say('<b>龟宝</b>：这一段还连得好好的。找那截在发光的。', 2200);
+      say('<b>提示</b>：这一段还连得好好的。找那截在发光的。', 2200);
       setHp(S.hp - 5);
     }
   }
@@ -1158,7 +1162,7 @@
         setHp(S.hp - 11);
         S.ui.src.innerHTML = '「' + q.miss + '」　' + q.from + '　·　' + q.gloss;
         S.ui.src.classList.add('on');
-        say('<b>龟宝</b>：对了。' + q.gloss, 3200);
+        say('<b>提示</b>：对了。' + q.gloss, 3200);
         S.qIndex++;
         S.phaseData.correct++;
         later(function () {
@@ -1171,7 +1175,7 @@
       obj.userData.kick = 0.4;
       shakeBoss(0.18);
       setHp(S.hp - 4);
-      say('<b>龟宝</b>：这一句的意思对不上这个字。再看一遍句子。', 2400);
+      say('<b>提示</b>：这一句的意思对不上这个字。再看一遍句子。', 2400);
     }
   }
 
@@ -1272,8 +1276,8 @@
       document.head.appendChild(st2);
     }
     card.innerHTML =
-      '<div class="bd3-gb"><img src="assets/guibao-front.png" alt="龟宝">' +
-      '<span><b>龟宝</b>：守字之骨散了。<br>你看，骨头碎了，字留下来了。</span></div>' +
+      (SHOW_GB ? '<div class="bd3-gb"><img src="assets/guibao-front.png" alt="龟宝">' +
+        '<span><b>提示</b>：守字之骨散了。<br>你看，骨头碎了，字留下来了。</span></div>' : '') +
       '<div class="wk">第三关 · 通过</div>' +
       '<div class="wt">守字之骨已散</div>' +
       '<div class="ws">构件拆了，笔画断了，残句也补齐了。<br>' +
@@ -1454,7 +1458,7 @@
 
     /* 2) 守阵兽还活着：本阶段的字暂时不许动 */
     if (S.guard && !S.guard.dead) {
-      say('<b>龟宝</b>：先把它召出来的' + S.guard.name + '打散。', 2000);
+      say('<b>提示</b>：先把它召出来的' + S.guard.name + '打散。', 2000);
       return;
     }
 
@@ -1501,7 +1505,7 @@
       buildArena(st);
       S.boss = makeBoss(st);
 
-      var gb = App.stage3d.makeGuibao(st.T, { scale: 1.35 });
+      var gb = SHOW_GB ? App.stage3d.makeGuibao(st.T, { scale: 1.35 }) : null;
       if (gb) {
         gb.root.position.set(-3.2, 0, 3.6);
         gb.root.rotation.y = 0.42;

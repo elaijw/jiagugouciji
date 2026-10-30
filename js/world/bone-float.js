@@ -18,6 +18,10 @@
 (function () {
   'use strict';
 
+  /* 龟宝暂不完全插进关卡：立牌与它的台词都由这个开关控制。
+     要恢复就改 true —— 场景里会重新出现立牌。 */
+  var SHOW_GB = false;
+
   /* ---------------- 数据：这一批骨片 ----------------
      cat 只用来给卡片分类，不对应任何旧区域。
      gloss 是字形本身的说明；link 是把字形和实物连起来的那一句。
@@ -789,6 +793,7 @@
       new T.MeshBasicMaterial({ map: tx, side: T.BackSide, depthWrite: false, fog: false })
     );
     st.scene.add(dome);
+    st.dome = dome;
     return dome;
   }
 
@@ -891,25 +896,30 @@
   function starVeil(st) {
     var T = st.T;
     var loader = new T.TextureLoader();
-    loader.load('assets/gen/stars.png', function (tex) {
+    loader.load('assets/gen/sky2.png', function (tex) {
       tex.colorSpace = T.SRGBColorSpace;
-      /* 图本身是暖褐的，直接铺会和夜景的紫打架：
-         用 color 做乘法把它压回冷调，opacity 再降一档，只当"远景的星河"。 */
-      var mat = new T.MeshBasicMaterial({
-        map: tex, transparent: true, opacity: 0.58,
-        color: 0x9a92b6,
-        depthWrite: false, fog: false, toneMapped: false
-      });
-      var w = 150, h = 100;
-      var plane = new T.Mesh(new T.PlaneGeometry(w, h), mat);
-      plane.position.set(0, 16, -54);
-      st.scene.add(plane);
-      /* 极慢的横向漂移：一条"星河"在动，但慢到不会分神 */
+      tex.wrapS = T.RepeatWrapping;
+      tex.wrapT = T.ClampToEdgeWrapping;
+      /* 球面 UV 会把整张图（含下半部的湖面）铺到地平线以下，
+         结果脚下变成粉色。只取图的上半幅（天空+星云），横向重复两次加密星点。 */
+      tex.repeat.set(2, 0.5);
+      tex.offset.set(0, 0.5);
+      /* 贴到穹顶而不是插一块平面：人是站在中间转着看的，
+         一张平面只能盖住一个方向，穹顶才是 360°。 */
+      var dome = st.dome;
+      if (dome && dome.material) {
+        dome.material.map = tex;
+        dome.material.color = new T.Color(0x8c84a4);
+        dome.material.needsUpdate = true;
+        st.skyTex = tex;
+      }
+      /* 穹顶慢慢转，星云就有"流转"的意思 */
       st.onTick(function (dt) {
-        plane.position.x = Math.sin(st.t * 0.035) * 6 - 4;
+        if (st.skyTex) { st.skyTex.offset.x = (st.skyTex.offset.x + dt * 0.0016) % 1; }
       });
-    }, undefined, function () { /* 加载失败：静默跳过 */ });
+    }, undefined, function () { /* 加载失败就保留原渐变天穹 */ });
   }
+
 
   /* 观星台脚下的一层暖光：让"台"从地面浮起来，而不是贴在地上 */
   function altarGlow(st, y) {
@@ -1067,24 +1077,26 @@
 
     /* 六片骨绕观星台排成一圈：高度错开，前低后高，
        每片都朝向圆心 —— 这样镜头在原地看着的是"围起来的场"，不是一排浮板。 */
-    var RING_R = 4.75;
+    var RING_R = 6.90;
+    /* 站到中间看，骨片就不能都在一个水平面上：
+       远、近、高、低错开，抬头是一层、平视是一层，才像"星"而不是"围栏"。 */
     var RING = [
-      { a:  -84, y: 0.52, s: 1.00 },   // 左
-      { a:  -28, y: 1.02, s: 0.90 },   // 左后
-      { a:   28, y: 0.66, s: 0.94 },   // 后
-      { a:   84, y: 1.28, s: 0.88 },   // 右
-      { a:  140, y: 0.60, s: 0.92 },   // 右后
-      { a:  200, y: 1.12, s: 0.86 }    // 左后（远）
+      { a:  -96, y: 0.25, s: 1.05 },   // 左 · 低
+      { a:  -34, y: 2.35, s: 0.92 },   // 左前 · 高（要抬头）
+      { a:   26, y: 0.95, s: 0.98 },   // 右前 · 平视
+      { a:   88, y: 3.05, s: 0.86 },   // 右 · 更高
+      { a:  148, y: 0.45, s: 1.00 },   // 右后 · 低
+      { a:  208, y: 1.75, s: 0.90 }    // 左后 · 中高
     ];
     var LAYOUT = RING.map(function (r) {
       var rad = r.a * Math.PI / 180;
       var x = Math.cos(rad) * RING_R;
-      var z = Math.sin(rad) * RING_R * 0.74;
+      var z = Math.sin(rad) * RING_R * 0.92;
       return {
         x: x, y: r.y, z: z,
         /* 骨片正面朝镜头：环是环，但字得看得见。
            完全朝圆心会让左右两片变成"侧立的骨板"，只剩一条厚边。 */
-        ry: Math.atan2(-x, 12.4 - z),
+        ry: Math.atan2(-x, -z),   /* 初始朝向圆心（镜头就在圆心） */
         s: r.s
       };
     });
@@ -1119,6 +1131,13 @@
     rim.position.set(4.6, 0.6, -5.2);
     st.scene.add(rim);
 
+    /* 头灯：人站在台心环视，背对主光的骨片会是纯黑的一块。
+       给镜头挂一盏柔和的暖光，看到哪、哪就亮。 */
+    var head = new T.PointLight(0xffe0b4, 2.6, 16, 2);
+    head.position.set(0, 1.34, 0);
+    st.scene.add(head);
+    S.headLight = head;
+
     dust(st, 380, 8, 32, 0xd8c49a);
     /* 第二层浮尘：更密、更亮、范围更大 —— "繁星流转"靠这一层 */
     dust(st, 620, 12, 46, 0xe8c68a);
@@ -1130,25 +1149,73 @@
     /* 0.92 是给立体龟定的：那模型只有 0.909 高，再大就显得笨。
        2D 立绘细节多、轮廓窄，同样高度在满屏骨片里只有五十来像素，
        小得看不出是只龟。放到 1.18，画面里约七十像素，才认得出。 */
-    var gb = App.stage3d.makeGuibao(T, { scale: 1.18 });
+    var gb = SHOW_GB ? App.stage3d.makeGuibao(T, { scale: 1.18 }) : null;
     if (gb) {
       /* 踏石顶面实测在 y = -2.094。原来写 -2.24，比石面低 0.146 ——
          立体龟只是小腿埋进石头里，看不出来；换成 2D 立牌就是整截脚被切掉。
          摆到石面上。 */
       /* 站到观星台台面上：台顶面在 y = -1.13，龟宝脚底对齐 */
-      gb.root.position.set(0.10, -1.13, 0.62);
-      gb.root.rotation.y = 0.22;
+      /* 人站在台心，龟宝要偏到侧前方，低头或侧头才看得见 */
+      gb.root.position.set(1.05, -1.13, 1.15);
+      gb.root.rotation.y = -0.55;
       st.root.add(gb.root);
       S.guibao = gb;
     }
 
-    st.camera.position.set(0, 2.35, 12.4);
-    st.camera.lookAt(new T.Vector3(0, 0.92, 0));
+    /* 第一人称：人就站在观星台台面上，视线高度 1.25 */
+    st.camera.position.set(0, 1.34, 0);
+    S.look = { yaw: 0.42, pitch: -0.04 };
+    S.lookLock = false;
+    applyLook(st);
   }
 
   /* ==========================================================================
      交互
      ========================================================================== */
+  /* ============================================================
+     第一人称视角
+     ------------------------------------------------------------
+     镜头固定在观星台中心，只用 yaw/pitch 环视 —— 玩家是"站在台上的人"，
+     不是"在外面看这一圈的人"。骨片绕着人转，抬头就有高的那两片。
+     ============================================================ */
+  function lookDir(T, look) {
+    var cp = Math.cos(look.pitch);
+    return new T.Vector3(Math.sin(look.yaw) * cp, Math.sin(look.pitch), Math.cos(look.yaw) * cp);
+  }
+
+  function applyLook(st) {
+    if (!st || !S.look) { return; }
+    var T = st.T;
+    var d = lookDir(T, S.look);
+    st.camera.position.set(0, 1.34, 0);
+    st.camera.lookAt(d.multiplyScalar(6).add(st.camera.position));
+    S.forward = lookDir(T, S.look);
+  }
+
+  /* 拖拽环视。点一下（位移 < 6px）仍然走拾取，拖动的这一下不算点击。 */
+  function bindLook(st) {
+    var drag = null;
+    st.el.addEventListener('pointerdown', function (e) {
+      drag = { x: e.clientX, y: e.clientY, moved: 0 };
+      if (st.el.setPointerCapture && e.pointerId != null) {
+        try { st.el.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+    });
+    st.el.addEventListener('pointermove', function (e) {
+      if (!drag) { return; }
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      drag.x = e.clientX; drag.y = e.clientY;
+      drag.moved += Math.abs(dx) + Math.abs(dy);
+      if (S.lookLock || S.mode !== 'idle') { return; }
+      S.look.yaw += dx * 0.0045;
+      S.look.pitch = Math.max(-0.72, Math.min(0.72, S.look.pitch - dy * 0.0045));
+    });
+    var end = function () { drag = null; };
+    st.el.addEventListener('pointerup', end);
+    st.el.addEventListener('pointercancel', end);
+    st.el.addEventListener('pointerleave', end);
+  }
+
   function hoverAt(ndc) {
     var st = S.st;
     if (!st || S.mode !== 'idle' || S.busy) { return; }
@@ -1199,7 +1266,7 @@
     var d = grp.userData.plateData;
     card(false);
     crumb(d.now + ' · ' + d.cat);
-    say('<b>龟宝</b>：你点了「' + d.now + '」。看它长出什么来。', 5200);
+    say('<b>提示</b>：你点了「' + d.now + '」。看它长出什么来。', 5200);
 
     S.plates.forEach(function (p) {
       if (p === grp) { return; }
@@ -1212,13 +1279,20 @@
     bb.x = grp.position.x; bb.z = grp.position.z;
     bb.a0 = grp.userData.ang;
 
-    grp.rotation.y = 0;
-    tw(grp, { px: 0, py: 1.62, pz: 2.90, sx: 2.62, sy: 2.62, sz: 2.62, rz: 0 }, 0.72, easeInOut, function () {
+    /* 锁视角：飞过来的骨片要停在"你正看着的那个方向"，
+       否则视角一动，字就飘出画面。 */
+    S.lookLock = true;
+    var T2 = S.st.T;
+    var f = S.forward || lookDir(T2, S.look);
+    var cam = S.st.camera.position;
+    var tx = cam.x + f.x * 3.05;
+    var ty = cam.y + f.y * 3.05 + 0.10;
+    var tz = cam.z + f.z * 3.05;
+
+    grp.rotation.y = Math.atan2(cam.x - tx, cam.z - tz);
+    tw(grp, { px: tx, py: ty, pz: tz, sx: 2.62, sy: 2.62, sz: 2.62, rz: 0 }, 0.72, easeInOut, function () {
       unveil(grp, d);
     });
-    if (S.st.flyTo) {
-      S.st.flyTo({ pos: [0, 1.95, 10.6], look: [0, 1.55, 0], dur: 0.9 });
-    }
   }
 
   /* 第二幕：字形亮起 → 景物从骨面长出来 */
@@ -1295,7 +1369,7 @@
       S.mode = 'show';
       S.stateSince = 0;
       card(true, d);
-      say('<b>龟宝</b>：这就是「' + d.now + '」画的东西。看完点「收回」。', 9000);
+      say('<b>提示</b>：这就是「' + d.now + '」画的东西。看完点「收回」。', 9000);
       S.busy = false;
     });
 
@@ -1346,11 +1420,9 @@
       var b = p.userData.base;
       tw(p, { op: 1, pz: b.z, sx: b.s, sy: b.s, sz: b.s }, 0.66, easeOut);
     });
-    if (S.st.flyTo) {
-      S.st.flyTo({ pos: [0, 2.05, 11.6], look: [0, 1.28, 0], dur: 0.85 });
-    }
+    S.lookLock = false;
     crumb('');
-    say('<b>龟宝</b>：收回来了。再看看别的骨片。', 4200);
+    say('<b>提示</b>：收回来了。再看看别的骨片。', 4200);
   }
 
   /* 强制复位。
@@ -1370,7 +1442,7 @@
       setGlyphGlow(p, 0.10);
       setGlyphAlpha(p, 0.03);
     });
-    if (S.st && S.st.flyTo) { S.st.flyTo({ pos: [0, 2.05, 11.6], look: [0, 1.28, 0], dur: 0.5 }); }
+    S.lookLock = false;
     card(false);
     crumb('');
     S.focus = null;
@@ -1590,6 +1662,7 @@
         S.st = st;
         build(st);
         st.onPick(onPick);
+        bindLook(st);
         st.el.addEventListener('pointermove', function (e) {
           if (S.mode !== 'idle') { return; }
           hoverAt(st.ndc(e.clientX, e.clientY));
@@ -1608,6 +1681,13 @@
             S.stateSince = 0;
           }
           var idle = (S.mode === 'idle');
+          applyLook(st);
+          var camPos = st.camera.position;
+          if (S.headLight && S.forward) {
+            S.headLight.position.set(camPos.x + S.forward.x * 1.2,
+                                     camPos.y + 0.25,
+                                     camPos.z + S.forward.z * 1.2);
+          }
           for (var i = 0; i < S.plates.length; i++) {
             var p = S.plates[i], b = p.userData.base;
             if (p === S.focus) { continue; }
@@ -1619,8 +1699,8 @@
               p.position.x = Math.cos(ang) * b.r;
               p.position.z = Math.sin(ang) * b.r;
               p.position.y = b.y + Math.sin(S.t * 0.52 + b.ph) * 0.10;
-              /* 始终朝向镜头，转过去也不会变成一条边 */
-              p.rotation.y = Math.atan2(-p.position.x, 12.4 - p.position.z);
+              /* 始终朝向"人"（镜头就在圆心），转过去也不会变成一条边 */
+              p.rotation.y = Math.atan2(camPos.x - p.position.x, camPos.z - p.position.z);
               p.rotation.z = b.rz + Math.sin(S.t * 0.42 + b.ph * 1.7) * 0.022;
             }
           }
@@ -1632,7 +1712,7 @@
           }
         });
 
-        say('<b>龟宝</b>：这六片骨上都刻着字。点一片，看它长出什么来。', 11000);
+        say('<b>提示</b>：这六片骨上都刻着字。点一片，看它长出什么来。', 11000);
       });
     },
 
