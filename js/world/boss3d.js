@@ -109,6 +109,39 @@
 
     /* 胜利面板 */
     /* Boss 立绘：阶段开始浮出 2.6 秒，不挡题面 */
+    /* 步骤条 + 跟随标签 + 开场说明 */
+    '.bd3-step{position:absolute;left:50%;top:168px;transform:translateX(-50%);z-index:6;',
+    'display:flex;align-items:center;gap:10px;padding:7px 16px;border-radius:2px;',
+    'background:rgba(18,14,11,.72);border:1px solid rgba(214,186,126,.22);',
+    'font-size:12.5px;letter-spacing:.06em;color:#e2d3b4;backdrop-filter:blur(6px);',
+    'pointer-events:none;white-space:nowrap}',
+    '.bd3-step b{color:#ffce8c;font-weight:600}',
+    '.bd3-step i{font-style:normal;color:#9d8f79}',
+    '.bd3-tag{position:absolute;z-index:7;transform:translate(-50%,-100%);',
+    'padding:4px 10px;border-radius:2px;background:rgba(255,206,140,.92);color:#2b1d0e;',
+    'font-size:12px;letter-spacing:.08em;pointer-events:none;opacity:0;transition:opacity .25s;',
+    'white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.45)}',
+    '.bd3-tag.on{opacity:1}',
+    '.bd3-tag:after{content:"";position:absolute;left:50%;top:100%;transform:translateX(-50%);',
+    'border:5px solid transparent;border-top-color:rgba(255,206,140,.92)}',
+    '.bd3-intro{position:absolute;inset:0;z-index:30;display:none;place-items:center;',
+    'background:rgba(6,5,9,.78);backdrop-filter:blur(4px)}',
+    '.bd3-intro.on{display:grid}',
+    '.bd3-intro-card{width:min(520px,86vw);padding:26px 28px;border-radius:3px;',
+    'background:linear-gradient(180deg,rgba(30,24,18,.96),rgba(20,16,13,.96));',
+    'border:1px solid rgba(214,186,126,.28);box-shadow:0 30px 80px rgba(0,0,0,.6)}',
+    '.bd3-intro-card h3{margin:0 0 4px;font-size:19px;letter-spacing:.14em;color:#ffe6bd;font-weight:500}',
+    '.bd3-intro-card .sub{font-size:12px;color:#8f8270;letter-spacing:.18em;margin-bottom:16px}',
+    '.bd3-intro-card ol{margin:0 0 18px;padding:0;list-style:none;counter-reset:s}',
+    '.bd3-intro-card li{position:relative;padding-left:30px;margin:11px 0;font-size:13.5px;',
+    'line-height:1.65;color:#cbbda4}',
+    '.bd3-intro-card li:before{counter-increment:s;content:counter(s);position:absolute;left:0;top:1px;',
+    'width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;',
+    'color:#2b1d0e;background:#d9b877}',
+    '.bd3-intro-card li b{color:#ffe0b0;font-weight:600}',
+    '.bd3-intro-card button{width:100%;padding:10px;font:inherit;font-size:13.5px;letter-spacing:.18em;',
+    'color:#2b1d0e;background:#e8c68a;border:0;border-radius:2px;cursor:pointer}',
+    '.bd3-intro-card button:hover{background:#f4d7a4}',
     '.bd3-face{position:absolute;left:20px;bottom:86px;z-index:5;width:138px;',
     'pointer-events:none;opacity:0;transform:translateX(-18px);',
     'transition:opacity .5s ease,transform .5s ease}',
@@ -525,19 +558,44 @@
 
     var win = el('div', 'bd3-win');
 
+    var step = el('div', 'bd3-step');
+    var tag = el('div', 'bd3-tag');
+
+    var intro = el('div', 'bd3-intro');
+    intro.innerHTML =
+      '<div class="bd3-intro-card">' +
+      '<h3>守字之骨 · 怎么打</h3>' +
+      '<div class="sub">三 步 拆 一 个 字</div>' +
+      '<ol>' +
+      '<li><b>打散守阵兽</b>：它身前有一圈法阵，阵里的骨兽<em>点三下</em>就打散，散了才能动字。</li>' +
+      '<li><b>拆字</b>：从下面四片骨里挑出能拼成这个字的那两块（挑错会掉护盾）。</li>' +
+      '<li><b>断笔画 · 补古句</b>：第二段只点发亮的那一截；第三段给三句古文各补一个字。</li>' +
+      '</ol>' +
+      '<button>开 始</button>' +
+      '</div>';
+
     var face = el('div', 'bd3-face');
     face.innerHTML = '<img src="assets/gen/boss.png" alt="守字之骨">' +
       '<span>守 字 之 骨</span>';
-    [top, task, src, sayBox, flash, face, win, fade, load].forEach(function (n) {
+    [top, task, step, src, sayBox, flash, tag, face, win, intro, fade, load].forEach(function (n) {
       root.appendChild(n);
     });
 
+    var startBtn = intro.querySelector('button');
+    startBtn.onclick = function () {
+      intro.classList.remove('on');
+      S.intro = false;
+      updateStep();
+    };
+
     S.ui = { top: top, stages: stages, name: nm, hp: hpI, q: q, tip: tip,
-             src: src, say: sayBox, flash: flash, fade: fade, load: load, win: win };
+             src: src, say: sayBox, flash: flash, fade: fade, load: load, win: win,
+             step: step, tag: tag, intro: intro };
   }
 
   function setPhase(n) {
     S.phase = n;
+    if (typeof updateStep === 'function') { updateStep(); }
     for (var i = 0; i < S.uiStages.length; i++) {
       S.uiStages[i].className = 'bd3-st' + (i + 1 === n ? ' on' : (i + 1 < n ? ' done' : ''));
     }
@@ -564,8 +622,8 @@
     var gd = S.guard;
     var base = S.baseTip || '';
     if (gd && !gd.dead) {
-      return '先打散守阵的「' + gd.name + '」：还剩 ' + gd.hp + ' 下' +
-        (base ? '　·　' + base : '');
+      /* 步骤条已经写了"点谁、差几下"，这里只留操作说明，避免同一句话出现两遍 */
+      return base;
     }
     return base;
   }
@@ -584,6 +642,7 @@
     var wp = new T.Vector3();
     gd.beast.getWorldPosition(wp);
     S.bursts.push(debris(S.st, wp, 22, 0xffd9a0));
+    updateStep();
     if (gd.hp <= 0) {
       killGuard();
     } else {
@@ -597,6 +656,7 @@
     if (!gd || gd.dead) { return; }
     gd.dead = true;
     S.guardDead = true;
+    updateStep();
     var T = S.st.T;
     var wp = new T.Vector3();
     gd.beast.getWorldPosition(wp);
@@ -690,6 +750,58 @@
   }
 
   /* ================= 阶段一：构件拆解 ================= */
+  /* ============================================================
+     步骤条 / 跟随标签 / 开场说明
+     ------------------------------------------------------------
+     用户反馈"第三关玩法不明确"：三类操作（点守阵兽 / 点骨片 / 点笔画）
+     在画面上长得一样，光靠一句提示分不清"现在该点哪个"。
+     所以：常驻一条"第几步 · 做什么 · 还差多少"，
+     再给守阵兽头顶挂一个跟随标签，明确它是可点的。
+     ============================================================ */
+  function updateStep() {
+    var u = S.ui && S.ui.step;
+    if (!u) { return; }
+    var gd = S.guard;
+    var txt = '';
+    if (S.phase === 9) {
+      txt = '<b>已通过</b>';
+    } else if (gd && !gd.dead) {
+      txt = '<i>第 1 步</i> <b>点守阵的「' + gd.name + '」</b> <i>还差 ' + gd.hp + ' 下</i>';
+    } else if (S.phase === 1) {
+      var d1 = S.phaseData || { need: [] };
+      txt = '<i>第 2 步</i> <b>从四片骨里挑出能拼成「' + PHASE1_CHAR + '」的两块</b>' +
+        '<i>已拆 ' + (2 - (d1.need || []).length) + ' / 2</i>';
+    } else if (S.phase === 2) {
+      txt = '<i>第 2 步</i> <b>点发亮的那一段，把「' + PHASE2_CHAR + '」拆成笔画</b>';
+    } else if (S.phase === 3) {
+      txt = '<i>第 3 步</i> <b>给三句古文各补一个字</b>';
+    }
+    u.innerHTML = txt;
+    u.style.display = txt ? 'flex' : 'none';
+  }
+
+  /* 守阵兽头顶的标签：每帧把世界坐标投影到屏幕 */
+  function positionTag() {
+    var t = S.ui && S.ui.tag;
+    if (!t) { return; }
+    var gd = S.guard;
+    if (!gd || gd.dead || !gd.beast || !gd.beast.parent || S.phase === 9) {
+      t.classList.remove('on');
+      return;
+    }
+    var T = S.st.T;
+    var v = new T.Vector3();
+    gd.beast.getWorldPosition(v);
+    v.y += 0.55;
+    v.project(S.st.camera);
+    if (v.z > 1) { t.classList.remove('on'); return; }
+    var w = S.root.clientWidth || 1440, h = S.root.clientHeight || 900;
+    t.style.left = Math.round((v.x * 0.5 + 0.5) * w) + 'px';
+    t.style.top = Math.round((-v.y * 0.5 + 0.5) * h) + 'px';
+    t.textContent = '点我 ' + gd.hp + ' 下';
+    t.classList.add('on');
+  }
+
   function clearWidgets() {
     var st = S.st;
     for (var i = 0; i < S.widgets.length; i++) {
@@ -974,6 +1086,7 @@
       say('<b>提示</b>：拆下来了——「' + ch + '」。', 2200);
       if (!d.need.length) {
         later(function () { phase1Done(); }, 900);
+        updateStep();
       } else {
         later(function () { S.busy = false; }, 700);
       }
@@ -1337,6 +1450,7 @@
     if (!S.alive || !S.st) { return; }
     var T = S.st.T;
     tickSigil(dt);
+    positionTag();
 
     /* Boss 待机：浮 + 护盾转 */
     var b = S.boss;
@@ -1447,7 +1561,7 @@
 
   /* ================= 点击分发 ================= */
   function onPick(ev) {
-    if (S.phase === 9) { return; }
+    if (S.phase === 9 || S.intro) { return; }
     var o = ev.obj;
     if (!o) { return; }
 
@@ -1520,6 +1634,9 @@
       setHp(100);
       startPhase1();
       showFace();
+      /* 第一次进来先讲清楚怎么打；点「开始」才关 */
+      S.intro = true;
+      if (S.ui.intro) { S.ui.intro.classList.add('on'); }
 
       var ld = S.ui.load;
       ld.classList.add('off');
