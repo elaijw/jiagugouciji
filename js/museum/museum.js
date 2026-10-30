@@ -617,6 +617,31 @@
           pg.floatN + '</b> 片　·　守字之骨 ' +
           ((pg.boss && pg.boss.cleared) ? '<b>已通过</b>' : '未通过');
         S.sum.appendChild(line);
+        /* 12 件展品做成"柜格"：点一间 → 展开它的展签（展签里能直达关卡/图鉴）。
+           3D 柜格本身也可点（kind: slot），这里给一份不依赖 3D 的等价入口。 */
+        var exs = [];
+        try {
+          if (App.levels && App.levels.museum && App.levels.museum.exhibits) {
+            exs = App.levels.museum.exhibits;
+          }
+        } catch (e0) { exs = []; }
+        if (!exs || !exs.length) {
+          exs = ['日', '月', '雨', '火', '山', '水', '木', '田', '人', '大', '目', '鼎'];
+        }
+        var cells = App.el('div', 'mu-sum-cells');
+        exs.slice(0, 12).forEach(function (ch) {
+          var cb = App.el('button', 'mu-sum-cell' + (S.seen[ch] ? ' on' : ''));
+          cb.type = 'button';
+          cb.title = S.seen[ch] ? ('「' + ch + '」已收进典藏，点开看展签')
+                                : ('「' + ch + '」还没看过，点开看怎么去看');
+          var cg = glyphNode(ch, 'mu-sum-cell-g');
+          if (cg) { cb.appendChild(cg); }
+          else { cb.appendChild(App.el('span', null, ch)); }
+          cb.onclick = function () { openExhibit(ch, false); };
+          cells.appendChild(cb);
+        });
+        S.sum.appendChild(cells);
+
         var where = App.el('div', 'mu-sum-acts');
         [['#/play/bone-build', '第一关'], ['#/play/bone-float', '骨片空间'], ['#/play/boss-3d', '守字之骨']]
           .forEach(function (kv) {

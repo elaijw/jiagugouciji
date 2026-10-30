@@ -1688,7 +1688,11 @@
         new T.MeshBasicMaterial({ map: qMarkTex, transparent: true })
       );
       tag.position.set(p.x, p.y - 0.86, -6.90);
+      /* 空龛的"未观"牌也要能点：没看过的格子点开会说明它是什么、怎么去看。
+         骨版在未观时是 hidden，射线打不到，所以这里给牌子挂同一个 pick 语义。 */
+      tag.userData = { kind: 'slot', char: e.ch, slot: i };
       collG.add(tag);
+      pickables.push(tag);
 
       collSlots.push({ char: e.ch, slab: s, tag: tag, seen: false, y: p.y });
     });
