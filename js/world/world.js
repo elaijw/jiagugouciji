@@ -38,9 +38,16 @@
     }
     return false;
   }
+  /* 一个区的学习点 = objects（原有热区）+ extra（3D 里补回来的实物）。
+     extra 是这一轮补的 23 个字：田 / 禾米 / 虎虫 / 囗玉卜贝糸弓矢刀斧斤戈力人耳止女子足。
+     它们在 2D 插画上没有明确可点的实物（所以上一轮被撤），
+     但三维世界里每个都能立一件真物件，于是按"61 个学习点一个不少"恢复。 */
+  function zoneObjects(z) {
+    return (z.objects || []).concat(z.extra || []);
+  }
   function zoneStat(z) {
     var p = progress();
-    var objs = z.objects || [];
+    var objs = zoneObjects(z);
     var done = objs.filter(function (o) { return known(p, z.id, o.char); }).length;
     return { total: objs.length, done: done, clear: objs.length > 0 && done >= objs.length };
   }

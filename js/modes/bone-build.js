@@ -612,7 +612,7 @@
       copy.appendChild(U.el('p', 'bb-eyebrow', '第一关 · 完成'));
       copy.appendChild(U.el('h1', 'bb-cover-title', '你已经会看构件了'));
       copy.appendChild(U.el('p', 'bb-cover-lead',
-        '龟宝带你认识了甲骨文的材料与记录方式，也一起拼了 ' + state.deck.length + ' 个字形。接下来可以去第二关，在王邑小地图里继续探索。'));
+        '龟宝带你认识了甲骨文的材料与记录方式，也一起拼了 ' + state.deck.length + ' 个字形。接下来可以去第二关，在六片浮空骨上继续认字。'));
       var _g2 = gbLine('partner', 1);
       if (_g2) { copy.appendChild(U.el('p', 'bb-guibao-line bb-guibao-finish', _g2)); }
       copy.appendChild(U.el('p', 'bb-finish-summary', '本地已收集 ' + learnedCount() + ' 个构字字形'));

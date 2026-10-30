@@ -511,7 +511,7 @@
     hb.appendChild(claim);
 
     hb.appendChild(App.el('p', 'hero-lead', copyText('home.subtitle',
-      '亲手拼出甲骨字形，点亮殷商王邑，最后迎战终局之敌。把三千年前的文字，'
+      '亲手拼出甲骨字形，在浮空骨片间认出字与物，最后迎战终局之敌。把三千年前的文字，'
       + '从展柜里的知识，变成一场可以亲自参与的探索。')));
 
     var cta = App.el('div', 'hero-cta');
@@ -601,11 +601,11 @@
 
     sec1.id = 'playSection';
     sec1.appendChild(sectionHead('三步，开启甲骨探索',
-      '从认字形，到拨雾见邑，再到终局之战',
+      '从认字形，到看字生万物，再到终局之战',
       '#/modes', '全部玩法 →'));
     /* 主线：给每张卡排上步骤号，卡之间用一条贯穿的细线串起来。
        顺序仍按 App.modes.playable() 的注册顺序，**不重排**——
-       王邑是主玩法，它天然落在中间，正好是这条线的中枢。 */
+       主玩法落在中间那张卡上，正好是这条线的中枢。 */
     var grid = App.el('div', 'play-grid');
     App.modes.playable().forEach(function (m, i) {
       var spec = LV_SPEC[m.id] || {};
@@ -1060,7 +1060,7 @@
     }
     if (e.meaning) right.appendChild(App.el('p', 'as-line', '释义：' + e.meaning));
     if (e.source) right.appendChild(App.el('p', 'as-line as-src', '卜辞出处：' + e.source));
-    if (e.zone) right.appendChild(App.el('p', 'as-line', '在王邑图卷上属于：' + e.zone));
+    if (e.zone) right.appendChild(App.el('p', 'as-line', '所属类别：' + e.zone));
     if (e.tier) right.appendChild(App.el('p', 'as-line', '构件讨伐：' + e.tier));
     if (e.cat) right.appendChild(App.el('p', 'as-line', '构件分类：' + e.cat));
     if (e.level) right.appendChild(App.el('p', 'as-line', '字卡等级：' + e.level));
@@ -1070,13 +1070,13 @@
     var apps = App.atlas.appearancesOf(e.char);
     var links = App.el('div', 'as-links');
     if (apps.some(function (x) { return x.kind === 'object'; })) {
-      var a1 = App.el('a', 'btn sm', '去王邑点亮它');
-      a1.href = '#/play/wangyi-map';
+      var a1 = App.el('a', 'btn sm', '去骨片上认它');
+      a1.href = '#/play/bone-float';
       links.appendChild(a1);
     }
     if (apps.some(function (x) { return x.kind === 'boss'; })) {
       var a2 = App.el('a', 'btn sm', '去讨伐它');
-      a2.href = '#/play/boss-raid';
+      a2.href = '#/play/boss-3d';
       links.appendChild(a2);
     }
     if (apps.some(function (x) { return x.kind === 'piece'; })) {
@@ -1331,7 +1331,12 @@
     wrap.appendChild(tips);
 
     /* 后续玩法（原来单独一页，现并入说明） */
-    var planned = App.modes.all().filter(function (m) { return m.status !== 'ready'; });
+    /* 只列"真的要上"的（status 既不是 ready 也不是 hidden）。
+       hidden 是已撤下的旧玩法（王邑图卷、构件讨伐、切场景版骨片空间）——
+       它们还留在代码里当历史，但绝不能再以"后续玩法"的名义出现在说明页上。 */
+    var planned = App.modes.all().filter(function (m) {
+      return m.status !== 'ready' && m.status !== 'hidden';
+    });
     var next = App.el('section', 'howto-sec');
     next.appendChild(App.el('h2', 'howto-name', '后续玩法'));
     next.appendChild(App.el('p', 'howto-desc', planned.length
@@ -1356,7 +1361,7 @@
     [
       ['甲骨字形', 'Oracle Bone Glyphs: Parametric Vector Dataset v0.3，'
         + '数据 CC BY 4.0、代码 MIT，本项目做缩放、配色与合成。'],
-      ['底图', '当前王邑总图由项目原创绘制，是学习用的聚落意象示意，并非考古复原；仓库保留的旧版底图由 Agnes AI 生成。'],
+      ['三维场景', '第二、三关的浮空骨片、云海、祭坛与每一种实物（山、水、木、日、目、鼎）都是按对应甲骨字形的结构用程序搭出来的示意形象，不是文物复原，也不代表原简笔迹。'],
       ['说明', '字形用于识字对照，不代表原简拓片的笔迹；'
         + '概不外推为学术结论，教学演示用途。']
     ].forEach(function (x) {
@@ -1380,27 +1385,26 @@
       ['得甲片', '拼对即入账，结算里能看到这个字的构件与释义。'],
       ['双人模式', '对手可以在倒计时里抢答，比谁先拼出来。']
     ],
-    'wangyi-map': [
-      ['一幅灰图', '整幅殷商王邑图卷初始是灰的。'],
-      ['点实物', '点图上的实物热区，认出它对应的字。'],
-      ['构字', '上面给甲骨文原字，下面给笔画，拖到正确位置拼出来。'],
-      ['点亮', '拼成一个字，地图上那一块就亮起来。'],
-      ['演示点亮', '大地图右下角有「演示：点亮全图」，一次点亮全区实物；只在屏幕上亮，不动你的存档。']
+    'bone-float': [
+      ['六片骨，一个字', '六片甲骨残片浮在云海上方，每片刻着一个字：山、水、木、日、目、鼎。'],
+      ['点开一片', '骨片飞到画面中央慢慢放大，其余骨片淡出，字清清楚楚地浮出来。'],
+      ['字旁边长出东西', '紧跟着，这个字画的那个东西从骨片里长出来——山、水、木、日、目、鼎。'],
+      ['看它为什么这么画', '左下角字卡说明字形和实物是怎么对上的；看完点「收回」。'],
+      ['继续探', '骨片回到原位，点下一片。六片都看过，这一关就走完了。']
     ],
-    'boss-raid': [
-      ['一条线走到底', '21 道关卡沿一枚甲骨片的轮廓推进，通关才解锁下一关。'],
-      ['阶段一 · 构件压制', '合体字档从构件池里自己挑构件砸上去；挑错记误选，不扣血。'],
-      ['阶段二 · 构件崩坏', '形体错乱、构件混同，这一手失效。'],
-      ['阶段三 · 笔画终局', '化成纯笔画体，一段一段斩断即斩杀。'],
-      ['复杂的直接拆笔画', '独体字与繁复字身上没有可拆的构件，直接点它拆笔画。'],
-      ['完美通关', '一次都没挑错，珠子会描金。']
+    'boss-3d': [
+      ['一块守字骨', 'Boss 是悬在祭坛上的巨大骨版，字刻在版心，三圈骨环护着它。'],
+      ['一 · 拆构件', '版心是「泉」——水 ＋ 石。四片构件骨里挑出真的那两块，挑错会被反噬、掉护盾。'],
+      ['二 · 断笔画', '「木」被拆成几段骨管，只有正在发光的那一段点得断，点错一样反噬。'],
+      ['三 · 填古句', '三句《论语》各缺一字，从四片字骨里选出对的那片，句子会念给你听。'],
+      ['战败', '三句补齐，骨版崩解。结算会把这三次用到的字和句子留给你。']
     ]
   };
 
   /* ---------- 场景：模式选择 ---------- */
   /* ---------- 场景：开始游戏（关卡选择） ----------
-     三段学习路线：认识甲骨字形 → 探索王邑实物 → 挑战进阶 Boss。
-     **顺序沿用 App.modes.playable() 的注册顺序**（甲骨构字 → 殷商王邑 → 构件讨伐）。
+     三段学习路线：认识甲骨字形 → 骨片上认字与物 → 挑战守字之骨。
+     **顺序沿用 App.modes.playable() 的注册顺序**（甲骨构字 → 骨片浮空 → 守字之骨）。
      三关都可以进入；编号表达推荐学习顺序，不新增解锁限制。
 
      面板上的甲骨字形**全部取自数据集里核实过的真字形**，没有一处编造的装饰文字：
@@ -1411,7 +1415,7 @@
 
      用到的实物字形是**按数据算出来的**（遍历 App.levels.map.zones，每区取第一处
      有真字形的实物），不是写死的——换了关卡数据，这里会自动跟着变。 */
-  var LV_CENTER = 'wangyi-map';  /* 首页仍标出目前的主玩法 */
+  var LV_CENTER = 'bone-float';  /* 首页标出的主玩法：新第二关是这次重做的主体验 */
   var LV_START = 'bone-build';   /* 第 01 关：从甲骨字形和构件入门 */
 
   var LV_SPEC = {
@@ -1421,18 +1425,25 @@
       summary: '跟龟宝边拼构件边听甲骨知识；无倒计时，答错可重试，完成 5 次入门练习。',
       action: '开始第一课'
     },
-    'wangyi-map': {
-      step: '实物探索', char: '邑', chain: true,
-      seal: '5 幅主题小地图', cap: '五区实物字形 · 完成一图，点亮一域',
-      summary: '从主题小地图学习甲骨字形；学完一个分区，就点亮大地图上的对应王邑。',
-      action: '进入王邑地图'
+    /* 第二关（重做版）：骨片浮空。展台用「山」——它是六片骨里最典型的一片象形字。 */
+    'bone-float': {
+      step: '骨片浮空', char: '山', seal: '山 · 水 · 木 · 日',
+      cap: '六片骨 · 点开长出来',
+      action: '看骨片',
+      summary: '六片刻着甲骨文的骨片悬在虚空里，高低远近各不同。点开一片，它飞到眼前放大，'
+        + '字亮起来，字所指的山川、日月、树木、眼睛、青铜器就从骨面上长出来；收回时再缩回骨里。'
     },
-    'boss-raid': {
-      step: '进阶关卡', char: '虎', modern: '虎',
-      cap: '21 关 · 分阶段挑战',
-      summary: '推进 21 关线性关卡：拆构件、破防，再进入笔画终局。',
-      action: '挑战终局'
-    }
+    /* 第三关：三阶段 Boss。展台用版心那个「泉」，与阶段一的拆解字形是同一个。 */
+    'boss-3d': {
+      step: '三阶段 Boss', char: '泉', seal: '构件 · 笔画 · 古句',
+      cap: '三阶段 · 拆字',
+      action: '迎战',
+      summary: '一块悬在祭坛上的巨大骨版，字刻在版心，三圈骨环护着它。'
+        + '先拆它的构件，再断它的笔画，最后用三句古语把它的残句补齐——'
+        + '每拆一件，骨版就矮一分。'
+    },
+    /* wangyi-map / boss-raid 已 status:hidden（旧玩法），
+       规格一并撤掉，避免列表里出现没有卡片的空条目。 */
   };
 
   /* 五区各取一处真实实物的字形（每区第一个有真字形的），用于"地图"那条链 */
@@ -1467,7 +1478,7 @@
     introCopy.appendChild(App.el('p', 'lv-kicker', '识字 · 探索 · 讨伐'));
     introCopy.appendChild(App.el('h1', 'lv-title', '从认字形，到挑战终局'));
     introCopy.appendChild(App.el('p', 'lv-lead',
-      '第 01 关认识甲骨字形与构件，第 02 关沿王邑实物找字，第 03 关迎战进阶关卡。'));
+      '第 01 关认识甲骨字形与构件，第 02 关在浮空骨片间看字与物的联系，第 03 关迎战守字之骨。'));
     intro.appendChild(introCopy);
 
     var guide = App.el('aside', 'lv-guide');
@@ -1482,7 +1493,7 @@
     guideCopy.appendChild(App.el('span', 'lv-guide-name', '龟宝 · 甲骨小向导'));
     var _lvLine = (App.copy && App.copy.pick) ? App.copy.pick('partner', 0) : '';
     guideCopy.appendChild(App.el('p', 'lv-guide-note', _lvLine
-      || '先上入门课，再进入五幅主题小地图；学会一片，王邑大地图就亮起一域。'));
+      || '先上入门课，再去六片浮空骨上认字，认够了就去迎战守字之骨。'));
     guide.appendChild(guideCopy);
     intro.appendChild(guide);
     host.appendChild(intro);
@@ -1496,7 +1507,7 @@
     list.forEach(function (m, i) {
       var spec = LV_SPEC[m.id] || {};
       var isStart = (m.id === LV_START);
-      var isBoss = (m.id === 'boss-raid');
+      var isBoss = (m.id === 'boss-raid' || m.id === 'boss-3d');
       var ready = (m.status === 'ready');
       var no = ('0' + (i + 1)).slice(-2);
 
@@ -1866,6 +1877,11 @@
     }
     var scene;
     if (r.name === 'modes') scene = sceneModes();
+    /* 第二关（殷商王邑）现在就是三维世界：3D 是主体验，平面图退回"总图"这张底稿。
+       App.world 没加载成功时仍然落到原来的二维玩法页，不让路由白屏。 */
+    /* wangyi-map 是二维的「殷商王邑」：61 个学习点的载体，模式列表第 04 张卡就是它。
+       之前这里把它劫持到骨片空间，结果点 04 卡进的是第二关 —— 一个坏掉的入口。
+       现在恢复它自己；博物馆底部「浮空骨片区」走的是 bone-space，两条路互不干扰。 */
     else if (r.name === 'play') scene = scenePlay(r.params.id);
     else if (r.name === 'settings') scene = sceneSettings();
     else if (r.name === 'atlas') scene = sceneAtlas();
@@ -1874,8 +1890,9 @@
     /* 3D 展馆：独立一层，渲染器由 App.museum 自己管（含 WebGL 不可用时的降级）。
        没加载到这一层时退回首页，不让路由把整站卡死。 */
     else if (r.name === 'museum' && App.museum) scene = App.museum.scene();
-    /* 3D 王邑（聚落世界）：与展馆并列的另一片三维空间，渲染器由 App.world 自管。 */
-    else if (r.name === 'world' && App.world) scene = App.world.scene();
+    /* 王邑 3D 已舍弃。旧书签 #/world 不再进入那片聚落，直接落到数字博物馆，
+       不给白屏、也不留一个"点进去是首页"的空路由。 */
+    else if (r.name === 'world') scene = (App.museum ? App.museum.scene() : sceneHome());
     else scene = sceneHome();
     root.appendChild(scene);
     window.scrollTo(0, 0);

@@ -1553,7 +1553,10 @@
     tags: ['五片任意进入', '38 处实物', '点亮大地图'],
     layout: 'wide',
     minPlayers: 1, maxPlayers: 1,
-    status: 'ready',
+    /* 玩法重做：王邑大地图不再是二、三关的一部分，从模式列表撤下。
+       文件与路由都留着，旧书签直连仍能进；但列表里不出现，
+       新关卡也不引用它。 */
+    status: 'hidden',
     data: { packs: [], assets: [] },
     mount: mount,
     unmount: unmount

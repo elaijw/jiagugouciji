@@ -1375,7 +1375,9 @@
     tags: ['线性关卡', total + ' 关', '横版对战'],
     layout: 'wide',
     minPlayers: 1, maxPlayers: 1,
-    status: 'ready',
+    /* 第三关已重做为 boss3d 的三阶段讨伐，旧的横版构件关卡从列表撤下。
+       文件与路由保留，直连仍可用。 */
+    status: 'hidden',
     data: { packs: [], assets: [] },
     mount: mount,
     unmount: unmount

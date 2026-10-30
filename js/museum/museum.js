@@ -23,8 +23,8 @@
     { id: 'prologue',   name: '文明序厅',   glyph: '卜', note: '甲骨是什么，先从这里说起' },
     { id: 'gallery',    name: '甲骨文展厅', glyph: '日', note: '十二件骨版，可凑近看' },
     { id: 'build',      name: '造字探索区', glyph: '木', note: '把两个构件搬上台面', href: '#/play/bone-build' },
-    { id: 'excavate',   name: '考古任务区', glyph: '山', note: '九个探方，三层土', href: '#/play/wangyi-map' },
-    { id: 'boss',       name: 'BOSS 挑战区', glyph: '戈', note: '名录墙与拆解', href: '#/play/boss-raid' },
+    { id: 'excavate',   name: '浮空骨片区', glyph: '山', note: '六片骨，点开长出来', href: '#/play/bone-float' },
+    { id: 'boss',       name: '守字之骨区', glyph: '戈', note: '拆构件 · 断笔画 · 补古句', href: '#/play/boss-3d' },
     { id: 'collection', name: '我的典藏区', glyph: '贝', note: '观过的展、认过的字' }
   ];
 
@@ -221,11 +221,8 @@
     btnHall.onclick = function () { goHall(); };
     right.appendChild(btnHall);
 
-    /* 出城：博物馆在城内，王邑在城外 —— 这是两个三维空间之间的门。
-       第一阶段先用顶栏这道门连通，第四阶段换成大厅里的实体城门。 */
-    var btnWorld = App.el('a', 'mu-btn mu-btn-world', '出城 · 王邑');
-    btnWorld.href = '#/world';
-    right.appendChild(btnWorld);
+    /* 王邑 3D 已舍弃（顶栏那道"出城"的门随之撤掉）。
+       第二关改走浮空骨片，出口并入底部展区与任务条。 */
     bar.appendChild(right);
     wrap.appendChild(bar);
 
@@ -612,8 +609,8 @@
       S.taskN.textContent = ds ? ('已出土 ' + ds.found + ' / ' + ds.total) : '';
       S.taskAgain.hidden = false;
       S.taskAgain.textContent = '重新填土';
-      S.taskGo.href = '#/play/wangyi-map';
-      S.taskGo.textContent = '去王邑';
+      S.taskGo.href = '#/play/bone-float';
+      S.taskGo.textContent = '去骨片空间';
     } else {
       var bst = (S.api && S.api.bossState) ? S.api.bossState() : null;
       S.taskK.textContent = 'BOSS 挑战区';
@@ -621,7 +618,7 @@
       S.taskN.textContent = bst && bst.idx >= 0
         ? ('已拆 ' + bst.broken + ' / ' + bst.total) : '先选一尊';
       S.taskAgain.hidden = true;
-      S.taskGo.href = '#/play/boss-raid';
+      S.taskGo.href = '#/play/boss-3d';
       S.taskGo.textContent = '去讨伐';
     }
     /* 文字填完再量一次：任务条可能因为文案换行而变高 */
@@ -742,7 +739,7 @@
 
     openPanel(function (p) {
       panelHead(p, ch, isHero ? '中央展品 · 卜兆之形'
-        : (obj ? obj.zone + ' · 王邑实物' : '甲骨文展厅'));
+        : (obj ? obj.zone + ' · 甲骨实物' : '甲骨文展厅'));
 
       var body = App.el('div', 'mu-p-body');
 
@@ -763,7 +760,7 @@
       row(dl, '释义', (pool && pool.mean) || (obj && obj.meaning) || '');
       if (pool && pool.src) { row(dl, '卜辞', pool.src); }
       if (pool && pool.lv) { row(dl, '释读', pool.lv); }
-      if (obj) { row(dl, '王邑分区', obj.zone); }
+      if (obj) { row(dl, '所属类别', obj.zone); }
       if (meta) {
         row(dl, '笔画', (meta.pieceCount || 0) + ' 笔');
         row(dl, '数据编号', '#' + meta.glyphId);
@@ -790,8 +787,8 @@
 
       /* 与既有玩法的连接：这两条都是真入口 */
       var acts = App.el('div', 'mu-p-acts');
-      var a1 = App.el('a', 'mu-btn mu-btn-primary', obj ? '去王邑找这个字' : '去造字任务');
-      a1.href = obj ? '#/play/wangyi-map' : '#/play/bone-build';
+      var a1 = App.el('a', 'mu-btn mu-btn-primary', obj ? '去骨片空间找这个字' : '去造字任务');
+      a1.href = obj ? '#/play/bone-float' : '#/play/bone-build';
       acts.appendChild(a1);
       var a2 = App.el('a', 'mu-btn', '汉字图鉴');
       a2.href = '#/atlas';
@@ -975,7 +972,7 @@
       var body = App.el('div', 'mu-p-body');
       body.appendChild(App.el('p', 'mu-p-p',
         '土是一层一层刮开的。三片带字的骨分别刻着「山」「川」「泉」——' +
-        '它们都属王邑的「山川」一区，是那张图上最先被认出来的地形。'));
+        '它们都归在「山川」这一类，是先民最早认出来的地形。'));
       var box = App.el('div', 'mu-p-seen');
       ['山', '川', '泉'].forEach(function (ch) {
         var b = App.el('button', 'mu-p-seenitem is-on');
@@ -988,8 +985,8 @@
       });
       body.appendChild(box);
       var acts = App.el('div', 'mu-p-acts');
-      var a1 = App.el('a', 'mu-btn mu-btn-primary', '去王邑认实物');
-      a1.href = '#/play/wangyi-map';
+      var a1 = App.el('a', 'mu-btn mu-btn-primary', '去骨片空间认实物');
+      a1.href = '#/play/bone-float';
       acts.appendChild(a1);
       var a2 = App.el('button', 'mu-btn', '再挖一遍');
       a2.type = 'button';
@@ -1023,7 +1020,7 @@
         '拆解与形象取自讨伐页的既有数据；馆内只做"拆开看构件"，不替代关卡里的战斗判定。'));
       var acts = App.el('div', 'mu-p-acts');
       var a1 = App.el('a', 'mu-btn mu-btn-primary', '去讨伐这一尊');
-      a1.href = '#/play/boss-raid';
+      a1.href = '#/play/boss-3d';
       acts.appendChild(a1);
       var a2 = App.el('button', 'mu-btn', '关掉，继续拆');
       a2.type = 'button';

@@ -23,11 +23,14 @@
     earth:    0x6f5c3e,
     earthDk:  0x4f3f2b,
     road:     0x7a6849,
-    stone:    0x6a6157,
-    stoneDk:  0x453d33,
+    /* 石材抬亮并去暖：夯土地面是暖褐，台基/阶条/铺石必须是偏冷的浅灰，
+       两者明度差一档，画面才有"人造物"与"土地"的分层。原来 0x6a6157 太接近地面。 */
+    stone:    0x8f8b80,
+    stoneDk:  0x5e574b,
     wood:     0x3a2a1b,
-    thatch:   0x463a26,
-    plaster:  0x8d7a58,
+    /* 草顶压暗：屋面上半部要能被天光"吃"进去，否则远看是一块浅色板 */
+    thatch:   0x3f3323,
+    plaster:  0xa89272,
     leaf:     0x4c5a3a,
     leafDk:   0x36412a,
     water:    0x27383a,
@@ -65,7 +68,12 @@
     h *= sstep(14, 30, r);
     var rim = Math.max(0, (r - 58) / 24);
     h += rim * rim * 15;
-    h += (vnoise(x * 0.26, z * 0.26) - 0.5) * 0.22 * sstep(10, 30, r);
+    h += (vnoise(x * 0.26, z * 0.26) - 0.5) * 0.10 * sstep(10, 30, r);
+    /* 出生台地：广场南侧一整块 3.2 米高的缓台。
+       这一条是"平面地图"和"可探索空间"的分水岭 —— 玩家站在高处往下看，
+       近景是脚下的坡与草、中景是环形道路与广场、远景是宗庙屋脊与五区地标，
+       三个层次同时进画；停在平地中央时，这三层是压扁在一起的。 */
+    h += Math.exp(-Math.pow((x) * 0.062, 2) - Math.pow((z - 27) * 0.058, 2)) * 3.2 * sstep(13.5, 19, r);
     return h;
   }
 
@@ -160,6 +168,43 @@
     return t;
   }
 
+  /* 草顶贴图：一把把顺坡压下去的茅草 + 两道捆扎横线。
+     没有它，屋顶就是一个纯色多面体 —— 从上方俯视时整块深褐色，
+     读起来像"盖了块板"，有茅草纹理之后才有"层层铺草"的量感。 */
+  function thatchTex() {
+    var S = 256;
+    var cv = document.createElement('canvas');
+    cv.width = cv.height = S;
+    var c = cv.getContext('2d');
+    var R = App.museumTex ? App.museumTex.rng(9137) : Math.random;
+    c.fillStyle = '#6b5734'; c.fillRect(0, 0, S, S);
+    /* 草茎：竖向短笔，末端渐细，深浅交替 */
+    for (var i = 0; i < 2600; i++) {
+      var x = R() * S, y = R() * S, len = 10 + R() * 26, w = 1 + R() * 1.6;
+      var v = R();
+      var col = v < 0.42 ? 'rgba(58,44,26,.55)'
+              : v < 0.78 ? 'rgba(126,102,62,.50)'
+                         : 'rgba(178,150,100,.40)';
+      c.strokeStyle = col;
+      c.lineWidth = w;
+      c.beginPath();
+      c.moveTo(x, y);
+      c.lineTo(x + (R() - 0.5) * 5, y + len);
+      c.stroke();
+    }
+    /* 捆扎横线：三条略弯的深线，模拟草束之间的压条 */
+    c.strokeStyle = 'rgba(42,32,18,.42)';
+    for (var k = 0; k < 3; k++) {
+      var yy = 42 + k * 78;
+      c.lineWidth = 3.5;
+      c.beginPath();
+      c.moveTo(0, yy);
+      for (var xx = 0; xx <= S; xx += 16) { c.lineTo(xx, yy + Math.sin(xx * 0.08 + k) * 2.5); }
+      c.stroke();
+    }
+    return cv;
+  }
+
   /* ---------------- 材质 ---------------- */
   function build(opts) {
     T = window.THREE;
@@ -169,12 +214,16 @@
 
     var MAT = {
       earth:   new T.MeshStandardMaterial({ color: COL.earth, roughness: 0.98, metalness: 0.0 }),
-      road:    new T.MeshStandardMaterial({ color: COL.road, roughness: 1.0, metalness: 0.0 }),
+      /* 路面也走土石贴图：纯色面在带纹理的地面上会显得"刷了一条白漆"。
+         注意 map 会和 color 相乘 —— 上一版 color 给 0x8f7f66，乘上土黄贴图直接压成
+         一条深褐色沟（看着像护城河）。这里反过来：color 给亮米色，只当"压实了的浅土"。 */
+      road:    new T.MeshStandardMaterial({ map: canvasTex(soilTex(), 26), color: 0xb09d80,
+                                            roughness: 1.0, metalness: 0.0 }),
       stone:   new T.MeshStandardMaterial({ color: COL.stone, roughness: 0.9, metalness: 0.03 }),
       stoneDk: new T.MeshStandardMaterial({ color: COL.stoneDk, roughness: 0.86, metalness: 0.05 }),
       wood:    new T.MeshStandardMaterial({ color: COL.wood, roughness: 0.82, metalness: 0.04 }),
-      thatch:  new T.MeshStandardMaterial({ color: COL.thatch, roughness: 1.0, metalness: 0.0,
-                                            side: T.DoubleSide }),
+      thatch:  new T.MeshStandardMaterial({ color: 0x8a7448, map: canvasTex(thatchTex(), 1),
+                                            roughness: 1.0, metalness: 0.0, side: T.DoubleSide }),
       plaster: new T.MeshStandardMaterial({ color: COL.plaster, roughness: 0.95, metalness: 0.0 }),
       boneFace: new T.MeshStandardMaterial({ color: 0xcfc39c, roughness: 0.72, metalness: 0.03 }),
       bronze: new T.MeshStandardMaterial({ color: 0x6f8163, roughness: 0.44, metalness: 0.58 }),
@@ -221,6 +270,15 @@
       }
       var g = new T.BufferGeometry();
       g.setAttribute('position', new T.BufferAttribute(pos, 3));
+      /* 平面投影 UV：草顶贴图沿屋面铺，按屋面的宽/深归一化。
+         没有 uv 的话，MAT.thatch 上挂的 map 会被整片忽略 —— 屋顶退回纯色板。 */
+      var uv = new Float32Array((pos.length / 3) * 2);
+      for (var u = 0; u < pos.length; u += 3) {
+        var vi = (u / 3) * 2;
+        uv[vi] = pos[u] / w * 3.0 + 1.5;
+        uv[vi + 1] = pos[u + 2] / d * 3.0 + 1.5;
+      }
+      g.setAttribute('uv', new T.BufferAttribute(uv, 2));
       g.computeVertexNormals();
       return g;
     }
@@ -294,7 +352,13 @@
         var dx = b.x - a.x, dz = b.z - a.z;
         var len = Math.hypot(dx, dz) || 1;
         var nx = -dz / len, nz = dx / len;
-        var y = terrainH(p.x, p.z) + (lift == null ? 0.09 : lift);
+        /* 抬升基准取"邻域最高"而不是当前点：渲染出来的地形按 1.389 米的格子插值，
+           格心处的真值可以比三角面低十几厘米 —— 路面按真值铺就会被地形咬掉一块。
+           再叠 0.16 米，正好压在地皮（cellTop + 0.05）上面一点，两者不会互相切。 */
+        var y = Math.max(terrainH(p.x, p.z),
+                         terrainH(p.x + 0.9, p.z), terrainH(p.x - 0.9, p.z),
+                         terrainH(p.x, p.z + 0.9), terrainH(p.x, p.z - 0.9))
+                + (lift == null ? 0.16 : lift);
         L.push([p.x + nx * halfW, y, p.z + nz * halfW]);
         R.push([p.x - nx * halfW, y, p.z - nz * halfW]);
       }
@@ -326,40 +390,46 @@
         var a = (i / 40) * Math.PI * 2;
         pts.push({ x: Math.sin(a) * 15, z: Math.cos(a) * 15 });
       }
-      add('road', ribbon(pts, 1.9), 0, 0, 0);
+      add('road', ribbon(pts, 1.45), 0, 0, 0);
     })();
     ZONES.forEach(function (z) {
       var a0 = Math.atan2(z.x, z.z);
-      road(Math.sin(a0) * 14, Math.cos(a0) * 14, z.x, z.z, 3.6);
+      /* 起点从 14 挪到 16.5：14 时这条岔路和 r15 的环路重叠一米多，
+         两条路面同高 → z-fighting，截图里路就成了深浅两块拼起来的补丁。 */
+      road(Math.sin(a0) * 16.5, Math.cos(a0) * 16.5, z.x, z.z, 3.6);
     });
 
     /* ---------------- 中央宗庙 ----------------
        夯土台基 + 两排柱 + 重檐草顶。玩家在广场上第一眼要看见它。 */
     (function shrine() {
-      var W = 17, D = 12, BASE = 1.35;
+      /* 尺度收紧：原来 W17×D12、檐口 5.05 米、总高 8.35 米，站在 13 米外的广场上，
+         整个上半屏都是它的屋面（俯视看是一块深褐色大板）。
+         改成 W13×D9，屋面进深减少、坡度从 14° 提到 32° —— 现在读作"檐口在头顶上方"，
+         而不是"头上盖了一块板"。 */
+      var W = 13, D = 9, BASE = 1.15;
       add('stoneDk', new T.BoxGeometry(W, BASE, D), 0, BASE / 2, 0);
-      add('stone', new T.BoxGeometry(W + 1.4, 0.35, D + 1.4), 0, BASE + 0.05, 0);
-      block(0, 0, W / 2 + 0.7, D / 2 + 0.7, 9.6);
+      add('stone', new T.BoxGeometry(W + 1.2, 0.32, D + 1.2), 0, BASE + 0.05, 0);
+      block(0, 0, W / 2 + 0.6, D / 2 + 0.6, 9.0);
 
-      var colGeo = new T.CylinderGeometry(0.24, 0.29, 4.6, 10, 1);
-      var nC = 6;
+      var colGeo = new T.CylinderGeometry(0.22, 0.27, 4.0, 10, 1);
+      var nC = 5;
       for (var cx = 0; cx < nC; cx++) {
-        var x = -W / 2 + 1.3 + cx * ((W - 2.6) / (nC - 1));
-        add('wood', colGeo, x, BASE + 2.3, D / 2 - 1.5);
-        add('wood', colGeo, x, BASE + 2.3, -D / 2 + 1.5);
+        var x = -W / 2 + 1.2 + cx * ((W - 2.4) / (nC - 1));
+        add('wood', colGeo, x, BASE + 2.0, D / 2 - 1.2);
+        add('wood', colGeo, x, BASE + 2.0, -D / 2 + 1.2);
       }
-      /* 墙体内收，柱廊在外；正面开一道门洞，不然像一堵实心土台 */
-      add('plaster', new T.BoxGeometry(W - 4.2, 3.5, D - 5.0), 0, BASE + 1.75, 0);
-      add('wood', new T.BoxGeometry(2.4, 2.4, 0.5), 0, BASE + 1.2, (D - 5.0) / 2);
-      add('wood', new T.BoxGeometry(W - 3.0, 0.42, D - 3.8), 0, BASE + 3.7, 0);
-      /* 重檐：下檐檐口压在柱顶，上檐坐在下檐屋脊处 —— 两层不能重叠成一顶 */
-      var eave = BASE + 3.7;
-      roof('thatch', 0, eave, 0, W + 3.2, D + 3.2, 3.30);
-      roof('thatch', 0, eave + 3.05, 0, W - 2.6, D - 2.6, 3.30);
-      /* 门前台阶：四级，全部落在台基外侧（原来最后一级插进了台基里，只剩一级看得见） */
+      /* 墙体内收，柱廊在外 */
+      add('plaster', new T.BoxGeometry(W - 3.6, 3.1, D - 4.6), 0, BASE + 1.55, 0);
+      add('wood', new T.BoxGeometry(2.2, 2.2, 0.5), 0, BASE + 1.1, (D - 4.6) / 2);
+      add('wood', new T.BoxGeometry(W - 2.4, 0.40, D - 3.4), 0, BASE + 3.35, 0);
+      /* 重檐：下檐压在柱顶，上檐坐在下檐屋脊处 */
+      var eave = BASE + 3.35;
+      roof('thatch', 0, eave, 0, W + 2.8, D + 2.8, 3.60);
+      roof('thatch', 0, eave + 3.28, 0, W - 2.2, D - 2.2, 2.60);
+      /* 门前台阶：四级，全部落在台基外侧 */
       for (var s = 0; s < 4; s++) {
-        add('stone', new T.BoxGeometry(5.4, 0.34, 1.05), 0, 0.17 + s * 0.30,
-          D / 2 + 0.55 + (3 - s) * 0.95);
+        add('stone', new T.BoxGeometry(4.6, 0.30, 0.95), 0, 0.15 + s * 0.27,
+          D / 2 + 0.50 + (3 - s) * 0.86);
       }
     })();
 
@@ -388,6 +458,14 @@
          正对镜头时像"地面上扎了一根针"。改成 Φ0.24 并压到 3.2 米。 */
       add('wood', new T.CylinderGeometry(0.20, 0.26, 3.2, 10), zx, TOP + 1.60, zz);
       add('stone', new T.CylinderGeometry(0.50, 0.50, 0.12, 18), zx, TOP + 3.26, zz);
+      /* 上台阶：三层夯土台之间原来没有任何连接，
+         从广场看过去就是"三个叠起来的盒子"，根本读不出这是能走上去的台。
+         南面补一道 9 级踏步（每级 0.38 米高 ≈ 两级夯土），把三层串成一条路。 */
+      for (var st2 = 0; st2 < 9; st2++) {
+        var sh2 = 0.38, sw = 3.4;
+        add('stone', new T.BoxGeometry(sw, sh2, 0.62),
+          zx, 0.19 + st2 * sh2, zz + 6.4 + (8 - st2) * 0.52);
+      }
       /* 地面上的南北刻线：影子落在这条线上 */
       add('stone', new T.BoxGeometry(0.30, 0.06, 8.0), zx, 0.07, zz + 6.2);
     })();
@@ -399,13 +477,16 @@
       [{ dx: 0, dz: -3.0, r: 5.4, h: 8.2 },
        { dx: 4.6, dz: 1.6, r: 4.0, h: 5.6 },
        { dx: -4.8, dz: 2.0, r: 3.4, h: 4.6 }].forEach(function (m) {
-        add('stone', new T.ConeGeometry(m.r, m.h, 6, 1), mx + m.dx, m.h / 2 - 0.4, mz + m.dz,
+        /* 山体必须坐在真实地面上。原来 y 写死 h/2-0.4，而 (42,-16) 的地形是起伏的，
+           山头要么悬空一截，要么半截埋进土里。 */
+        var mgy = terrainH(mx + m.dx, mz + m.dz) - 0.35;
+        add('stoneDk', new T.ConeGeometry(m.r, m.h, 6, 1), mx + m.dx, mgy + m.h / 2, mz + m.dz,
           0, m.dx, 0, 1, 1, 0.92);
         /* 山脚一圈碎石，压住"锥体直接插在地上"的假 */
         for (var k = 0; k < 5; k++) {
           var a = k / 5 * Math.PI * 2 + m.dx;
-          add('stone', new T.ConeGeometry(1.0 + (k % 2) * 0.4, 1.1, 5, 1),
-            mx + m.dx + Math.cos(a) * (m.r * 0.86), 0.3,
+          add('stoneDk', new T.ConeGeometry(1.0 + (k % 2) * 0.4, 1.1, 5, 1),
+            mx + m.dx + Math.cos(a) * (m.r * 0.86), mgy + 0.7,
             mz + m.dz + Math.sin(a) * (m.r * 0.86), 0, a, 0, 1, 1, 0.92);
         }
       });
@@ -420,22 +501,27 @@
     (function forest() {
       var fx = -44, fz = -6;
       var R = App.museumTex ? App.museumTex.rng(7717) : Math.random;
-      var trunk = new T.CylinderGeometry(0.24, 0.34, 2.6, 7);
-      var crown = new T.ConeGeometry(1.7, 3.4, 7, 1);
-      var crown2 = new T.ConeGeometry(1.25, 2.4, 7, 1);
+      /* 树必须围成一圈，中间留出空地 —— 学习字碑就摆在这块空地上。
+         上一版 rr = 3 + R*13 把树直接种进了区心：站进去满屏树干与锥形树冠，
+         连自己角色都看不见，更别说字碑。现在中心 10 米留空，树只在 10~21 米环上。 */
+      var trunk = new T.CylinderGeometry(0.22, 0.32, 2.2, 7);
+      var crown = new T.ConeGeometry(1.45, 2.9, 7, 1);
+      var crown2 = new T.ConeGeometry(1.05, 2.0, 7, 1);
       for (var i = 0; i < 26; i++) {
-        var a = R() * Math.PI * 2, rr = 3 + R() * 13;
+        var a = (i / 26) * Math.PI * 2 + (R() - 0.5) * 0.22;
+        var rr = 10.5 + R() * 10.0;
         var tx = fx + Math.cos(a) * rr, tz = fz + Math.sin(a) * rr;
-        var sc = 0.8 + R() * 0.7;
+        var sc = 0.8 + R() * 0.6;
         var gy = terrainH(tx, tz);
-        add('wood', trunk, tx, gy + 1.2 * sc, tz, 0, R() * 6, 0, sc, sc, sc);
-        add(R() > 0.5 ? 'leaf' : 'leafDk', crown, tx, gy + 2.4 * sc + 1.6 * sc, tz, 0, R() * 6, 0, sc, sc, sc);
-        add(R() > 0.4 ? 'leafDk' : 'leaf', crown2, tx, gy + 2.4 * sc + 2.9 * sc, tz, 0, R() * 6, 0, sc, sc, sc);
+        add('wood', trunk, tx, gy + 1.0 * sc, tz, 0, R() * 6, 0, sc, sc, sc);
+        add(R() > 0.5 ? 'leaf' : 'leafDk', crown, tx, gy + 2.0 * sc + 1.35 * sc, tz, 0, R() * 6, 0, sc, sc, sc);
+        add(R() > 0.4 ? 'leafDk' : 'leaf', crown2, tx, gy + 2.0 * sc + 2.45 * sc, tz, 0, R() * 6, 0, sc, sc, sc);
       }
       /* 竹丛：细高杆，一丛一丛 */
       var bamboo = new T.CylinderGeometry(0.075, 0.10, 2.5, 5);
       for (var b = 0; b < 9; b++) {
-        var bx = fx + 8 + (R() - 0.5) * 12, bz = fz + 10 + (R() - 0.5) * 10;
+        var ba = R() * Math.PI * 2, br = 11 + R() * 7;
+        var bx = fx + Math.cos(ba) * br, bz = fz + Math.sin(ba) * br;
         var by = terrainH(bx, bz);
         for (var k = 0; k < 5; k++) {
           add('leafDk', bamboo, bx + (R() - 0.5) * 1.1, by + 1.25, bz + (R() - 0.5) * 1.1,
@@ -595,49 +681,123 @@
       var STYLE = { sky: 'plastron', plant: 'bone', beast: 'scapula', land: 'stele', life: 'pot' };
       /* 第二关的构字装置：这些字要被拆成实体构件再拼回去 */
       var ASSEMBLY = { '林': 2, '泉': 3, '谷': 2 };
+
+      /* ★ 排布：不做等距方阵。
+         上一版是 cols×rows 的矩形网格，33 个字排成 5×7 —— 一眼就是"仓库货架"，
+         与"每个字都是值得走过去看的一件实物"这个前提冲突。
+         现在改成「几处台地，每处 6~8 件，绕区心摆成一圈」：
+           · 每处台地的朝向不同，走进去时看到的是斜侧面，不是一排正面朝天的方阵
+           · 台地之间留 2~3 米的空，容得下走过去、绕过去
+           · 同一件字在台地上的高度略有差，避免"全部同一个平面" */
       MAP.zones.forEach(function (zd) {
-        if (!zd || !zd.objects || !zd.objects.length) { return; }
+        if (!zd) { return; }
         var cen = FIELD[zd.id];
         if (!cen) { return; }
-        var faceAng = Math.atan2(cen.x, cen.z) + Math.PI;   /* 整排刻意排齐，面朝来路 */
-        var objs = zd.objects;
-        var cols = Math.min(5, Math.ceil(Math.sqrt(objs.length * 1.5)));
-        var rows = Math.ceil(objs.length / cols);
-        var GX = 2.55, GZ = 2.75;
-        objs.forEach(function (o, i) {
-          var r = Math.floor(i / cols), c = i % cols;
-          var inRow = (r === rows - 1) ? (objs.length - r * cols) : cols;
-          var bx = cen.x + (c - (inRow - 1) / 2) * GX;
-          var bz = cen.z + (r - (rows - 1) / 2) * GZ;
-          /* 一点点手工偏移：完全对齐的方阵看起来像仓库货架 */
-          bx += ((i * 37) % 7 - 3) * 0.05;
-          bz += ((i * 53) % 5 - 2) * 0.05;
-          if (ASSEMBLY[o.char]) {
-            /* 构字装置摆在整排的正中间偏前，是个主目标，不该混在普通字里找不着 */
-            bx = cen.x; bz = cen.z - GZ * (rows / 2 + 0.9);
-          }
+        var objs = (zd.objects || []).slice();
+        var extra = (zd.extra || []).slice();
+        var all = objs.concat(extra);
+        if (!all.length) { return; }
+
+        /* 需要拼的字单独拿出来：它是"主目标"，不能混在普通字里找不着 */
+        var asms = all.filter(function (o) { return !!ASSEMBLY[o.char]; });
+        var plain = all.filter(function (o) { return !ASSEMBLY[o.char]; });
+
+        var GY0 = terrainH(cen.x, cen.z);
+        /* 每处台地 6~8 件 */
+        var PER = 7;
+        var clusters = Math.max(1, Math.ceil(plain.length / PER));
+        for (var ci = 0; ci < clusters; ci++) {
+          var slice = plain.slice(ci * PER, (ci + 1) * PER);
+          var ca = (ci / clusters) * Math.PI * 2 + (zd.id.length * 0.7);
+          /* 只有一处台地就压在区心，多处则绕心一圈 */
+          var crad = clusters === 1 ? 0 : 7.4;
+          var ccx = cen.x + Math.cos(ca) * crad;
+          var ccz = cen.z + Math.sin(ca) * crad;
+          /* 台地上的字沿一条与视线垂直的弧排开，面朝区心 */
+          var span = Math.PI * 0.62;
+          slice.forEach(function (o, i) {
+            var t = slice.length === 1 ? 0.5 : i / (slice.length - 1);
+            var ang = ca + Math.PI / 2 + (t - 0.5) * span;
+            var rad = 2.5 + (i % 2) * 0.55;
+            var bx = ccx + Math.cos(ang) * rad;
+            var bz = ccz + Math.sin(ang) * rad;
+            var isAsm = false;
+            var gy = terrainH(bx, bz);
+            var it = GK.buildItem({
+              char: o.char, zone: zd.id, seed: 1000 + i * 91 + ci * 17 + zd.id.length * 13,
+              size: 0.40 + ((i % 3) * 0.022),
+              style: STYLE[zd.id] || 'stele',
+              clusters: 2
+            });
+            it.group.position.set(bx, gy, bz);
+            /* 面朝区心（来路），再各偏一点，免得像仪仗队 */
+            it.group.rotation.y = Math.atan2(cen.x - bx, cen.z - bz) + (((i * 7) % 5) - 2) * 0.035;
+            root.add(it.group);
+            glyphItems.push(it);
+            var cc = it.collider;
+            block(bx, bz, cc.hx, cc.hz, cc.h);
+            spots.push({
+              id: 'char-' + zd.id + '-' + o.char, kind: 'char', name: o.char,
+              x: bx, z: bz, r: 2.0,
+              data: { char: o.char, zone: zd.id, meaning: o.meaning, form: o.form,
+                level: LEVEL_OF[zd.id] || 0, task: isAsm ? 'assembly' : 'read' }
+            });
+          });
+        }
+
+        /* 构字装置：区心正前，一个独立的高台，走到它面前就是要拼字 */
+        asms.forEach(function (o, i) {
+          var ang = (i - (asms.length - 1) / 2) * 0.55;
+          var bx = cen.x + Math.sin(ang) * 3.2;
+          var bz = cen.z - Math.cos(ang) * 3.2;
           var gy = terrainH(bx, bz);
-          var isAsm = !!ASSEMBLY[o.char];
           var it = GK.buildItem({
-            char: o.char, zone: zd.id, seed: 1000 + i * 91 + zd.id.length * 13,
-            size: isAsm ? 0.52 : 0.40 + ((i % 3) * 0.022),
-            style: isAsm ? 'assembly' : (STYLE[zd.id] || 'stele'),
-            clusters: ASSEMBLY[o.char] || 2
+            char: o.char, zone: zd.id, seed: 500 + i * 37,
+            size: 0.55, style: 'assembly', clusters: ASSEMBLY[o.char] || 2
           });
           it.group.position.set(bx, gy, bz);
-          it.group.rotation.y = faceAng + (isAsm ? 0 : (((i % 5) - 2) * 0.02));
+          it.group.rotation.y = Math.atan2(cen.x - bx, cen.z - bz);
           root.add(it.group);
           glyphItems.push(it);
-          var cc = it.collider;
-          block(bx, bz, cc.hx, cc.hz, cc.h);
+          var cc2 = it.collider;
+          block(bx, bz, cc2.hx, cc2.hz, cc2.h);
+          /* 装置座：一圈青铜基座，让它明显高出一个头 */
+          add('bronze', new T.CylinderGeometry(1.15, 1.30, 0.26, 18), bx, gy + 0.13, bz);
           spots.push({
             id: 'char-' + zd.id + '-' + o.char, kind: 'char', name: o.char,
-            x: bx, z: bz, r: isAsm ? 3.0 : 2.0,
+            x: bx, z: bz, r: 3.0,
             data: { char: o.char, zone: zd.id, meaning: o.meaning, form: o.form,
-              level: LEVEL_OF[zd.id] || 0, task: isAsm ? 'assembly' : 'read' }
+              level: LEVEL_OF[zd.id] || 0, task: 'assembly' }
           });
         });
       });
+
+      /* 兵器架：人居区那 6 个"器物类"字（弓矢刀斧斤戈）总得有个实物在旁边，
+         否则它们和"陶片上的刻符"没有区别。 */
+      (function armRack() {
+        var cen = FIELD.life;
+        var bx = cen.x + 7.0, bz = cen.z - 5.0;
+        var gy = terrainH(bx, bz);
+        add('wood', new T.BoxGeometry(4.4, 0.22, 0.30), bx, gy + 1.95, bz, 0, 0.3, 0);
+        [-2.0, 2.0].forEach(function (dx) {
+          add('wood', new T.CylinderGeometry(0.10, 0.13, 2.0, 8),
+            bx + Math.cos(0.3) * dx, gy + 1.0, bz - Math.sin(0.3) * dx);
+        });
+        /* 三把戈/刀横挂 + 两束矢 */
+        for (var i = 0; i < 3; i++) {
+          var xx = bx - 1.3 + i * 1.3;
+          add('bronze', new T.BoxGeometry(0.09, 0.62, 0.035), xx, gy + 1.55, bz - 0.18, 0, 0.3, 0.12);
+          add('bronze', new T.BoxGeometry(0.26, 0.10, 0.035), xx + 0.10, gy + 1.86, bz - 0.18, 0, 0.3, 0.5);
+        }
+        [0, 1].forEach(function (i) {
+          var xx = bx + 1.05 + i * 0.30;
+          for (var k = 0; k < 4; k++) {
+            add('wood', new T.CylinderGeometry(0.016, 0.016, 1.05, 5),
+              xx + k * 0.05, gy + 1.25, bz - 0.05, 0.10, 0, 0.05);
+          }
+        });
+        block(bx, bz, 2.2, 0.4, 2.2);
+      })();
     }
 
     /* ---------------- 关卡门阙 ----------------
@@ -666,11 +826,11 @@
         add('stoneDk', pier, p2[0], p2[1] + 1.6, p2[2], 0, perp, 0);
         /* 柱础 */
         add('stone', new T.BoxGeometry(1.05, 0.34, 1.1), p1[0], p1[1] + 0.17, p1[2], 0, perp, 0);
-        add('stone', new T.BoxGeometry(1.05, 0.34, 1.1), p2[0], p2[1] + 1.77, p2[2], 0, perp, 0);
+        add('stone', new T.BoxGeometry(1.05, 0.34, 1.1), p2[0], p2[1] + 0.17, p2[2], 0, perp, 0);
         /* 门楣 + 小檐 */
         var m1 = at(0, 3.25, 0), m2 = at(0, 3.85, 0);
         add('wood', new T.BoxGeometry(hw * 2 + 0.9, 0.44, 0.62), m1[0], m1[1], m1[2], 0, perp, 0);
-        roof('thatch', at(0, 4.10, 0)[0], gy + 4.10, at(0, 4.10, 0)[2], hw * 2 + 1.6, 1.9, 0.92, perp);
+        roof('thatch', at(0, 4.10, 0)[0], gy + 4.10, at(0, 4.10, 0)[2], hw * 2 + 1.8, 2.7, 1.55, perp);
         /* 檐下悬着的两片小骨：有风的样子靠后续 world3d 的轻微摆动 */
         [-1.1, 1.1].forEach(function (dx) {
           var t = at(dx, 2.6, 0);
@@ -779,14 +939,22 @@
     (function landscape() {
       var R = App.museumTex ? App.museumTex.rng(515) : Math.random;
       /* 远：26 座山头坐落在外圈上，高矮错落 */
+      /* 每座山用"主峰 + 一个偏肩"两个锥叠出来：
+         单个 6 棱锥的剪影是标准的"派对帽"，一眼看出是程序生成的。
+         两锥一高一低的组合，轮廓才像山脊。全部用 stoneDk —— 雾会把它压淡，
+         起点必须比雾色深，远处才有"深色剪影"而不是一团发白的三角。 */
       for (var i = 0; i < 26; i++) {
         var a = i / 26 * Math.PI * 2 + R() * 0.16;
         var rr = 63 + R() * 9;
         var hx2 = Math.cos(a) * rr, hz2 = Math.sin(a) * rr;
-        var hh = 5 + R() * 11;
+        var hh = 6 + R() * 12;
         var rad = 4.5 + R() * 6.5;
-        add(i % 3 ? 'stoneDk' : 'stone', new T.ConeGeometry(rad, hh, 6, 1),
-          hx2, terrainH(hx2, hz2) + hh * 0.44, hz2, 0, a, 0, 1, 1, 0.9);
+        var gy = terrainH(hx2, hz2);
+        add('stoneDk', new T.ConeGeometry(rad, hh, 6, 1),
+          hx2, gy + hh * 0.46, hz2, 0, a, 0, 1, 1, 0.9);
+        add('stoneDk', new T.ConeGeometry(rad * 0.62, hh * 0.55, 5, 1),
+          hx2 + Math.cos(a + 1.1) * rad * 0.72, gy + hh * 0.28,
+          hz2 + Math.sin(a + 1.1) * rad * 0.72, 0, a * 1.7, 0, 1, 1, 0.9);
       }
       /* 近：沿河边散几块大石，破掉草地的一马平川 */
       for (var k = 0; k < 12; k++) {
@@ -806,9 +974,9 @@
         }
       }
       pts.push(path[path.length - 1]);
-      add('water', ribbon(pts, 1.6, 0.10), 0, 0, 0);
+      add('water', ribbon(pts, 1.6, 0.20), 0, 0, 0);
       /* 河滩：水两侧一圈湿石，让水带不是"一条贴图贴在地上" */
-      add('stoneDk', ribbon(pts, 2.5, 0.02), 0, 0, 0);
+      add('stoneDk', ribbon(pts, 2.5, 0.15), 0, 0, 0);
     })();
 
     /* ---------------- 出口：聚落城门 ----------------
@@ -816,16 +984,19 @@
     /* 城门离出生点必须留出相机的退身空间：出生点 z=13、相机最远退到 z≈26，
        原来城门就在 z=24，一拉远相机就穿到门洞外面（画面被门楣糊上半屏）。
        挪到 z=34，南边留出 20 米的空地。 */
-    spots.push({ id: 'gate', kind: 'gate', name: '城门 · 回博物馆', x: 0, z: 34, r: 4.2, data: {} });
+    spots.push({ id: 'gate', kind: 'gate', name: '城门 · 回博物馆', x: 0, z: 44, r: 4.6, data: {} });
     (function gate() {
-      var z = 34;
-      add('stoneDk', new T.BoxGeometry(11, 1.0, 4.2), 0, 0.5, z);
-      add('wood', new T.BoxGeometry(1.2, 6.0, 1.6), -3.6, 3.0, z);
-      add('wood', new T.BoxGeometry(1.2, 6.0, 1.6), 3.6, 3.0, z);
-      add('wood', new T.BoxGeometry(9.4, 0.8, 1.5), 0, 6.2, z);
-      roof('thatch', 0, 6.4, z, 10.4, 4.6, 2.1);
-      block(-3.6, z, 1.1, 1.1, 7.2);
-      block(3.6, z, 1.1, 1.1, 7.2);
+      /* 再往外挪到 z=44：
+         出生台地在 z≈27、默认机位在它后方约 12 米，门楼原先正好卡在机位背后，
+         一进游戏上半屏就是门楣底面（截图里那块巨大的草顶）。 */
+      var z = 44, gy = terrainH(0, z);
+      add('stoneDk', new T.BoxGeometry(11, 1.0, 4.2), 0, gy + 0.5, z);
+      add('wood', new T.BoxGeometry(1.2, 6.0, 1.6), -3.6, gy + 3.0, z);
+      add('wood', new T.BoxGeometry(1.2, 6.0, 1.6), 3.6, gy + 3.0, z);
+      add('wood', new T.BoxGeometry(9.4, 0.8, 1.5), 0, gy + 6.2, z);
+      roof('thatch', 0, gy + 6.4, z, 10.4, 4.6, 2.1);
+      block(-3.6, z, 1.1, 1.1, 7.4);
+      block(3.6, z, 1.1, 1.1, 7.4);
     })();
 
     /* ---------------- 火堆：广场四角 ----------------
@@ -838,6 +1009,15 @@
       fires.push({ x: p[0], y: gy + 0.75, z: p[1] });
       block(p[0], p[1], 1.0, 1.0, 0.8);
     });
+
+    /* ---------------- 五区地貌差异 ----------------
+       地皮贴图、地表散件、地标交给 world-zones.js（与"王邑该有什么"分开维护）。
+       必须在合并成 mesh 之前调用：散件要并进同一批 buckets，
+       否则五个区各撒几百个物件就成了几百个 draw call。 */
+    if (App.worldZones && App.worldZones.decorate) {
+      App.worldZones.decorate({ T: T, add: add, block: block, spots: spots,
+        terrainH: terrainH, root: root, MAT: MAT, GK: GK, fires: fires });
+    }
 
     /* ---------------- 落盘：一材质一 mesh ---------------- */
     Object.keys(buckets).forEach(function (k) {
@@ -861,7 +1041,7 @@
       charPlates: charPlates,
       terrainH: terrainH,
       materials: MAT,
-      spawn: { x: 0, z: 13 }
+      spawn: { x: 0, z: 24 }
     };
   }
 

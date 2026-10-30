@@ -35,10 +35,18 @@ _历史版本/
 
 # 草稿与备份（不进仓库）
 _backup_*/
+# 备份是"文件"而不是目录时（如 _backup_20261029_guibao_v1.js），
+# 上面的 `_backup_*/` 末尾带斜杠只匹配目录，匹配不到，所以单列一条。
+_backup_*
+# 无后缀的 _backup/ 是同一类东西：改造前的整份文件快照（如 stage3d_before_guibao2d.js）。
+# 之前只挡了 _backup_*/，这个目录一直裸着，一提交就是一堆历史副本。
+_backup/
 _shots/
 out/
 _probe*/
+_old_lv.json
 js/core/_data.js.bak
+js/core/*.bak2
 dev/_*.js
 dev/_*.py
 tools/specs_*.json

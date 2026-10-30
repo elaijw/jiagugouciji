@@ -569,6 +569,18 @@
         gm.name = 'glyphstrokes';
         host.add(gm);
         strokeMeshes.push(gm);
+        /* 碑背再刻一遍：字碑是绕区心排成一圈的，"面朝区心"意味着玩家从外圈
+           走近时看到的大多是背面 —— 截图里就是两块光板。与其猜玩家从哪边来，
+           不如两面都刻（真实的碑也常两面刻字），走近总有一面是正的。 */
+        if (car.mount.z > 0.02 && style !== 'assembly') {
+          var gmB = new T.Mesh(glyphGeo, glyphMat);
+          gmB.position.set(0, car.mount.y, -car.mount.z);
+          gmB.rotation.y = Math.PI;
+          gmB.castShadow = true;
+          gmB.name = 'glyphstrokes-back';
+          host.add(gmB);
+          strokeMeshes.push(gmB);
+        }
       }
       /* 构字装置：按"构件"分块 —— 一个构件一个 mesh，
          能单独 hover、能单独被点回原位。分组依据是真字形笔画的空间聚类，

@@ -2,10 +2,11 @@
 
 > 给接手的 AI 会话看。读完这一份就能继续，不必回翻历史。
 >
-> **最后更新 2026-10-29**：本轮做完 **§7.12 —— 3D 王邑：实体甲骨文字、龟宝重制、三关解锁**。
-> 三个 case 先看那一节；尤其先读里面的**三条 ★ 坑**（存档丢档 / three.js 594 KB 加载超时 /
-> 根目录 4 GB 调试产物 + 推 GitHub 必须绕代理）—— 每一条都会浪费你一小时。
-> 下一步该做的是 **§7.12 末尾「还没做的」**：第二关端到端，以及第三关 BOSS 的 3D 战斗场景。
+> **最后更新 2026-10-31（二）**：在 §7.15 之后又做了 **§7.16 —— 龟宝换成 2D 立牌**。
+> 第二、三关场景里的立体龟改成贴 `assets/guibao-front.png` 的立牌，全站形象统一。
+> **接手先读 §7.16 和 §7.15**。§7.15 里 10 条坑每条都花掉一轮以上（尤其是第 3 条：
+> 暗场里 `metalness > 0` 一定会给出一条消不掉的假高光，别再去改几何了）。
+> §7.12 / §7.13 / §7.14 讲的是被替换掉的旧王邑方案，只当历史读，**不要再照着改**。
 
 ---
 
@@ -1187,3 +1188,282 @@ $node='C:\Users\32058\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bi
   **不要照抄它的外形**——那会被直接指出"你就只会抄吗"。
 - 汇报里要写：**改了什么文件、怎么预览、测了什么、哪些没测**。用户要证据，不要形容词。
 - 不确定就问，但**别问能自己查出来的事**。
+
+---
+
+## 7.13 第二关 3D 化 + 龟宝 3D 角色（本轮）
+
+### 一句话
+`#/play/wangyi-map` 不再进平面大地图，改走 `App.world`（`#/world` 那套 three 场景）；
+二维地图的 61 个学习点、分区、进度、存档逻辑全部沿用，只换了呈现层。
+
+### 路由（改在这里，只有一处）
+`js/core/shell.js`：
+```js
+else if (r.name === 'play' && r.params.id === 'wangyi-map' && App.world) scene = App.world.scene();
+else if (r.name === 'play') scene = scenePlay(r.params.id);
+```
+
+### 新增文件
+| 文件 | 职责 |
+|---|---|
+| `js/world/guibao.js` | 龟宝 3D 角色（Lathe 壳 + 腹甲、程序化贴图、关节动画）。`App.guibao.build(T)` |
+| `js/world/world-zones.js` | 五区地貌差异（地皮贴图 / 地标 / 地表散件 / 出生台地 / 广场）。`App.worldZones.decorate(ctx)` |
+
+`guibao.js` 的坐标约定：`root` 原点 = 脚底 y=0，`hips.position.y` 静止为 0，
+所有子件写**世界高度**（早期版本 hips 抬 0.245、子件又写绝对高度 → 整体悬空 0.29 米）。
+
+### 本轮最值钱的五条经验（都踩过）
+1. **相机高度决定"平不平"**：`pitch 1.12 / dist 18` 是航拍模型视角，画面前 40% 全是脚下的土、
+   一条水平边都看不见。改成 `1.26 / 9` 后地平线进画，近/中/远景才成立。
+2. **地形要有高差**：广场是平地时，无论怎么打光都像沙盘。`terrainH()` 里加了一块
+   位于 `(0, 27)` 的出生台地（3.2 米），玩家从高处俯看广场 —— 这一条比任何贴图都管用。
+3. **`map` 会和 `color` 相乘**：`color:0x8f7f66` 乘土黄贴图 = 一条深褐色沟。
+   带贴图的材质，`color` 要给亮色（当"曝光补偿"用）。
+4. **`MeshBasicMaterial` 默认参与色调映射**：火苗给 `0xffb066` 会被 ACES 压成奶白圆锥。
+   要不被压，得显式 `toneMapped:false`。
+5. **贴地层的抬升要统一基准**：地形是 1.389 米格子插值的，格心 `terrainH` 真值可比三角面低十几厘米。
+   分区地皮用 `cellTop()`（格子四角最高）+0.05，路面用"邻域最高"+0.16。
+   两者不共用基准，就会互相切成碎片（现象：路面被浅色楔形盖掉一半）。
+
+### 本轮新加的工具（都在 `dev/`）
+- `_world_shot.py <x> <z> <pitch> <dist> <yaw> <out.png> [hud] [等秒] [fov] [PREJS]`
+  机位截图。`PREJS` 是拍之前跑的一段 JS（例：`App.world.focusItem('木','plant')` 推镜头）。
+- `_world_eval.py "<表达式>" [等秒]` 在 `#/world` 里跑 JS 回传 JSON（射线、包围盒、DOM 断言）。
+- `_world_flow.py [前缀]` 一次跑完「探索 → 走近 → 点开面板 → 关掉继续」并逐帧截图，
+  同时打印断言 JSON（`near` / `panel.text` / `goal` 里的 `认字 N/4`）。
+  **这是唯一能证明流程没断的脚本**，改交互必跑。
+
+### 已知未决（接着做从这几条挑）
+1. 龟宝侧视：壳的进深仍偏浅（HH 0.30 / sz 1.16），45° 与正面读得清，正侧仍偏"背了个包"。
+2. 各区的字碑只集中在**一处台地**（`clusters===1` 时压在区心），所以一个区里只有一组字，
+   走位路线偏单一；理想是按"几组台地"散布到 20~40 米环上。
+3. 树、灌木仍是"叠锥 / 双球"体块，近景能看出是程序生成的；要更真只能上模型资产。
+4. 帧率未实机测（`tris` 约 134 K / 419 mesh）；低配与 WebGL 不可用的降级只有"球体替身"这一层。
+
+---
+
+## 7.14 第二关「浮空骨片」+ 第三关「守字之骨」原型（本轮）
+
+### 一句话
+同一套 3D 舞台里做出两个新关卡：`bone-space`（骨片空间 → 三个世界）与 `boss-3d`（三阶段 Boss）。
+两关共用 `stage3d` 的渲染/拾取/相机，数据仍走原有字形表（`App.glyphs.parts` 73 字 / `App.worldGlyph`）。
+
+### 新增文件
+| 文件 | 行数 | 职责 |
+|---|---|---|
+| `js/world/stage3d.js` | ~470 | 舞台工厂。`App.stage3d.create(host, opt, cb)` → `{ renderer, scene, camera, root, lights, flyTo, orbit, orbitTo, onPick, raycast, dispose }`；另有 `boneTex / bonePlateGeo / makeGuibao / canvas / tex / rnd / ease` |
+| `js/world/bonespace.js` | ~950 | 第二关。三个场景构建器 `buildSpace / buildNature / buildBronze`，各返回 `{ name, update, dispose }`；`goScene(name)` 做过场切换 |
+| `js/world/boss3d.js` | ~1010 | 第三关。`makeBoss / startPhase1 / startPhase2 / startPhase3 / win / restart`，`App.boss3d._S` 可断言 |
+
+### 关卡顺序 = 注册顺序（`index.html` 脚本顺序）
+`modes.playable()` 就是 `registry` 的注册顺序，**没有 sort**。
+`bonespace.js` / `boss3d.js` 一度写在 `bone-build.js` 前面，结果第一关变成 03 卡、
+导语还说"第 02 关沿王邑实物找字"。现在固定为：
+```html
+<script src="js/modes/bone-build.js">
+<script src="js/world/bonespace.js">
+<script src="js/world/boss3d.js">
+```
+另外 `LV_SPEC`（`js/core/shell.js`）按 id 给卡片配展台字形，**漏了 id 就是一块空骨版**：
+`bone-space`（char `龜`）、`boss-3d`（char `泉`）已补上；`isBoss` 也要同时认 `boss-3d`。
+
+### 本轮最值钱的六条经验（都踩过）
+
+1. **`position:fixed` 会被祖先的 `transform` 变成"相对祖先定位"**。
+   `.scene` 一脉有 motion 加的 transform，`fixed; inset:0` 只拿到半屏，下半露出首页页脚。
+   → 关卡的 root 一律 `document.body.appendChild()`，并给 body 加 `xxx-lock{overflow:hidden}`。
+
+2. **各场景往 `scene` 直接加的灯不会随 `root` 一起清掉**。
+   只清 `st.root` 的话，从骨片空间进草木川泽，上一场那三盏 12/9/7 的点光还亮着，
+   草地和树被多打一遍光 —— 看起来像"过曝 / 磨砂塑料"，其实是灯没走。
+   → `clearScene()` 除 `root` 外，还要按白名单保留 `hemi/sun/fill`，其余 scene 子节点全清。
+   （天穹、远山、星点、青铜射灯都挂 scene，一起清。）
+
+3. **构造参数被每帧的"呼吸"函数覆盖**。
+   `spot = new SpotLight(..., 13, ...)` 之后 `spotlightPulse()` 每帧写回 `38 + sin`，
+   于是怎么调构造值都没反应（台座永远烧成白板）。
+   → 呼吸函数的基准值必须与构造值同源，改一处要同时改另一处。
+
+4. **`metalness` 高的材质在没有 `envMap` 的场景里等于黑色**。
+   青铜鼎原来 `metalness 0.78`，渲出来是一团黑剪影，只看得见被射灯打亮的白边。
+   → 原型不引入 HDR：`metalness 0.36 / roughness 0.52`，让漫反射把绿锈色说出来；
+   再补一盏很弱的正面冷光（2.2）给腹部轮廓。
+
+5. **天穹渐变要按"机位能看到哪一段 uv"来排点**。
+   平视机位只覆盖球面 uv 0.42~0.52，三色渐变（0 / 0.5 / 1）的中段整条都是灰，
+   怎么改颜色都不像黄昏。→ `skyDome()` 支持传 `[[pos,color],...]` 自己排点，
+   把"深蓝 → 落日"压进这 0.1 的范围里。
+
+6. **低多边形场景不要硬上投影**。
+   阴影相机默认 ±14 米，林线在 13~40 米：圈内几棵树投下又长又硬的影子、圈外一棵没有，
+   草地上一道长黑条（截图左下角那块"黑斑"就是它）。放大阴影相机只是把黑条铺得更满。
+   → 草木川泽 `sun.castShadow = false`，回骨片空间再开回来。
+
+### 验证（`dev/_bsp_probe.py`，CDP 真视口）
+```
+python dev/_bsp_probe.py "<js>" <out.png> [wait] [W] [H] [route]
+```
+注入 `__sleep / __stage / __clickWorld / __panel`。本轮实测断言：
+- 第二关：`plates = ['龜->undefined','木->nature','鼎->bronze','日->wangyi']`；
+  点「木」→ 面板 `骨片 · 自然场景 木 / 草木川泽 / 象木之形…` → 「进入场景」→ nature。
+- 点「日」→ 面板「进入王邑」→ `location.hash = '#/world'`，王邑 HUD 正常，`bsp-root` 归零。
+- 卸载重进：`body.class` 在 `bd3-lock / bsp-lock` 间正确切换，`canvas` 始终 1 个，无重复 root。
+- 「再来一次」：面板关、`hp 100 / wrong 0 / phase 1`、Boss 重新入场。
+- 青铜鼎：拖拽 `yaw 0.42 → -0.70`、`pitch 0.20 → 0.32`；滚轮 `radius 6.40 → 5.12`。
+
+### 已知未做 / 已知不足
+1. 骨片空间里「日」片直接跳 `#/world`（王邑是独立路由），从王邑回来要走浏览器后退；
+   王邑左上角「回馆」仍回 `#/museum`（第一关的旧行为，未改）。
+2. 草木川泽的草叶还是"盒子叶片"、溪水是一层半透明带，近景像插画而不像实景。
+3. `boss-3d` 不做失败态：血条见底会回弹到 55，避免演示时卡死。
+4. 阶段二目前 3 段笔画（「木」），没有做"任意顺序"以外的提示系统。
+
+---
+
+## 7.15 废弃旧玩法，只复用旧数据（本轮，**这是当前的真实状态**）
+
+> 用户明确指令：**数据可以继承，玩法不能继承。**
+> 只保留：甲骨文字数据、今字对应、释义、构件、笔画/结构、有据可查的文献、字体纹理模型素材、龟宝形象。
+> 必须废弃：原地图玩法、王邑设定、旧地图探索逻辑、区域导航、旧关卡交互、旧玩法流程。
+
+### 7.15.1 现在的三个关卡（模式列表顺序 = `index.html` 脚本注册顺序）
+
+| # | mode id | 名字 | 玩法 | 文件 |
+|---|---------|------|------|------|
+| 01 | `bone-build` | 甲骨构字 | 构件拼字（**未改动**） | `js/modes/bone-build.js` |
+| 02 | `bone-float` | 骨片浮空 | 六片骨漂浮 → 点开 → 放大 → 字呈现 → 实物显现 → 收回 | `js/world/bone-float.js` |
+| 03 | `boss-3d` | 守字之骨 | 三阶段 Boss：构件 / 笔画 / 古句 | `js/world/boss3d.js` |
+
+已撤下（`status:'hidden'`，文件仍加载但不进列表、不参与玩法）：
+`wangyi-world`、`wangyi-map`、`boss-raid`。
+`bonespace.js`（旧的"切场景版"第二关）**不再被 index.html 加载**，只留作历史，
+文件在 `js/world/bonespace.js`，备份在 `_backup/bonespace_v1_scene-switch.js`。
+
+### 7.15.2 新第二关的六个字（`PLATES`，只做分类，不对应任何旧区域）
+
+`山 / 水 / 木 / 日 / 目 / 鼎`，每片有 `now`（今字）、`gloss`（释义）、
+`link`（字形与实物怎么对上）、`make`（景物生成器）。
+`日`、`目` 带 `fade` 字段：这两片的景物发光太强，骨片要退到 0.30 / 0.62 才不会和太阳、
+眼睛糊成一块米黄。
+
+状态机 `idle → focus → unveil → show → close → idle`，看门狗 `GUARD = {focus:6, unveil:6, show:Infinity, close:6}`。
+对外 `App.bonefloat = { _S, PLATES, focusAt(i), dismiss(), reset() }`。
+
+### 7.15.3 本轮踩到的坑（每条都花了一轮以上）
+
+1. **`status` 只认 `'ready'`。** 写成 `'playable'` 会被壳层打成「筹备中」，卡片点不进去。
+2. **`LV_SPEC`（`js/core/shell.js`）按 mode id 配展台字形。** 漏配 = 卡片中间一块空骨板。
+3. **暗场里 `metalness > 0` = 一条消不掉的假高光。** 场景没有 envMap，金属反射只剩点光/平行光，
+   表现成物体侧面一条贯穿上下的白亮线。排查走过的弯路：改几何、改 z-fighting、染色、flatShading、
+   关掉物件自己的点光 —— 全都不动。最后用 `gl.readPixels` 逐像素测亮度 + 逐个隐藏物体才定位：
+   关掉**场景所有灯**换纯环境光，白条立刻消失；`metalness 0.16→0`、`roughness →1`，
+   亮度从 211 掉到 177（腹面 172）。**结论：暗场里金属度归零，青铜色靠漫反射 + 一点自发光说。**
+4. **`CylinderGeometry(r, r, h, 4, 1)` 不是方柱。** 它是四段圆弧拼的，法线沿圆周插值，
+   每个平面被渲成一段微曲面。真方鼎就是箱子，用 `BoxGeometry` 才对。
+5. **口沿不能是一整块实心 Box。** 顶面和下面那块"口内"压暗面共面 → 一圈锯齿阶梯，
+   而且实心板把口内面完全包住，等于白做。拆成四条窄板围一圈，口才是通的。
+6. **半透明水带靠"加自发光"是救不回来的。** 自发光 0.80 + 几乎全透 = 自带背光，
+   灯光照不出任何明暗，渲出来是一张青纸。正解是程序化贴图：横向中间实、两侧透明（水才有边），
+   纵向十几道流线（才有流动感），上下两端擦淡（才不像矩形色块），自发光压到 0.22。
+7. **侧流平面是负担。** 在主流两侧各挂一条 0.22 宽的半透明面，出来是两根淡蓝的"棍"。
+   水要靠主流自己的宽度渐变（上窄下宽）和纹理说话，硬加平面只会多两块纸板。
+8. **`HOWTO`（玩法说明页）按 mode id 配步骤。** 新关不补 = 说明页该关下面是空白。
+9. **「后续玩法」一节原来按 `status !== 'ready'` 过滤**，会把已撤下的旧玩法（王邑图卷、构件讨伐）
+   当"即将上线"列出来。改成 `status !== 'ready' && status !== 'hidden'`。
+10. **两关出口要对齐。** `boss-3d` 的「← 回馆」原来写死 `#/modes`，`bone-float` 回的是 `#/museum`；
+    从第三关出来会落到一张关卡列表上。现在两关都回 `#/museum`。
+
+### 7.15.4 实测（CDP 真视口探针 `dev/_bsp_probe.py`，全部走真实 DOM 点击，不走直连 URL）
+
+```
+起点 #/museum chips=6
+点「骨片浮空」入口 -> #/play/bone-float | bsp-lock=true | mode=idle
+点第一片骨 -> show | 知识卡「山 / 今字 山 / 自然 / 三座山峰并立…」
+点「收回」-> idle | prop 已清
+点「← 回馆」-> #/museum
+六片逐片验证（严格轮询，不连点）：山 / 水 / 木 / 日 / 目 / 鼎 全部进入 show，
+  「收回」后全部回到 idle 且 prop 引用清空（鼎的 root 下有 19 个子物体，其余景物
+   都收在 root > inner 里，所以按 root.children 数个数没有意义）
+点「守字之骨」入口 -> #/play/boss-3d | phase=1 | canvas=1
+阶段一 拆「石」「水」-> phase 2
+阶段二 断 3 段 -> phase 3
+阶段三 填「说」「知」「师」-> phase 9（胜利面板：27s / 0 失误 / S 评级）
+胜利面板「回馆」-> #/museum
+玩法说明页：三关各 5 步，后续玩法为空，无王邑/图卷/点位字样
+```
+
+### 7.15.5 还没做的
+
+1. `山`/`木`/`日`/`目` 四个景物还没有做和「水」「鼎」同等的质感打磨
+   （山是三片纸板三角 + 深绿侧面，木是三冠球，日/目没细看）。
+2. 阶段三只有 3 句《论语》，没有错题回顾；失败态仍不做（血条见底回弹）。
+3. 第二关六片骨的「全部看完」没有通关结算，只是回到 `idle`。
+4. `bonespace.js` / `wangyi-map.js` / `boss-raid.js` 三个旧文件还在仓库里当历史，
+   没有物理删除（按用户要求"旧代码可留在旧文件中作历史"）。
+
+---
+
+## 7.16 龟宝换成 2D 立牌（本轮）
+
+> 用户原话：「把你那个啥子龟宝改成2d形象」。
+
+### 7.16.1 问题
+
+第一关和博物馆里的龟宝一直是 `assets/guibao-front.png` 这张手绘立绘（`<img>`，2D）。
+但第二、三关的 3D 场景里，`App.stage3d.makeGuibao()` 调的是 `App.guibao.build()`
+——用几何现搭的一只立体龟（`js/world/guibao.js`，651 行）。
+
+那东西在暗场里没有任何材质细节：远看一团白，眼睛、围巾、背包、胸前的骨片吊坠
+全糊成一片，跟首页那张立绘完全不像同一只龟。全站出现「首页一只、关卡里另一只」。
+
+### 7.16.2 做法
+
+`js/world/stage3d.js` 的 `makeGuibao()` 改成返回**2D 立牌**，贴的就是同一张立绘：
+
+| 点 | 处理 |
+|----|------|
+| 朝向 | `PlaneGeometry` + 每帧 `onBeforeRender` 里只绕 **Y 轴**转向相机（standing billboard）。<br>**不用 `THREE.Sprite`**：Sprite 是全轴朝向，相机俯拍时立牌会跟着往后仰，像一张飘在空中的贴纸 |
+| 父级旋转补偿 | 相机位置先用 `parent.matrixWorld` 求逆转到局部空间再算 `atan2`，这样 `gb.root.rotation.y = 0.42` 之类不会把立牌带歪 |
+| 材质 | `MeshBasicMaterial`（不受灯光染色，立绘颜色才准）+ `toneMapped:false` |
+| 乘色 | `0xf2eef8`（可被 `opt.tint` 覆盖）。压到 `0xcfc9dd` 那档绿龟会变灰龟 |
+| 裁图 | 立绘 555×626，**内容只到第 600 行**，最底 26px 是原图自带的一圈白色笔触。<br>在白底页面上看不见，放到深色石台上就是一圈白烟。加载后用 canvas 裁掉 |
+| 接地 | 锚点在底边中心，`position` 就是脚底那一点。再加一层椭圆软影（程序化径向渐变），否则立牌会浮起来 |
+| 降级 | 贴图加载失败 → 退回原来的 `App.guibao.build()` 立体龟，绝不让龟宝凭空消失 |
+| 接口 | `{ root, card, shadow, is2D, update, setMode, clearMode, metrics }`，与原 3D 版兼容（调用方只用 `root` 的 position/rotation/userData 和 `update()`） |
+
+`update()` 只动 `card`，**绝不动 `root.position.y`** —— `boss3d` 的胜利动画自己掌控
+`root.position.y` 做跳跃，碰了就打架。
+
+### 7.16.3 连带修的三处
+
+1. **第二关龟宝沉进石台**：`bone-float.js` 原来把龟宝摆在 `y = -2.24`，
+   而踏石顶面实测在 `-2.094`（射线打出来的）。立体龟只是小腿埋进去看不出来，
+   2D 立牌就是整截脚被切掉。改到 `-2.094`。
+2. **龟宝太小**：`scale 0.92` 是给立体龟定的（那模型只有 0.909 高）。
+   2D 立绘轮廓窄，同样高度在满屏骨片里只有五十来像素，认不出是只龟。放到 `1.18`。
+3. **台词气泡压在龟宝身上**：`.bsp-hint` 原来是屏幕底部居中固定的一条
+   ——那时立体龟才四十来像素、缩在左下角，压不着。龟宝长大后就糊在身上了。
+   改成把龟宝头顶的世界坐标投影到屏幕，气泡跟着它走；
+   `say()` 时量一次实际宽度、`card(true)` 时量一次知识卡右边缘，气泡据此左右夹取让位
+   （都是切换时读一次布局，不进每帧）。
+
+### 7.16.4 实测
+
+```
+从 #/museum 点「骨片浮空」→ mode=idle｜guibao.is2D=true
+六片逐片：山/水/木/日/目/鼎 全部 show → 收回 → cardRight 归 0
+点「← 回馆」→ #/museum
+点「守字之骨」→ phase=1｜guibao.is2D=true
+三阶段 → phase=9｜胜利面板
+全路由（museum/modes/home/atlas/archive/howto/settings/三关）0 报错
+窄屏 1024×680：龟宝完整可见，气泡挂在头顶不压人
+```
+
+### 7.16.5 状态
+
+- `js/world/guibao.js`（651 行立体龟）**仍保留**，只剩 `makeGuibao` 的加载失败兜底
+  和已撤下的 `js/world/world3d.js` 还在引用它。它不是玩家可达路径。
+- 改造前的 `stage3d.js` 备份在 `_backup/stage3d_before_guibao2d.js`。
+- 2D 立牌没有逐帧动画（眨眼/说话），因为只有一张静态立绘。情绪靠整体变换表达：
+  `cheer` 跳一下、`think` 微侧头、`talk` 缩放抖动、走动时上下颠 + 左右微摆。
