@@ -739,6 +739,20 @@ body.mu-lock { overflow: hidden; }
 body.mu-play-lock { overflow: hidden; }
 .mu-play { position: fixed; inset: 0; z-index: 350; pointer-events: none; }
 .mu-play-host { width: 100%; height: 100%; }
+/* 2D 玩法（第一关）：嵌入层自己撑成不透明外壳 */
+.mu-play-solid {
+  z-index: 600;
+  pointer-events: auto;
+  background: #0b0907;
+  display: flex;
+  flex-direction: column;
+}
+.mu-play-solid .mu-play-bar { display: flex; }
+.mu-play-solid .mu-play-host { flex: 1 1 auto; overflow: auto; }
+.mu-play-bar { display: none; align-items: center; gap: 12px; padding: 10px 16px; flex: 0 0 auto;
+  border-bottom: 1px solid rgba(214, 186, 126, .2); background: rgba(12, 10, 8, .98); }
+.mu-play-bar .mu-btn:last-child { margin-left: auto; }
+.mu-play-title { color: #e6d6b4; font-size: 13.5px; letter-spacing: .12em; }
 .mu-play-exit {
   position: fixed;
   top: 10px;

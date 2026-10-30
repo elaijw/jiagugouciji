@@ -585,10 +585,25 @@
       S.play.shown = true;
       /* 玩法的顶栏要等 three.js 加载完才建出来，这里轮询几秒接管「回馆」。
          否则从馆里打开时 hash 本来就是 #/museum，点回馆不触发 hashchange，出不去。 */
+      /* 判定形态：如果玩法自己挂了一层 fixed 全屏（3D 系），我们就缩成占位；
+         否则（2D 系，内容渲染进 host）把嵌入层变成不透明外壳。 */
+      var layered = false;
+      [].forEach.call(document.body.children, function (el2) {
+        if (el2 === ov || !el2.style) { return; }
+        var cs = window.getComputedStyle(el2);
+        if (cs.position === 'fixed' && parseInt(cs.zIndex || '0', 10) >= 400) { layered = true; }
+      });
+      if (!layered) {
+        ov.classList.add('mu-play-solid');
+      } else {
+        ov.classList.remove('mu-play-solid');
+      }
+
       var tries = 0;
       (function hookBack() {
-        var root = document.querySelector('.bsp-root, .bd3-root');
-        if (root) {
+        var roots = [document.querySelector('.bsp-root, .bd3-root'), host];
+        roots.forEach(function (root) {
+          if (!root || !root.querySelectorAll) { return; }
           [].forEach.call(root.querySelectorAll('button, a'), function (b) {
             if (b.dataset && b.dataset.muBack) { return; }
             if (!/回\s*馆/.test(b.textContent || '')) { return; }
@@ -599,7 +614,7 @@
               return false;
             };
           });
-        }
+        });
         if (++tries < 12) { setTimeout(hookBack, 600); }
       })();
     } catch (err) {
