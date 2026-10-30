@@ -1049,8 +1049,11 @@
       grp.scale.setScalar(L.s);
       grp.userData.base = {
         x: L.x, y: L.y, z: L.z, ry: L.ry, s: L.s,
-        rz: grp.rotation.z, ph: i * 1.19
+        rz: grp.rotation.z, ph: i * 1.19,
+        r: Math.sqrt(L.x * L.x + L.z * L.z),        /* 到圆心的半径 */
+        a0: Math.atan2(L.z, L.x)                    /* 环上的起始角 */
       };
+      grp.userData.ang = grp.userData.base.a0;
       st.root.add(grp);
       plates.push(grp);
     }
@@ -1151,6 +1154,11 @@
       var b = p.userData.base;
       tw(p, { op: 0.10, pz: b.z - 1.8, sx: b.s * 0.86, sy: b.s * 0.86, sz: b.s * 0.86 }, 0.55, easeOut);
     });
+
+    /* 收回时要从"它现在转到的位置"回环，不是从初始角跳回去 */
+    var bb = grp.userData.base;
+    bb.x = grp.position.x; bb.z = grp.position.z;
+    bb.a0 = grp.userData.ang;
 
     grp.rotation.y = 0;
     tw(grp, { px: 0, py: 1.62, pz: 2.90, sx: 2.62, sy: 2.62, sz: 2.62, rz: 0 }, 0.72, easeInOut, function () {
@@ -1552,8 +1560,15 @@
             var p = S.plates[i], b = p.userData.base;
             if (p === S.focus) { continue; }
             if (idle) {
+              /* 环绕观星台缓慢公转：0.075 rad/s，一圈约 84 秒 —— 看得出来在转，
+                 又不至于让人点不中。聚焦某一片时整环停住，收回后接着转。 */
+              var ang = p.userData.ang + dt * 0.075;
+              p.userData.ang = ang;
+              p.position.x = Math.cos(ang) * b.r;
+              p.position.z = Math.sin(ang) * b.r;
               p.position.y = b.y + Math.sin(S.t * 0.52 + b.ph) * 0.10;
-              p.rotation.y = b.ry + Math.sin(S.t * 0.34 + b.ph) * 0.10;
+              /* 始终朝向镜头，转过去也不会变成一条边 */
+              p.rotation.y = Math.atan2(-p.position.x, 12.4 - p.position.z);
               p.rotation.z = b.rz + Math.sin(S.t * 0.42 + b.ph * 1.7) * 0.022;
             }
           }

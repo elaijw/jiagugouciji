@@ -535,8 +535,70 @@
     S.ui.hp.style.width = S.hp + '%';
   }
   function task(html, tip) {
+    S.baseTip = tip || '';
     S.ui.q.innerHTML = html;
-    S.ui.tip.innerHTML = tip || '';
+    S.ui.tip.innerHTML = renderTip();
+  }
+
+  /* 提示行 = 本阶段的说明 + 守阵兽状态（活着时压在前面） */
+  function renderTip() {
+    var gd = S.guard;
+    var base = S.baseTip || '';
+    if (gd && !gd.dead) {
+      return '先打散守阵的「' + gd.name + '」：还剩 ' + gd.hp + ' 下' +
+        (base ? '　·　' + base : '');
+    }
+    return base;
+  }
+  function refreshTip() {
+    if (S.ui && S.ui.tip) { S.ui.tip.innerHTML = renderTip(); }
+  }
+
+  /* 打一下守阵兽：受击反馈 + 计数；打散后才解锁本阶段的拆字 */
+  function hitGuard() {
+    var gd = S.guard;
+    if (!gd || gd.dead || S.phase === 9) { return; }
+    gd.hp -= 1;
+    gd.hitT = 0.24;
+    flash('hit');
+    var T = S.st.T;
+    var wp = new T.Vector3();
+    gd.beast.getWorldPosition(wp);
+    S.bursts.push(debris(S.st, wp, 22, 0xffd9a0));
+    if (gd.hp <= 0) {
+      killGuard();
+    } else {
+      refreshTip();
+      say('<b>龟宝</b>：打中了，还差 ' + gd.hp + ' 下。', 1600);
+    }
+  }
+
+  function killGuard() {
+    var gd = S.guard;
+    if (!gd || gd.dead) { return; }
+    gd.dead = true;
+    S.guardDead = true;
+    var T = S.st.T;
+    var wp = new T.Vector3();
+    gd.beast.getWorldPosition(wp);
+    S.bursts.push(debris(S.st, wp, 70, 0xffcf96));
+    flash('hit');
+    var t0 = 0, g = gd;
+    S.bursts.push(function (dt) {
+      t0 += dt;
+      var e = Math.min(1, t0 / 0.9);
+      g.beast.scale.setScalar((0.02 + 1.55) * (1 - e));
+      g.beast.rotation.y += dt * 6;
+      if (g.r1) { g.r1.material.opacity = Math.max(0, 0.72 * (1 - e)); }
+      if (g.r2) { g.r2.material.opacity = Math.max(0, 0.72 * (1 - e)); }
+      if (e >= 1) {
+        if (g.beast.parent) { g.beast.parent.remove(g.beast); }
+        return false;
+      }
+      return true;
+    });
+    refreshTip();
+    say('<b>龟宝</b>：守阵的' + gd.name + '散了，去拆它的字。', 2600);
   }
   function say(html, ms) {
     S.ui.say.innerHTML = html;
@@ -756,6 +818,17 @@
       grp: grp, r1: r1, r2: r2, runes: runes, beast: beast, lamp: lamp,
       t: 0, phase: n, beastY: 1.75
     };
+
+    /* 守阵兽参与判定：3 下打散，散了才允许动 Boss 的字 */
+    var GUARD_NAME = { 1: '骨甲虫', 2: '骨蛇', 3: '羽骨鸟' };
+    grp.userData.guard = true;
+    S.guard = {
+      hp: 3, max: 3, dead: false, phase: n,
+      name: GUARD_NAME[n] || '守阵骨兽',
+      grp: grp, beast: beast, hitT: 0
+    };
+    S.guardDead = false;
+    refreshTip();
   }
 
   function tickSigil(dt) {
@@ -790,6 +863,15 @@
     g.beast.scale.setScalar(0.02 + 1.55 * re);
     g.beast.rotation.y += dt * 0.75;
     g.beast.rotation.z = Math.sin(g.t * 1.1) * 0.06;
+    /* 受击：短暂的横向抖动 + 放大，让"打中了"有手感 */
+    if (S.guard && S.guard.hitT > 0) {
+      S.guard.hitT -= dt;
+      var hk = Math.max(0, S.guard.hitT / 0.24);
+      g.beast.position.x = Math.sin(g.t * 90) * 0.10 * hk;
+      g.beast.scale.setScalar(g.beast.scale.x * (1 + 0.12 * hk));
+    } else if (S.guard && !S.guard.dead) {
+      g.beast.position.x = 0;
+    }
   }
 
   function startPhase1() {
@@ -1144,7 +1226,23 @@
     var secs = Math.max(1, Math.round(S.finalElapsed || S.elapsed));
     w.innerHTML = '';
     var card = el('div', 'bd3-card');
+    if (!document.getElementById('bd3-gb-style')) {
+      var st2 = document.createElement('style');
+      st2.id = 'bd3-gb-style';
+      st2.textContent =
+        '.bd3-gb{display:flex;align-items:center;gap:12px;justify-content:center;' +
+        'margin:2px 0 14px;animation:bd3gb 700ms cubic-bezier(.2,.9,.3,1.4) both}' +
+        '@keyframes bd3gb{0%{opacity:0;transform:translateY(18px) scale(.86)}' +
+        '60%{opacity:1;transform:translateY(-4px) scale(1.03)}100%{opacity:1;transform:none}}' +
+        '.bd3-gb img{width:76px;height:auto;display:block;' +
+        'filter:drop-shadow(0 10px 16px rgba(0,0,0,.5))}' +
+        '.bd3-gb span{font-size:13px;color:#d8c6a4;letter-spacing:.05em;line-height:1.6;' +
+        'text-align:left;max-width:15em}';
+      document.head.appendChild(st2);
+    }
     card.innerHTML =
+      '<div class="bd3-gb"><img src="assets/guibao-front.png" alt="龟宝">' +
+      '<span><b>龟宝</b>：守字之骨散了。<br>你看，骨头碎了，字留下来了。</span></div>' +
       '<div class="wk">第三关 · 通过</div>' +
       '<div class="wt">守字之骨已散</div>' +
       '<div class="ws">构件拆了，笔画断了，残句也补齐了。<br>' +
@@ -1317,6 +1415,18 @@
     if (S.phase === 9) { return; }
     var o = ev.obj;
     if (!o) { return; }
+
+    /* 1) 点到的如果是守阵兽，就是"打一下" */
+    var g = o;
+    while (g && !(g.userData && g.userData.guard)) { g = g.parent; }
+    if (g && S.guard && !S.guard.dead) { hitGuard(); return; }
+
+    /* 2) 守阵兽还活着：本阶段的字暂时不许动 */
+    if (S.guard && !S.guard.dead) {
+      say('<b>龟宝</b>：先把它召出来的' + S.guard.name + '打散。', 2000);
+      return;
+    }
+
     var tag = o.userData && o.userData.tag;
     if (S.phase === 1 && tag === 'comp') { onPickComp(o); return; }
     if (S.phase === 2 && o.userData && o.userData.strokeIndex != null) { onPickStroke(o); return; }
@@ -1400,6 +1510,7 @@
 
   App.boss3d = {
     mount: mount, unmount: unmount, _S: S,
+    hitGuard: hitGuard, killGuard: killGuard,
     startPhase1: startPhase1, startPhase2: startPhase2, startPhase3: startPhase3,
     win: win, restart: restart, SENTENCES: SENTENCES
   };
