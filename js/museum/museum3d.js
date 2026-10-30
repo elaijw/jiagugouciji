@@ -1099,32 +1099,66 @@
     pickables.push(work.mesh);
 
     /* 台前说明牌：这块牌子就是题面，要能随进度重绘 */
-    var bSignCv = App.museumTex.canvas(1024, 200);
+    var bSignCv = App.museumTex.canvas(1024, 300);
     var bSignTex = canvasTex(bSignCv, { srgb: true });
-    function paintBuildSign(kicker, main, sub, tint) {
+
+    /* 把一对构件按"左右并置"画成甲骨形；单构件就居中放大 */
+    function paintPairGlyph(c, pair, cx, cy, size, color) {
+      if (!pair || !pair.length) { return; }
+      var one = size * (pair.length > 1 ? 0.86 : 1.25);
+      pair.forEach(function (ch, i) {
+        var tmp = App.museumTex.canvas(128, 128);
+        var ok = false;
+        try { ok = App.museumTex.paintGlyph(tmp, ch, { color: color || '#f4e6c8', weight: 2.4 }); } catch (e) { ok = false; }
+        if (!ok) { return; }
+        var dx = pair.length > 1 ? (i === 0 ? -one * 0.30 : one * 0.30) : 0;
+        c.drawImage(tmp, cx + dx - one / 2, cy - one / 2, one, one);
+      });
+    }
+
+    function paintBuildSign(kicker, main, sub, tint, pair, nowChar) {
       var c = bSignCv.getContext('2d');
-      c.clearRect(0, 0, 1024, 200);
+      c.clearRect(0, 0, 1024, 300);
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.fillStyle = tint || 'rgba(232,220,194,.92)';
-      c.font = '600 58px "Songti SC","Noto Serif SC",serif';
-      c.fillText(kicker, 512, 46);
-      c.fillStyle = 'rgba(232,220,194,.66)';
-      c.font = '400 34px "Songti SC","Noto Serif SC",serif';
-      c.fillText(main, 512, 112);
-      c.fillStyle = 'rgba(232,220,194,.40)';
-      c.font = '400 26px "Songti SC","Noto Serif SC",serif';
-      c.fillText(sub, 512, 166);
+      c.font = '600 54px "Songti SC","Noto Serif SC",serif';
+      c.fillText(kicker, 512, 42);
+
+      /* 左：甲骨字形（构件并置）　右：今字 —— 两个都在，才看得懂在拼什么 */
+      if (pair && pair.length) {
+        paintPairGlyph(c, pair, 330, 168, 118, 'rgba(240,226,200,.96)');
+        c.fillStyle = 'rgba(232,220,194,.42)';
+        c.font = '400 22px "Songti SC","Noto Serif SC",serif';
+        c.fillText('甲骨字形', 330, 246);
+      }
+      if (nowChar) {
+        c.fillStyle = 'rgba(255,226,178,.96)';
+        c.font = '600 96px "Songti SC","Noto Serif SC",serif';
+        c.fillText(nowChar, 694, 168);
+        c.fillStyle = 'rgba(232,220,194,.42)';
+        c.font = '400 22px "Songti SC","Noto Serif SC",serif';
+        c.fillText('今字', 694, 246);
+      }
+
+      c.fillStyle = 'rgba(232,220,194,.62)';
+      c.font = '400 28px "Songti SC","Noto Serif SC",serif';
+      c.fillText(main, 512, 272);
+      if (sub) {
+        c.fillStyle = 'rgba(232,220,194,.40)';
+        c.font = '400 22px "Songti SC","Noto Serif SC",serif';
+        c.fillText(sub, 512, 290);
+      }
       bSignTex.needsUpdate = true;
     }
     paintBuildSign('造 字 探 索 区', '把两块构件搬上台面，骨上就会多刻一道', '');
     var bSign = new T.Mesh(
-      new T.PlaneGeometry(7.0, 1.37),
+      new T.PlaneGeometry(6.2, 1.82),
       new T.MeshBasicMaterial({ map: bSignTex, transparent: true })
     );
     /* 说明牌就挂在工作台正上方：默认视角一进来就能读到题面，
        原来放在 z=-12.6 的后墙上，要抬头退后才能看见。 */
-    bSign.position.set(0, 3.15, -2.5);
+    bSign.position.set(0, 3.42, -2.5);
     buildG.add(bSign);
 
     /* 构件方块：顶上刻字，其余五面是石头 */
@@ -1245,8 +1279,9 @@
       bState.target = p.word;
       paintBuildSign(
         '拼 出 「' + p.word.g + '」',
-        '需要 ' + p.pair.length + ' 块构件：从下排四块里挑出来',
-        '已拼成 ' + bState.solved + ' 字 · 点方块放上台面，再点一次取下'
+        '需要 ' + p.pair.length + ' 块构件：从下排四块里挑出来　·　已拼成 ' + bState.solved + ' 字',
+        '',
+        null, p.pair, p.word.g
       );
 
       var n = p.list.length;
@@ -1306,8 +1341,8 @@
           /* 让馆里的任务条立刻刷新（否则还停在"拼出上一字 0/2"） */
           if (App.emit) { App.emit('museum-build', { solved: bState.solved, target: p.word.g, done: true }); }
           paintBuildSign('成 字 「' + p.word.g + '」',
-            '骨上这道刻好了 —— 下一个字马上摆上台',
-            '已拼成 ' + bState.solved + ' 字', 'rgba(255,214,150,.96)');
+            '骨上这道刻好了 —— 下一个字马上摆上台　·　已拼成 ' + bState.solved + ' 字',
+            '', 'rgba(255,214,150,.96)', p.pair, p.word.g);
           setTimeout(function () {
             if (!bState.done) { return; }
             bState.idx += 1;
@@ -1317,8 +1352,8 @@
         }
         if (App.museumAudio && App.museumAudio.part) { App.museumAudio.part(); }
         paintBuildSign('差 一 点',
-          '这两块拼不成「' + p.word.g + '」',
-          '点亮的方块再点一次就取下来，重新挑', 'rgba(226,150,120,.94)');
+          '这两块拼不成「' + p.word.g + '」　·　点亮的方块再点一次就取下来',
+          '', 'rgba(226,150,120,.94)', p.pair, p.word.g);
         bState.flash = 1;
         setTimeout(function () {
           if (bState.done) { return; }
@@ -1327,8 +1362,8 @@
           work.recarve([]);
           paintBuildSign(
             '拼 出 「' + p.word.g + '」',
-            '需要 ' + p.pair.length + ' 块构件：从下排四块里挑出来',
-            '已拼成 ' + bState.solved + ' 字 · 点方块放上台面，再点一次取下'
+            '需要 ' + p.pair.length + ' 块构件：从下排四块里挑出来　·　已拼成 ' + bState.solved + ' 字',
+            '', null, p.pair, p.word.g
           );
         }, 1200);
         return { kind: 'build-no', word: p.word };

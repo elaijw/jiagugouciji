@@ -1415,8 +1415,10 @@
     scene: sceneRoot,
     zones: ZONES,
     teardown: teardown,
-    /* 供别处（或深链）调用：进某个展区 / 直接打开某件展签 */
+    /* 供别处（或深链）调用：进某个展区 / 直接打开某件展签 / 在馆里开一个玩法 */
     enter: enterZone,
+    openPlay: openPlay,
+    closePlay: closePlay,
     openExhibit: openExhibit,
     /* 给自查脚本用：拿到 3D 实例（只在测试里调，界面代码不走这里） */
     api: function () { return S.api; },

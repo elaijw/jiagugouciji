@@ -1882,6 +1882,16 @@
     /* wangyi-map 是二维的「殷商王邑」：61 个学习点的载体，模式列表第 04 张卡就是它。
        之前这里把它劫持到骨片空间，结果点 04 卡进的是第二关 —— 一个坏掉的入口。
        现在恢复它自己；博物馆底部「浮空骨片区」走的是 bone-space，两条路互不干扰。 */
+    /* 独立玩法页（#/play/xxx）已废弃：一律落进数字博物馆里开。
+       博物馆本身没加载成功（脚本挂了）时才退回原来的页面，避免白屏。 */
+    else if (r.name === 'play' && App.museum && App.museum.openPlay) {
+      scene = App.museum.scene();
+      var playId = r.params.id;
+      try { history.replaceState(null, '', '#/museum'); } catch (e0) {}
+      setTimeout(function () {
+        if (App.museum && App.museum.openPlay) { App.museum.openPlay(playId); }
+      }, 80);
+    }
     else if (r.name === 'play') scene = scenePlay(r.params.id);
     else if (r.name === 'settings') scene = sceneSettings();
     else if (r.name === 'atlas') scene = sceneAtlas();

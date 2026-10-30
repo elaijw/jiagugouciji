@@ -738,6 +738,9 @@ body.mu-lock { overflow: hidden; }
 /* ---------- 馆内玩法层（占位：玩法自己是一层全屏，z-index 400） ---------- */
 body.mu-play-lock { overflow: hidden; }
 /* 玩 2D 关卡时，馆自己的 chrome 全部让位 */
+body.mu-play-lock .top,
+body.mu-play-lock .footer,
+body.mu-play-lock .app-shell,
 body.mu-play-lock .mu-bar,
 body.mu-play-lock .mu-back,
 body.mu-play-lock .mu-dock,
@@ -779,3 +782,6 @@ body.mu-play-lock .mu-vignette { visibility: hidden; }
   backdrop-filter: blur(6px);
 }
 .mu-play-exit:hover { background: rgba(60, 46, 32, .95); border-color: #ffce8c; }
+
+/* 造字区题面牌已经在工作台正上方，顶部那条通用操作提示会和它叠字，藏掉 */
+.mu-scene[data-area="build"] .mu-hint { display: none; }
