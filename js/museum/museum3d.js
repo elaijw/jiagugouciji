@@ -1885,9 +1885,355 @@
     knowledgeBoard({
       topic: 'numbers', title: '数字说甲骨',
       lines: ['出土甲骨 约十五万片', '单字 约四千五百个',
-              '已释读 约一千三百字', '常用字基本认得出'],
+              '已读 约一千三百字', '常用字基本认得出'],
       x: b3.x, y: 3.55, z: b3.z, w: 1.95, ry: b3.ry
     });
+
+    /* ============================================================
+       环上补四件陈设
+       ------------------------------------------------------------
+       一圈看下来原本只有"台座 + 骨版"重复十二次，外侧还只有三块知识
+       石板、一块说明碑、一块回馆碑，而且都挤在一侧 —— 转到背光那半边
+       就只剩十二块牌子，节奏是断的。
+       这里按 90° 一个，补四件**不是骨版**的东西：
+         龟甲（灼骨）· 青铜鼎 · 刻刀 · 卜辞拓片
+       它们讲的不是"又一个字"，而是甲骨这条链上的四段：
+       材料（甲）· 礼器（鼎）· 工具（刀）· 摹取（拓）。
+
+       方位取 315 / 45 / 135 / 225（一个 X），半径比骨版那圈再往外 1.5：
+         · 不放在 0° 附近 —— 默认机位就站在 +z 这一侧，摆那儿等于摆到人背后；
+         · 四件互成 90°，两前两后，转到任何一边都有一件在视野里。 */
+    var PROP_R = RING_R + 1.5;
+    var propStoneMtl = std({ color: 0x463e34, roughness: 0.62, metalness: 0.16, envMapIntensity: 0.55 });
+    /* 铜在这么暗的洗墙灯下会糊成一团黑，所以带一点自发光把体积托出来 */
+    var propBronzeMtl = std({
+      color: 0x957641, roughness: 0.30, metalness: 0.82, envMapIntensity: 1.1,
+      emissive: new T.Color(0x2e2211), emissiveIntensity: 0.6
+    });
+    var propWoodMtl = std({ color: 0x3a2b1d, roughness: 0.78, metalness: 0.06, envMapIntensity: 0.4 });
+
+    /* 统一的小台座：和骨版那排台座同一族，但更矮更扁，不跟骨版抢 */
+    function propBase(x, z, h, r) {
+      var b = new T.Mesh(new T.CylinderGeometry(r || 0.44, (r || 0.44) + 0.05, h, 18, 1), propStoneMtl);
+      b.position.set(x, h / 2, z);
+      gal.add(b);
+      var cap = new T.Mesh(new T.CylinderGeometry((r || 0.44) + 0.06, (r || 0.44) + 0.06, 0.05, 18, 1), propStoneMtl);
+      cap.position.set(x, h + 0.02, z);
+      gal.add(cap);
+      return h + 0.045;
+    }
+
+    function propShadow(x, z, w) {
+      var sh = new T.Mesh(new T.PlaneGeometry(w || 1.0, (w || 1.0) * 0.6), shadowMtl);
+      sh.rotation.x = -Math.PI / 2;
+      sh.position.set(x, 0.006, z);
+      gal.add(sh);
+    }
+
+    /* ---------- ① 龟甲（灼骨） ---------- */
+    (function plastronProp() {
+      var sp = ringSpot(315, PROP_R);
+      var top = propBase(sp.x, sp.z, 0.74, 0.40);
+      propShadow(sp.x, sp.z, 1.2);
+      var holder = new T.Group();
+      holder.position.set(sp.x, top + 0.06, sp.z);
+      holder.rotation.y = sp.ry;
+      /* 甲面朝厅心微微仰起：平放着看只是一只盘子，仰起来才看得出是"甲" */
+      holder.rotation.x = -0.34;
+      gal.add(holder);
+
+      /* 兜底：程序化的甲壳（GLB 没加载出来时也还有东西可看可点）。
+         不是"一个扁球"：龟腹甲是甲片拼起来的，所以给一张自己画的甲纹贴图，
+         中间一道中缝、两侧各四块甲片，外加三个钻凿过的圆槽。 */
+      var shellCv = App.museumTex.canvas(512, 512);
+      var sc = shellCv.getContext('2d');
+      var sg = sc.createRadialGradient(256, 236, 40, 256, 256, 280);
+      sg.addColorStop(0, '#e0d3b6');
+      sg.addColorStop(0.7, '#cbbb98');
+      sg.addColorStop(1, '#a89877');
+      sc.fillStyle = sg;
+      sc.fillRect(0, 0, 512, 512);
+      sc.strokeStyle = 'rgba(96,74,44,.52)';
+      sc.lineWidth = 4;
+      /* 中缝 */
+      sc.beginPath(); sc.moveTo(256, 40); sc.lineTo(256, 472); sc.stroke();
+      /* 横缝 + 侧缝 */
+      [-150, -40, 70, 180].forEach(function (dy) {
+        sc.beginPath(); sc.moveTo(70, 256 + dy); sc.lineTo(442, 256 + dy); sc.stroke();
+      });
+      [-1, 1].forEach(function (s) {
+        sc.beginPath(); sc.moveTo(256, 70); sc.lineTo(256 + s * 170, 256); sc.stroke();
+        sc.beginPath(); sc.moveTo(256, 442); sc.lineTo(256 + s * 170, 256); sc.stroke();
+      });
+      /* 钻凿：三个椭圆槽 + 槽边的灼痕 */
+      [[-70, -30], [40, 26], [-20, 120]].forEach(function (p) {
+        sc.fillStyle = 'rgba(46,32,20,.82)';
+        sc.beginPath();
+        sc.ellipse(256 + p[0], 256 + p[1], 26, 15, 0.5, 0, Math.PI * 2);
+        sc.fill();
+        var hg = sc.createRadialGradient(256 + p[0] + 30, 256 + p[1] + 18, 2, 256 + p[0] + 30, 256 + p[1] + 18, 46);
+        hg.addColorStop(0, 'rgba(150,74,26,.5)');
+        hg.addColorStop(1, 'rgba(150,74,26,0)');
+        sc.fillStyle = hg;
+        sc.fillRect(256 + p[0] - 20, 256 + p[1] - 30, 100, 100);
+      });
+
+      var dome = new T.Mesh(
+        new T.SphereGeometry(0.62, 30, 16),
+        std({
+          map: canvasTex(shellCv, { srgb: true }),
+          color: 0xe2d7bd, roughness: 0.78, metalness: 0.02, envMapIntensity: 0.45
+        })
+      );
+      dome.scale.set(1.05, 0.34, 1.22);
+      dome.position.y = 0.13;
+      dome.userData = { kind: 'plastron' };
+      holder.add(dome);
+      pickables.push(dome);
+
+      /* GLB 读取器（getModel / MODELS / modelCache）是在这一大段之后才初始化的，
+         这里直接调会在 modelCache 还是 undefined 时就进去 —— 推迟一个 tick 再取，
+         那时整个 create() 的同步部分已经跑完。 */
+      setTimeout(function () {
+        getModel('plastron', function (err, g) {
+          if (err || !g) { return; }
+          var inst = g.clone(true);
+          inst.scale.setScalar(1.02);
+          inst.position.y = 0.10;
+          inst.traverse(function (o) {
+            if (!o.isMesh) { return; }
+            o.userData = { kind: 'plastron' };
+            pickables.push(o);
+          });
+          holder.add(inst);
+          dome.visible = false;   /* 有真模型就把兜底的收起来（不销毁） */
+        });
+      }, 0);
+    })();
+
+    /* ---------- ② 青铜鼎 ---------- */
+    (function bronzeDingProp() {
+      var sp = ringSpot(45, PROP_R);
+      var top = propBase(sp.x, sp.z, 0.62, 0.46);
+      propShadow(sp.x, sp.z, 1.4);
+      var g = new T.Group();
+      g.position.set(sp.x, top, sp.z);
+      g.rotation.y = sp.ry;
+      /* 整体放大 1.35：台座那一圈的尺寸是按"手可持"定的，
+         鼎按真尺寸放在这里就是台面上的一只小碗。 */
+      g.scale.setScalar(1.35);
+      gal.add(g);
+
+      var tag = { kind: 'board', topic: 'bronze' };
+
+      /* 腹：上宽下收，鼎是"三足两耳" */
+      var body = new T.Mesh(new T.CylinderGeometry(0.40, 0.31, 0.44, 26, 1), propBronzeMtl);
+      body.position.y = 0.52;
+      body.userData = tag;
+      g.add(body);
+      pickables.push(body);
+
+      var rim = new T.Mesh(new T.CylinderGeometry(0.44, 0.44, 0.055, 26, 1), propBronzeMtl);
+      rim.position.y = 0.75;
+      rim.userData = tag;
+      g.add(rim);
+      pickables.push(rim);
+
+      /* 三足 */
+      for (var i = 0; i < 3; i++) {
+        var a = (i / 3) * Math.PI * 2 + 0.5;
+        var leg = new T.Mesh(new T.CylinderGeometry(0.052, 0.072, 0.42, 10, 1), propBronzeMtl);
+        leg.position.set(Math.cos(a) * 0.24, 0.21, Math.sin(a) * 0.24);
+        leg.userData = tag;
+        g.add(leg);
+        pickables.push(leg);
+      }
+
+      /* 两耳：立在口沿上。
+         原来给了 rotation.y = 90°，半圆环整个转成侧向 —— 从厅中心看过去
+         只剩一条边，等于没有耳朵。这里留在 XY 平面里，正面就看得出是"两耳"。 */
+      [-1, 1].forEach(function (s) {
+        var ear = new T.Mesh(new T.TorusGeometry(0.115, 0.038, 10, 20, Math.PI), propBronzeMtl);
+        ear.position.set(s * 0.29, 0.78, 0);
+        ear.userData = tag;
+        g.add(ear);
+        pickables.push(ear);
+      });
+
+      /* 一点铜绿：老器物不是新铸的金色 */
+      var patina = new T.Mesh(
+        new T.TorusGeometry(0.395, 0.012, 6, 30),
+        new T.MeshBasicMaterial({ color: 0x4f7c6a, transparent: true, opacity: 0.35 })
+      );
+      patina.position.y = 0.42;
+      patina.rotation.x = Math.PI / 2;
+      g.add(patina);
+
+      /* 点击热区：三足之间是空的，光标从缝里穿过去会点不到 ——
+         加一个不显示但参与射线的大圆柱，随便点哪个方向都算点到这件鼎。 */
+      var hit = new T.Mesh(
+        new T.CylinderGeometry(0.50, 0.50, 1.02, 12, 1),
+        new T.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+      );
+      hit.position.y = 0.5;
+      hit.userData = tag;
+      hit.renderOrder = -1;
+      g.add(hit);
+      pickables.push(hit);
+    })();
+
+    /* ---------- ③ 刻刀 ---------- */
+    (function graverProp() {
+      var sp = ringSpot(135, PROP_R);
+      var top = propBase(sp.x, sp.z, 0.74, 0.52);
+      propShadow(sp.x, sp.z, 1.3);
+      var g = new T.Group();
+      g.position.set(sp.x, top, sp.z);
+      g.rotation.y = sp.ry;
+      gal.add(g);
+      var tag = { kind: 'board', topic: 'graver' };
+
+      /* 托板 */
+      var board = new T.Mesh(new T.BoxGeometry(1.12, 0.08, 0.62), propWoodMtl);
+      board.position.y = 0.06;
+      board.userData = tag;
+      g.add(board);
+      pickables.push(board);
+
+      /* 刀身：斜着搁在托板上。这里所有尺寸都比"真刀"放大了一圈 ——
+         展厅里没人会凑到 30cm 内看，按真实尺寸做出来就是一根看不见的线。 */
+      var blade = new T.Group();
+      blade.position.set(0, 0.20, 0.02);
+      blade.rotation.y = 0.30;
+      blade.rotation.z = 0.05;
+      g.add(blade);
+
+      var shaft = new T.Mesh(new T.BoxGeometry(0.92, 0.075, 0.095), propBronzeMtl);
+      shaft.userData = tag;
+      blade.add(shaft);
+      pickables.push(shaft);
+
+      /* 刃口：一条压亮的窄面，让刀"有锋" */
+      var edge = new T.Mesh(
+        new T.BoxGeometry(0.92, 0.016, 0.020),
+        std({ color: 0xd8b877, roughness: 0.18, metalness: 0.95, envMapIntensity: 1.4 })
+      );
+      edge.position.set(0, 0.046, 0);
+      blade.add(edge);
+
+      var tip = new T.Mesh(new T.ConeGeometry(0.045, 0.20, 10), propBronzeMtl);
+      tip.rotation.z = -Math.PI / 2;
+      tip.position.x = 0.55;
+      tip.userData = tag;
+      blade.add(tip);
+      pickables.push(tip);
+
+      var grip = new T.Mesh(new T.CylinderGeometry(0.075, 0.068, 0.34, 14), propWoodMtl);
+      grip.rotation.z = Math.PI / 2;
+      grip.position.x = -0.50;
+      grip.userData = tag;
+      blade.add(grip);
+      pickables.push(grip);
+
+      /* 旁边一小块待刻的骨：让"刀"和"骨"同框 */
+      var frag = makeSlab('卜', { size: 0.46, texSize: 256 });
+      frag.mesh.position.set(-0.26, 0.14, -0.17);
+      frag.mesh.rotation.x = -Math.PI / 2 + 0.08;
+      frag.mesh.rotation.z = 0.5;
+      frag.mesh.userData = tag;
+      g.add(frag.mesh);
+      pickables.push(frag.mesh);
+    })();
+
+    /* ---------- ④ 完整卜辞拓片 ---------- */
+    (function rubbingProp() {
+      var sp = ringSpot(225, PROP_R);
+      var top = propBase(sp.x, sp.z, 0.66, 0.5);
+      propShadow(sp.x, sp.z, 1.3);
+      var g = new T.Group();
+      g.position.set(sp.x, top, sp.z);
+      g.rotation.y = sp.ry;
+      gal.add(g);
+      var tag = { kind: 'board', topic: 'rubbing' };
+
+      /* 立架：两根短柱把拓片撑起来，别让它悬空 */
+      [-1, 1].forEach(function (s) {
+        var pole = new T.Mesh(new T.BoxGeometry(0.05, 1.26, 0.05), propWoodMtl);
+        pole.position.set(s * 0.5, 0.63, 0.02);
+        g.add(pole);
+      });
+
+      /* 拓片画面：墨面 + 白字（甲骨是刻的，字口不着墨 —— 拓出来字是白的） */
+      var W = 720, H = 960;
+      var cv = App.museumTex.canvas(W, H);
+      var c = cv.getContext('2d');
+      var ink = c.createLinearGradient(0, 0, W, H);
+      ink.addColorStop(0, '#1c1712');
+      ink.addColorStop(0.55, '#141009');
+      ink.addColorStop(1, '#0e0b07');
+      c.fillStyle = ink;
+      c.fillRect(0, 0, W, H);
+      /* 打墨不匀：几团浅一点的墨晕 */
+      var R = App.museumTex.rng(77);
+      for (var m = 0; m < 12; m++) {
+        var mx = R() * W, my = R() * H, mr = (0.10 + R() * 0.30) * W;
+        var mg = c.createRadialGradient(mx, my, 0, mx, my, mr);
+        mg.addColorStop(0, 'rgba(60,50,38,.22)');
+        mg.addColorStop(1, 'rgba(0,0,0,0)');
+        c.fillStyle = mg;
+        c.fillRect(mx - mr, my - mr, mr * 2, mr * 2);
+      }
+      /* 双线边框 */
+      c.strokeStyle = 'rgba(226,214,186,.5)';
+      c.lineWidth = 3;
+      c.strokeRect(22, 22, W - 44, H - 44);
+      c.lineWidth = 1;
+      c.strokeRect(32, 32, W - 64, H - 64);
+
+      /* 四列竖行，右起（和骨版上一样：一列写完换左边一列） */
+      var RCOLS = ['日月雨', '山川泉', '木林牛', '鱼门鼎'];
+      var cell = 132, top0 = 132, colGap = 152;
+      var tmp = App.museumTex.canvas(cell, cell);
+      RCOLS.forEach(function (col, ci) {
+        var cx = W - 108 - ci * colGap;
+        for (var k = 0; k < col.length; k++) {
+          var tc = tmp.getContext('2d');
+          tc.clearRect(0, 0, cell, cell);
+          App.museumTex.paintGlyph(tmp, col.charAt(k), {
+            color: '#e9dfc8', weight: 1.16,
+            shadow: { color: 'rgba(0,0,0,.55)', blur: 4, ox: 0, oy: 2 }
+          });
+          c.drawImage(tmp, cx - cell / 2, top0 + k * 176, cell, cell);
+        }
+      });
+      /* 左下角一枚小朱印：拓片收尾都会钤印 */
+      c.fillStyle = 'rgba(150,52,32,.86)';
+      c.fillRect(64, H - 150, 74, 74);
+      c.strokeStyle = 'rgba(240,226,200,.55)';
+      c.lineWidth = 2;
+      c.strokeRect(70, H - 144, 62, 62);
+      c.fillStyle = '#f0e2c8';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.font = '600 34px "Songti SC","Noto Serif SC",serif';
+      c.fillText('拓', 101, H - 113);
+
+      var paper = new T.Mesh(
+        new T.PlaneGeometry(1.02, 1.36),
+        new T.MeshBasicMaterial({ map: canvasTex(cv, { srgb: true, aniso: 8 }), transparent: true })
+      );
+      paper.position.set(0, 0.66, 0.02);
+      paper.userData = tag;
+      g.add(paper);
+      pickables.push(paper);
+
+      /* 一根横杆压住上沿 */
+      var bar = new T.Mesh(new T.BoxGeometry(1.12, 0.045, 0.06), propWoodMtl);
+      bar.position.set(0, 1.36, 0.02);
+      bar.userData = tag;
+      g.add(bar);
+      pickables.push(bar);
+    })();
 
     /* 序厅并进来之后，它的内容改成厅里这块说明碑：点开就是原来的序厅面板 */
     (function prologueTablet() {
@@ -2281,6 +2627,11 @@
         send({ type: 'prologue' });
       } else if (u.kind === 'board') {
         send({ type: 'board', topic: u.topic });
+      } else if (u.kind === 'plastron') {
+        /* 龟甲：序厅那件和知识厅环上新补的那件都走这里。
+           原来 pickAt 没有这个分支 —— 龟甲在场景里能被 hover 到（光标会变手），
+           但点下去什么也不会发生，馆那边 openPlastron() 从来没被触发过。 */
+        send({ type: 'plastron' });
       }
     }
 
@@ -2699,6 +3050,28 @@
 
       /* 典藏区：把"看过哪些"交给场景，柜子里对应那个龛亮起来 */
       refresh: refreshCollection,
+
+      /* 自查用：环上四件陈设到底在不在、能不能被点到（界面代码不走这里） */
+      props: function () {
+        var out = [];
+        var wp = new T.Vector3();
+        pickables.forEach(function (o) {
+          var u = o.userData || {};
+          var key = u.kind === 'plastron' ? 'plastron' : (u.kind === 'board' ? u.topic : null);
+          if (!key || ['plastron', 'bronze', 'graver', 'rubbing', 'structure', 'periods', 'numbers'].indexOf(key) < 0) { return; }
+          o.getWorldPosition(wp);
+          var vis = true;
+          for (var n = o; n; n = n.parent) { if (n.visible === false) { vis = false; break; } }
+          out.push({
+            key: key,
+            at: [+wp.x.toFixed(2), +wp.y.toFixed(2), +wp.z.toFixed(2)],
+            vis: vis && o.visible !== false,
+            tris: o.geometry ? (o.geometry.index ? o.geometry.index.count / 3
+              : (o.geometry.attributes.position ? o.geometry.attributes.position.count / 3 : 0)) : 0
+          });
+        });
+        return out;
+      },
 
       info: function () {
         return {
