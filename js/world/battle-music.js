@@ -45,6 +45,14 @@
     A.master.connect(send);
     send.connect(conv);
     conv.connect(A.ctx.destination);
+
+    /* 音效独立一条总线：不挂在音乐的推子上。
+       音乐要淡入淡出（甚至胜利后收掉），音效必须随手势立刻响、收尾时还在。 */
+    A.sfx = A.ctx.createGain();
+    A.sfx.gain.value = 1;
+    A.sfx.connect(A.ctx.destination);
+
+    A.verb = conv;
     return A.ctx;
   }
 
@@ -191,6 +199,14 @@
     isPlaying: function () { return A.playing; },
     phaseNow: function () { return A.phase; },
 
+    /* 给 battle-sfx.js 用：同一个 AudioContext、同一间混响，
+       但走独立的总线，不受音乐淡入淡出影响。 */
+    audio: function () {
+      var ctx = ctxOf();
+      if (!ctx) { return null; }
+      return { ctx: ctx, out: A.sfx, verb: A.verb };
+    },
+
     start: function (phase) {
       var ctx = ctxOf();
       if (!ctx) { return false; }
@@ -250,7 +266,8 @@
     dispose: function () {
       this.stop(0.2);
       if (A.ctx) { try { A.ctx.close(); } catch (e) {} }
-      A.ctx = null; A.master = null;
+      A.ctx = null; A.master = null; A.sfx = null; A.verb = null;
+      if (App.battleSfx && App.battleSfx.release) { App.battleSfx.release(); }
     }
   };
 

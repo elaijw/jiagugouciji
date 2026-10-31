@@ -764,9 +764,14 @@ body.mu-play-lock .mu-vignette { visibility: hidden; }
   border-bottom: 1px solid rgba(214, 186, 126, .2); background: rgba(12, 10, 8, .98); }
 .mu-play-bar .mu-btn:last-child { margin-left: auto; }
 .mu-play-title { color: #e6d6b4; font-size: 13.5px; letter-spacing: .12em; }
+/* 玩法内两颗浮动按钮（← 回馆 / ♪ 声音）
+   ------------------------------------------------------------
+   现在挂在 body 上（原来挂在 .mu-play 里面，被 350 那层叠上下文关住，
+   整局都点不到）。位置因此要避开玩法自己的顶栏：
+   玩法顶部那条一般占到 y≈50，所以从 58 起放，右上角一排两颗。 */
 .mu-play-exit {
   position: fixed;
-  top: 10px;
+  top: 58px;
   right: 14px;
   z-index: 900;
   pointer-events: auto;
@@ -792,8 +797,8 @@ body.mu-play-lock .mu-vignette { visibility: hidden; }
 .mu-p-ob-pair .mu-p-ob-piece svg, .mu-p-ob-pair .mu-p-ob-piece img { width: 100%; height: 100%; }
 .mu-p-ob-piece-t { font-size: 30px; color: #efe3c8; }
 
-/* 玩法层里的声音开关：挨着「回馆」，往左让 84px */
-.mu-play-exit.mu-play-snd { right: 120px; letter-spacing: .04em; }
+/* 玩法层里的声音开关：挨着「← 回馆」，往左让开它的宽度 + 8px 间距 */
+.mu-play-exit.mu-play-snd { right: 108px; letter-spacing: .04em; }
 .mu-play-snd[aria-pressed="true"] { border-color: #ffce8c; color: #ffe6bd; }
 
 /* 知识陈设面板 */

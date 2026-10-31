@@ -20,7 +20,12 @@
   var KEY = 'museumaudio';
   var A = {
     ctx: null, master: null, pad: null, noise: null, verb: null,
-    on: false, built: false, nodes: []
+    on: false, built: false, nodes: [],
+    /* 环境音垫的基准音量（duck 之前的值，恢复时按它还原） */
+    padBase: 0.30, noiseBase: 0.05,
+    ducked: false,
+    /* 开关变化时要通知谁：馆顶栏那颗、关卡右上角那颗，两边必须同一个状态 */
+    watchers: []
   };
 
   function store() { return App.store || null; }
@@ -90,7 +95,7 @@
     /* 低频垫：两个略微失谐的正弦，走低通，音量由慢 LFO 推着起伏。
        它不"演奏"，只负责让展厅不是死的。 */
     var padGain = ctx.createGain();
-    padGain.gain.value = 0.30;
+    padGain.gain.value = A.padBase;
     var lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
     lp.frequency.value = 260;
@@ -138,7 +143,7 @@
     bp.frequency.value = 520;
     bp.Q.value = 0.5;
     var ng = ctx.createGain();
-    ng.gain.value = 0.05;
+    ng.gain.value = A.noiseBase;
     src.connect(bp);
     bp.connect(ng);
     ng.connect(A.master);
@@ -157,6 +162,34 @@
     g.cancelScheduledValues(t);
     g.setValueAtTime(g.value, t);
     g.linearRampToValueAtTime(to, t + (sec || 0.8));
+  }
+
+  /* 通知所有开关 UI 重画 */
+  function notify() {
+    var list = A.watchers.slice();
+    for (var i = 0; i < list.length; i++) {
+      try { list[i](A.on); } catch (e) { /* 一个坏了不影响别人 */ }
+    }
+  }
+
+  /* 把环境音垫压到 30% 或还原（打 Boss 时用） */
+  function applyDuck(toDuck) {
+    if (!A.ctx) { return; }
+    var t = A.ctx.currentTime;
+    var k = toDuck ? 0.28 : 1;
+    if (A.pad) {
+      var pg = A.pad.gain;
+      pg.cancelScheduledValues(t);
+      pg.setValueAtTime(pg.value, t);
+      /* 总开关由 master 推子负责淡入淡出，这里只管 duck，不要再乘 A.on */
+      pg.linearRampToValueAtTime(A.padBase * k, t + 0.4);
+    }
+    if (A.noise) {
+      var ng = A.noise.gain;
+      ng.cancelScheduledValues(t);
+      ng.setValueAtTime(ng.value, t);
+      ng.linearRampToValueAtTime(A.noiseBase * k, t + 0.4);
+    }
   }
 
   /* 一次极短的音：选中展品 / 拆掉一个构件都用它 */
@@ -193,16 +226,37 @@
           try { A.ctx.resume(); } catch (e) { /* 有的浏览器必须等手势，忽略 */ }
         }
         A.on = true;
-        fade(0.20, 1.2);
+        /* 被 duck 过（正在打 Boss）就还原成战场该有的音量，别一开声音就顶满 */
+        if (A.ducked) { applyDuck(true); } else { fade(0.20, 1.2); }
       } else {
         A.on = false;
         fade(0, 0.5);
       }
       writePref(A.on);
+      notify();
       return A.on;
     },
 
     toggle: function () { return this.setOn(!A.on); },
+
+    /* 谁想跟着开关重画，就登记一个回调（返回取消函数）。
+       馆顶栏那颗「声音」和关卡里那颗「♪ 声音」共用同一个状态，
+       否则从关卡里关掉、回到馆里那颗还写着"开" —— 就是之前那个 bug。 */
+    onChange: function (fn) {
+      if (typeof fn !== 'function') { return function () {}; }
+      A.watchers.push(fn);
+      return function () {
+        var i = A.watchers.indexOf(fn);
+        if (i >= 0) { A.watchers.splice(i, 1); }
+      };
+    },
+
+    /* 打 Boss 时把展厅的环境音垫压下去：战斗音乐有自己的低频，
+       两层叠在一起会糊成一团。淡 0.4s，不打手。 */
+    duck: function (v) {
+      A.ducked = !!v;
+      applyDuck(A.ducked);
+    },
 
     /* 选中一件展品：一声木石轻响 */
     click: function () { return blip(620, 0.16, 'triangle', 0.14); },
@@ -217,9 +271,24 @@
       return true;
     },
 
+    /* 自查用：不参与界面。pad/master 的实际增益是"duck 有没有生效"最硬的证据 */
+    _state: function () {
+      return {
+        on: A.on,
+        pref: readPref(),
+        ducked: A.ducked,
+        built: A.built,
+        master: A.master ? +A.master.gain.value.toFixed(4) : -1,
+        pad: A.pad ? +A.pad.gain.value.toFixed(4) : -1,
+        noise: A.noise ? +A.noise.gain.value.toFixed(4) : -1
+      };
+    },
+
     dispose: function () {
       if (A.on) { fade(0, 0.2); }
       A.on = false;
+      A.ducked = false;
+      notify();
       var nodes = A.nodes;
       A.nodes = [];
       setTimeout(function () {

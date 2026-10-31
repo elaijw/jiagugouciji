@@ -147,6 +147,10 @@
     S.selected = null;
     S.alive = true;
 
+    /* 站点自己的古筝 BGM 让路：馆里有自己的环境音，两首一起放就是噪音。
+       只是暂挂，不写存档 —— 出馆时 App.sound.resume() 原样还回去。 */
+    if (App.sound && App.sound.suspend) { App.sound.suspend(); }
+
     var wrap = App.el('div', 'mu-scene');
     wrap.setAttribute('data-area', 'hall');
     S.wrap = wrap;
@@ -200,24 +204,66 @@
     btnIndex.onclick = function () { openIndex(''); };
     right.appendChild(btnIndex);
 
-    /* 声音：默认关。展厅不需要"一进来就有音乐"，但可以自己打开。 */
+    /* 声音：默认关。展厅不需要"一进来就有音乐"，但可以自己打开。
+       ------------------------------------------------------------
+       这一颗和关卡里那颗「♪ 声音」是**同一个状态**：
+         · 画的时候读实时状态 isOn()，不再读存档 preferOn() ——
+           存档说"开"但 AudioContext 还没起来时，按钮会撒谎写"声音 开"，
+           点下去却什么也没变，这就是之前那个"开关不对"。
+         · 两边都订 museumAudio.onChange，谁改的，另一边立刻跟着重画。 */
     var btnAudio = App.el('button', 'mu-btn mu-btn-audio', '声音');
     btnAudio.type = 'button';
     btnAudio.setAttribute('aria-pressed', 'false');
-    btnAudio.title = '展馆环境音（默认关闭）';
+    btnAudio.title = '展馆声音（环境音 · 战斗音乐 · 音效）';
     function paintAudio(on) {
+      on = !!on;
       btnAudio.classList.toggle('is-off', !on);
       btnAudio.setAttribute('aria-pressed', on ? 'true' : 'false');
       btnAudio.textContent = on ? '声音 开' : '声音';
+      btnAudio.title = on ? '点此关闭展馆声音' : '点此打开展馆声音';
     }
-    if (App.museumAudio) { paintAudio(App.museumAudio.preferOn()); }
+    paintAudio(App.museumAudio && App.museumAudio.isOn && App.museumAudio.isOn());
+    if (App.museumAudio && App.museumAudio.onChange) {
+      S.offAudio = App.museumAudio.onChange(paintAudio);
+    } else {
+      S.offAudio = null;
+    }
     btnAudio.onclick = function () {
       if (!App.museumAudio) { return; }
       var on = App.museumAudio.toggle();
-      paintAudio(on);
+      /* onChange 会重画，这里只管声音本身 */
       if (on) { App.museumAudio.click(); }
     };
     right.appendChild(btnAudio);
+
+    /* 上次在馆里是开着声音的：按钮照实写"关"（因为还没真的响），
+       等用户下一次按下鼠标/触摸，在同一个手势里把 AudioContext 起起来。
+       浏览器不允许无手势开音频，所以只能这样"预告 + 补上"。
+
+       ⚠ 这一下**必须避开声音按钮自己**：
+       pointerdown 比 click 早，如果用户点的正是「声音」，
+       这里先替他把声音打开，按钮的 click 再 toggle 一次 → 又关回去了。
+       （就是这个顺序让"点一下没反应/点了反而关掉"。） */
+    if (App.museumAudio && App.museumAudio.preferOn && App.museumAudio.preferOn() &&
+        !(App.museumAudio.isOn && App.museumAudio.isOn())) {
+      var isSndUI = function (t) {
+        try {
+          return !!(t && t.closest && t.closest('.mu-btn-audio, .mu-play-snd'));
+        } catch (e) { return false; }
+      };
+      var armAudio = function (ev) {
+        /* 点在声音按钮上：让它自己的 click 决定，别抢 */
+        if (isSndUI(ev && ev.target)) { return; }
+        document.removeEventListener('pointerdown', armAudio, true);
+        document.removeEventListener('keydown', armAudio, true);
+        S.armAudio = null;
+        if (!App.museumAudio.isOn || App.museumAudio.isOn()) { return; }
+        App.museumAudio.setOn(true);
+      };
+      S.armAudio = armAudio;
+      document.addEventListener('pointerdown', armAudio, true);
+      document.addEventListener('keydown', armAudio, true);
+    }
 
     var btnReset = App.el('button', 'mu-btn', '重置视角');
     btnReset.type = 'button';
@@ -586,11 +632,15 @@
     var host = App.el('div', 'mu-play-host');
     ov.appendChild(host);
 
-    /* 馆自己的出口：压在玩法顶栏之上（z-index 900），点它一定出得去 */
+    /* 馆自己的出口：玩法自带的「回馆」写在 location.hash 上，而 hash 本来就是
+       #/museum，不触发 hashchange → 会卡死。hookBack() 会接管玩法自带的按钮，
+       这一颗是兜底：真被挡住了也还能出来。 */
     var exit = App.el('button', 'mu-play-exit', '← 回馆');
     exit.type = 'button';
     exit.onclick = closePlay;
-    ov.appendChild(exit);
+    /* 先藏起来：多数玩法自己顶栏就带「回馆」，hookBack 一次就认出来了。
+       等两秒还没找到，才把馆这颗兜底的亮出来（那时多半是玩法挂了）。 */
+    exit.style.display = 'none';
 
     /* 玩关卡时馆里的顶栏是藏着的，声音开关跟着一起藏了 ——
        这里补一颗，进了关卡也能把声音打开（战斗音乐随之起） */
@@ -602,10 +652,13 @@
       snd.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
     paintSnd();
+    /* 和馆顶栏那颗共用状态：顶栏关掉、这颗也得变，反之亦然 */
+    var offSnd = (App.museumAudio && App.museumAudio.onChange)
+      ? App.museumAudio.onChange(paintSnd) : null;
     snd.onclick = function () {
       if (!App.museumAudio) { return; }
       var on = App.museumAudio.toggle();
-      paintSnd();
+      /* 关掉：战斗音乐跟着停（音效自己会静音）；打开：战斗音乐从当前阶段接上 */
       if (on) {
         App.museumAudio.click();
         var ph = (App.boss3d && App.boss3d._S && App.boss3d._S.phase) || 1;
@@ -614,11 +667,24 @@
         App.battleMusic.stop(0.4);
       }
     };
-    ov.appendChild(snd);
+
+    /* 战斗音乐有自己的低频，展厅的环境音垫这时候要让路。
+       第二关（骨片浮空）没有自己的音乐，环境音留着当底，不要压。 */
+    if (id === 'boss-3d' && App.museumAudio && App.museumAudio.duck) {
+      App.museumAudio.duck(true);
+    }
 
     document.body.appendChild(ov);
     document.body.classList.add('mu-play-lock');
-    S.play = { id: id, ov: ov, mode: mode, host: host };
+    /* ⚠ 这两颗浮动按钮必须挂在 body 上，不能挂进 ov。
+       .mu-play 自己 position:fixed + z-index:350 就形成了一个层叠上下文，
+       子元素写 z-index:900 也只在 350 这一层里比较 —— 而玩法那层是 400。
+       以前它们就挂错了地方：在页面里拿不到、点不到（elementFromPoint 命中的是
+       玩法自己的覆盖层），「声音」开关于是一整局都按不着。 */
+    document.body.appendChild(exit);
+    document.body.appendChild(snd);
+    S.play = { id: id, ov: ov, mode: mode, host: host, sndOff: offSnd,
+               floats: [exit, snd] };
     try {
       mode.mount(host, App.modes.buildContext(mode));
       S.play.shown = true;
@@ -638,25 +704,56 @@
         ov.classList.remove('mu-play-solid');
       }
 
-      var tries = 0;
+      /* 「回馆」统一接管（事件委托）
+         ------------------------------------------------------------
+         玩法自带的出口写法并不统一：第三关是 <button>，第二关是 <div>。
+         原来只给 button/a 改 onclick，第二关那颗 <div> 根本没被认领过 ——
+         点它把 location.hash 设成 '#/museum'，而 hash 本来就是它，
+         不触发 hashchange，于是卡在原地，只能靠馆这颗兜底的出去。
+         改成在 document 上截获：谁的文字是「回馆」都算，点了一律 closePlay。
+         —— 这样两种写法都出得去，也就不用留两颗一样的按钮。 */
+      var findBack = function (t) {
+        for (var n = t; n && n !== document.body; n = n.parentNode) {
+          if (n.nodeType !== 1) { continue; }
+          var txt = (n.textContent || '').trim();
+          if (txt.length <= 6 && /^[←\s]*回\s*馆$/.test(txt)) { return n; }
+        }
+        return null;
+      };
+      var onBack = function (ev) {
+        var b = findBack(ev.target);
+        if (!b) { return; }
+        /* 只接管玩法的根节点里面的（别把馆自己的按钮也拦了） */
+        if (!(host.contains(b) || (b.closest && b.closest('.bsp-root, .bd3-root')))) { return; }
+        ev.preventDefault();
+        ev.stopPropagation();
+        closePlay();
+      };
+      document.addEventListener('click', onBack, true);
+      S.play.onBack = onBack;
+
+      var tries = 0, found = 0;
       (function hookBack() {
-        var roots = [document.querySelector('.bsp-root, .bd3-root'), host];
+        /* 只做一件事：认出玩法"自带"的出口，认出后把馆这颗兜底的收起来 */
+        var roots = [document.querySelector('.bsp-root'), document.querySelector('.bd3-root'), host];
         roots.forEach(function (root) {
-          if (!root || !root.querySelectorAll) { return; }
-          [].forEach.call(root.querySelectorAll('button, a'), function (b) {
+          if (!root || root.contains(exit)) { return; }
+          [].forEach.call(root.querySelectorAll('button, a, div, span'), function (b) {
             if (b.dataset && b.dataset.muBack) { return; }
-            if (!/回\s*馆/.test(b.textContent || '')) { return; }
+            var txt = (b.textContent || '').trim();
+            if (txt.length > 6 || !/^[←\s]*回\s*馆$/.test(txt)) { return; }
             if (b.dataset) { b.dataset.muBack = '1'; }
-            b.onclick = function (ev) {
-              if (ev && ev.preventDefault) { ev.preventDefault(); }
-              closePlay();
-              return false;
-            };
+            found++;
           });
         });
+        if (found && exit.parentNode) { exit.parentNode.removeChild(exit); }
+        /* 一直没有可接管的出口：把兜底那颗亮出来，别让人出不去 */
+        else if (!found && tries >= 3 && exit.parentNode) { exit.style.display = ''; }
         if (++tries < 12) { setTimeout(hookBack, 600); }
       })();
     } catch (err) {
+      /* 玩法没挂起来：这颗兜底出口必须亮出来 */
+      exit.style.display = '';
       host.innerHTML = '';
       host.appendChild(App.el('p', 'lead', '玩法加载出错：' + (err && err.message)));
       if (window.console && console.error) { console.error('[博物馆] 玩法挂载失败', err); }
@@ -669,6 +766,16 @@
     S.play = null;
     try { if (p.mode.unmount) { p.mode.unmount(p.host); } } catch (e) {}
     if (p.ov && p.ov.parentNode) { p.ov.parentNode.removeChild(p.ov); }
+    (p.floats || []).forEach(function (b) {
+      if (b && b.parentNode) { b.parentNode.removeChild(b); }
+    });
+    if (p.sndOff) { try { p.sndOff(); } catch (e) {} }
+    if (p.onBack) { document.removeEventListener('click', p.onBack, true); }
+    /* 战斗音乐不该跟着出关卡；环境音垫从"打 Boss 的压低态"还原 */
+    if (App.battleMusic && App.battleMusic.isPlaying && App.battleMusic.isPlaying()) {
+      App.battleMusic.stop(0.5);
+    }
+    if (App.museumAudio && App.museumAudio.duck) { App.museumAudio.duck(false); }
     document.body.classList.remove('mu-play-lock');
   }
 
@@ -1645,6 +1752,29 @@
   /* ---------- 释放 ---------- */
   function teardown() {
     closePlay();
+    /* 清声音：环境音垫是常驻振荡器，不 dispose 就会一直响到下一个页面；
+       战斗音乐、开关回调同理，一处漏掉就是"离开展馆了还有声音"。 */
+    if (S.armAudio) {
+      document.removeEventListener('pointerdown', S.armAudio, true);
+      document.removeEventListener('keydown', S.armAudio, true);
+      S.armAudio = null;
+    }
+    if (S.offAudio) { try { S.offAudio(); } catch (e) {} S.offAudio = null; }
+    if (App.battleMusic) {
+      try {
+        if (App.battleMusic.isPlaying && App.battleMusic.isPlaying()) { App.battleMusic.stop(0.4); }
+        if (App.battleMusic.dispose) { App.battleMusic.dispose(); }
+      } catch (e) {}
+    }
+    if (App.battleSfx && App.battleSfx.release) { try { App.battleSfx.release(); } catch (e) {} }
+    if (App.museumAudio) {
+      try {
+        if (App.museumAudio.duck) { App.museumAudio.duck(false); }
+        if (App.museumAudio.dispose) { App.museumAudio.dispose(); }
+      } catch (e) {}
+    }
+    /* 出馆：把站点的 BGM 还回去 */
+    if (App.sound && App.sound.resume) { App.sound.resume(); }
     S.alive = false;
     S.ready = false;
     if (S.off) { try { S.off(); } catch (e) {} S.off = null; }

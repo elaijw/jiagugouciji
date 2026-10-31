@@ -369,6 +369,16 @@
 
   function rnd(seed) { return App.stage3d.rnd(seed); }
 
+  /* ================= 音效 =================
+     全部走 battle-sfx.js：程序化生成，和战斗音乐共用一个 AudioContext。
+     这里只做一件事 —— 包一层 try，声音永远不该把关卡弄崩。
+     馆里「声音」关着时 battle-sfx 自己会静音，所以这里不用判断开关。 */
+  function sfx(name, arg) {
+    var b = App.battleSfx;
+    if (!b || !b[name]) { return false; }
+    try { return b[name](arg); } catch (e) { return false; }
+  }
+
   /* ================= 材质 ================= */
   function boneMat(T, seed, glow) {
     return new T.MeshStandardMaterial({
@@ -922,6 +932,10 @@
       intro.classList.remove('on');
       S.intro = false;
       updateStep();
+      /* 说明卡关掉的这一刻才算真的开打：一声低鼓，音乐也从头起，
+         否则鼓点早在卡还没看完时就空转了好几拍。 */
+      sfx('intro');
+      if (App.battleMusic && App.battleMusic.start) { App.battleMusic.start(1); }
     };
 
     S.ui = { top: top, stages: stages, name: nm, hp: hpI, q: q, tip: tip,
@@ -932,6 +946,8 @@
   function setPhase(n) {
     S.phase = n;
     if (App.battleMusic && App.battleMusic.setPhase) { App.battleMusic.setPhase(n); }
+    /* 一阶段是开局，不敲锣；二、三阶段各敲一声，作为"这一层拆完了"的分句 */
+    if (n >= 2) { sfx('phaseUp'); }
     if (typeof updateStep === 'function') { updateStep(); }
     for (var i = 0; i < S.uiStages.length; i++) {
       S.uiStages[i].className = 'bd3-st' + (i + 1 === n ? ' on' : (i + 1 < n ? ' done' : ''));
@@ -975,6 +991,7 @@
     gd.hp -= 1;
     gd.hitT = 0.24;
     flash('hit');
+    sfx('strike', 1.0);
     var T = S.st.T;
     var wp = new T.Vector3();
     gd.beast.getWorldPosition(wp);
@@ -999,6 +1016,7 @@
     gd.beast.getWorldPosition(wp);
     S.bursts.push(debris(S.st, wp, 70, 0xffcf96));
     flash('hit');
+    sfx('shatter');
     var t0 = 0, g = gd;
     S.bursts.push(function (dt) {
       t0 += dt;
@@ -1192,7 +1210,7 @@
       if (ob === hovered) { return; }
       if (hovered && hovered.parent) { hoverOff(hovered); }
       hovered = ob;
-      if (hovered) { hoverOn(hovered); }
+      if (hovered) { hoverOn(hovered); sfx('select'); }
       st.el.style.cursor = hovered ? 'pointer' : '';
     });
     st.el.addEventListener('pointerleave', function () {
@@ -1385,6 +1403,8 @@
     if (S.sigil && S.sigil.grp && S.sigil.grp.parent) {
       S.sigil.grp.parent.remove(S.sigil.grp);
     }
+    /* 守阵兽登场：一声低吼，法阵亮起来之前就有东西了 */
+    sfx('roar');
     var T = st.T;
     var grp = new T.Group();
     /* 原来在 3.35，正好落在四片构件骨（z=4.2）后面 —— 玩家点不到守阵兽。
@@ -1607,6 +1627,7 @@
         if (self.parent) { self.parent.remove(self); }
         shakeBoss(1);
         flash('hit');
+        sfx('crack', 1.0);
         setHp(S.hp - 12);
         S.bursts.push(debris(S.st, new S.st.T.Vector3(0, 3.4, -2.4), 46, 0xffd9a0));
       }, 10);
@@ -1626,6 +1647,7 @@
       S.wrong++;
       obj.userData.kick = 0.4;
       shakeBoss(0.25);
+      sfx('wrong');
       say('<b>提示</b>：这片拼不出「' + PHASE1_CHAR + '」。它一半是水，一半是石头。', 2600);
       setHp(S.hp - 4);
     }
@@ -1688,6 +1710,7 @@
       obj.userData.fallV = -1.4 - Math.random();
       shakeBoss(0.8);
       flash('hit');
+      sfx('crack', 0.9);
       setHp(S.hp - 14);
       d.remain--;
       say('<b>提示</b>：断了一段。', 1200);
@@ -1710,6 +1733,7 @@
       S.wrong++;
       obj.userData.kick = 0.35;
       shakeBoss(0.2);
+      sfx('wrong');
       say('<b>提示</b>：这一段还连得好好的。找那截在发光的。', 2200);
       setHp(S.hp - 5);
     }
@@ -1721,6 +1745,7 @@
     var shields = S.boss.shields;
     flash('hit');
     shakeBoss(1.6);
+    sfx('shieldBreak');
     for (var i = 0; i < shields.length; i++) {
       (function (sh, k2) {
         var mat = sh.material;
@@ -1822,6 +1847,7 @@
       later(function () {
         flash('hit');
         shakeBoss(0.7);
+        sfx('crack', 1.1);
         setHp(S.hp - 11);
         S.ui.src.innerHTML = '「' + q.miss + '」　' + q.from + '　·　' + q.gloss;
         S.ui.src.classList.add('on');
@@ -1837,6 +1863,7 @@
       S.wrong++;
       obj.userData.kick = 0.4;
       shakeBoss(0.18);
+      sfx('wrong');
       setHp(S.hp - 4);
       say('<b>提示</b>：这一句的意思对不上这个字。再看一遍句子。', 2400);
     }
@@ -1863,6 +1890,7 @@
 
     /* 骨版被吸回漩涡：先浮起来，再往洞口方向飞、越转越快、越缩越小、最后淡掉 */
     S.suck = 2.4;                       /* 漩涡加速 */
+    sfx('suck');                        /* 2.4 秒上升涡流，正好压住这段吸入动画 */
     var t0 = 0;
     var from = boss.root.position.clone();
     var to = new T.Vector3(0, 5.2, -12.4);
@@ -2026,9 +2054,11 @@
     setTimeout(function () {
       card.classList.add('typed');
       if (seal) { seal.classList.add('stamp', 'splat'); }
-      if (App.museumAudio && App.museumAudio.good) { App.museumAudio.good(); }
-      else if (App.museumAudio && App.museumAudio.click) { App.museumAudio.click(); }
+      /* 印章落纸的那一声（原来借的是馆里的"成功"提示音，太轻，压不住这张卡） */
+      sfx('stamp');
     }, 300);
+    /* 胜利的上行五声放在数字滚完、卡面落定之后 */
+    setTimeout(function () { sfx('win'); }, 640);
     setTimeout(function () {
       card.classList.add('nummed');
       [].forEach.call(card.querySelectorAll('.bd3-stat .v[data-to]'), countUp);
@@ -2059,7 +2089,8 @@
         seal.classList.remove('stamp', 'splat');
         void seal.offsetWidth;
         seal.classList.add('stamp', 'splat');
-        if (App.museumAudio && App.museumAudio.part) { App.museumAudio.part(); }
+        sfx('stamp');
+        sfx('crack', 0.5);
       };
     }
     /* 卡面轻微视差：鼠标在卡片范围内时，纸面跟着偏一点 */

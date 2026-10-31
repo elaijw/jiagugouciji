@@ -456,6 +456,38 @@
     try { App.emit('sound', on); } catch (e) { /* 忽略 */ }
   }
 
+  /* 临时静音：不写存档，也不改用户的开关选择。
+     博物馆有自己的环境音，站点的古筝 BGM 不能跟着一路放进去；
+     离开博物馆时再原样恢复。 */
+  var suspended = false;
+  var resumeAfter = false;
+  function suspend() {
+    if (suspended) { return; }
+    suspended = true;
+    resumeAfter = on;
+    if (!on) { return; }
+    on = false;
+    if (master) { setMaster(0, 0.3); }
+    stopMusic();
+    if (offTimer) { clearTimeout(offTimer); offTimer = 0; }
+    offTimer = setTimeout(function () { offTimer = 0; stopSynthMusic(); stopAmbient(); }, 520);
+    try { App.emit('sound', false); } catch (e) { /* 忽略 */ }
+  }
+  function resume() {
+    if (!suspended) { return; }
+    suspended = false;
+    var want = resumeAfter;
+    resumeAfter = false;
+    if (!want) { return; }
+    on = true;
+    if (unlocked) {
+      ensure();
+      if (master) { setMaster(VOL_MASTER, 0.4); }
+      startMusic();
+    }
+    try { App.emit('sound', true); } catch (e) { /* 忽略 */ }
+  }
+
   function toggle() { set(!on); }
 
   /* 第一次真实交互：起音乐。Chrome 不允许无手势播放，
@@ -605,6 +637,9 @@
     toggle: toggle,
     unlock: unlock,
     pluck: pluck,
+    /* 进/出博物馆时用：不改用户的开关选择，只临时让路 */
+    suspend: suspend,
+    resume: resume,
 
     /* 设置页"试听"用：拨一下骨板（音乐若还没起，这一次手势会把它带起来） */
     demo: function () {
