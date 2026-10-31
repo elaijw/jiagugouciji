@@ -830,12 +830,34 @@
       if (w.lv) { row(dl, '释读', w.lv); }
       row(dl, '已经在甲骨上刻好了', '这是第 ' + (d.solved || 1) + ' 个拼成的字');
       body.appendChild(dl);
+
+      /* 集章条：刚盖上的那一枚用 .is-new 落一下，五枚齐了换成收尾语气。
+         3D 那边有一块同样的牌子（工作台左手边），这里给面板也来一条 ——
+         看完讲解就关掉面板的人，也得看见自己攒了几枚。 */
+      var stamps = d.stamps || [];
+      var stampTotal = (S.api && S.api.buildState && S.api.buildState().stampTotal) || 5;
+      if (stamps.length) {
+        var sbox = App.el('div', 'mu-stamps');
+        sbox.appendChild(App.el('span', 'mu-stamps-k', d.stampFull ? '五枚齐了' : '集章'));
+        var rowEl = App.el('div', 'mu-stamps-row');
+        for (var si = 0; si < stampTotal; si++) {
+          var ch = stamps[si];
+          var cell = App.el('span', 'mu-stamp' + (ch ? ' is-on' : '') +
+            (ch && si === stamps.length - 1 ? ' is-new' : ''));
+          cell.textContent = ch || '印';
+          rowEl.appendChild(cell);
+        }
+        sbox.appendChild(rowEl);
+        body.appendChild(sbox);
+      }
+
       body.appendChild(App.el('p', 'mu-p-note',
         '字形是拼出来的：两个构件各占一边，合起来才是这个字。\n' +
         '甲骨文里同一个字常有几种写法，这里只取最通行的一种。'));
 
       var acts = App.el('div', 'mu-p-acts');
-      var next = App.el('button', 'mu-btn mu-btn-primary', '下一个字 →');
+      var next = App.el('button', 'mu-btn mu-btn-primary',
+        d.stampFull ? '收下这一排字 · 再来一轮 →' : '下一个字 →');
       next.type = 'button';
       next.onclick = function () {
         if (S.api && S.api.buildNext) {

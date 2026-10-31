@@ -801,6 +801,48 @@ body.mu-play-lock .mu-vignette { visibility: hidden; }
 .mu-play-exit.mu-play-snd { right: 108px; letter-spacing: .04em; }
 .mu-play-snd[aria-pressed="true"] { border-color: #ffce8c; color: #ffe6bd; }
 
+/* 造字区集章条：拼成一个字盖一枚朱印，五枚齐了换一句题头 */
+.mu-stamps {
+  display: flex; align-items: center; gap: 14px;
+  margin: 4px 0 12px; padding: 10px 12px;
+  border: 1px solid rgba(214, 186, 126, .22);
+  background: rgba(20, 15, 11, .5);
+  border-radius: 3px;
+}
+.mu-stamps-k {
+  flex: 0 0 auto;
+  font-size: 12px; letter-spacing: .18em;
+  color: rgba(232, 220, 194, .62);
+  writing-mode: vertical-rl; text-orientation: upright;
+  line-height: 1.15;
+}
+.mu-stamps-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.mu-stamp {
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  font-family: var(--font-title, "Kaiti SC", serif);
+  font-size: 21px; line-height: 1;
+  color: rgba(232, 220, 194, .18);
+  border: 1px dashed rgba(190, 150, 96, .34);
+  border-radius: 2px;
+}
+.mu-stamp.is-on {
+  color: #f7ecd4;
+  border: 1px solid rgba(150, 46, 28, .9);
+  background: #9e3622;
+  transform: rotate(-1.5deg);
+  box-shadow: inset 0 0 0 1px rgba(240, 226, 200, .28);
+}
+.mu-stamp.is-new { animation: muStampIn .42s cubic-bezier(.2, .9, .3, 1.4) both; }
+@keyframes muStampIn {
+  0% { transform: scale(1.85) rotate(-8deg); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: scale(1) rotate(-1.5deg); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mu-stamp.is-new { animation: none; }
+}
+
 /* 知识陈设面板 */
 .mu-p-board-t { margin: 2px 0 8px; font-family: var(--font-title, "Kaiti SC", serif);
   font-size: 19px; letter-spacing: .08em; color: #ffe6bd; }

@@ -1115,11 +1115,43 @@
       });
     }
 
+    /* 竖屏（aspect < 0.95）横向只有二十来度视野，横排那一版题面牌
+       两端必被裁掉。所以竖屏换一套排版：只留"第几题 / 甲骨字形 / 今字"
+       三样，长的说明交给底部（窄屏时搬到了顶部）那条 DOM 任务条。 */
+    function signIsNarrow() { return camera.aspect < 0.95; }
+
     function paintBuildSign(kicker, main, sub, tint, pair, nowChar) {
       var c = bSignCv.getContext('2d');
       c.clearRect(0, 0, 1024, 300);
       c.textAlign = 'center';
       c.textBaseline = 'middle';
+
+      if (signIsNarrow()) {
+        /* 竖屏版：kicker 缩短成"第 N/5"，字放大 */
+        var k2 = String(kicker || '').match(/第\s*\d+\s*\/\s*\d+/);
+        c.fillStyle = 'rgba(232,220,194,.62)';
+        c.font = '600 34px "Songti SC","Noto Serif SC",serif';
+        c.fillText(k2 ? k2[0] : '造字探索区', 512, 34);
+
+        if (pair && pair.length) {
+          paintPairGlyph(c, pair, 392, 150, 150, 'rgba(240,226,200,.96)');
+        }
+        c.fillStyle = 'rgba(232,220,194,.40)';
+        c.font = '400 24px "Songti SC","Noto Serif SC",serif';
+        c.fillText('甲骨字形', 392, 258);
+
+        if (nowChar) {
+          c.fillStyle = tint || 'rgba(255,226,178,.96)';
+          c.font = '600 122px "Songti SC","Noto Serif SC",serif';
+          c.fillText(nowChar, 700, 146);
+          c.fillStyle = 'rgba(232,220,194,.40)';
+          c.font = '400 24px "Songti SC","Noto Serif SC",serif';
+          c.fillText('今字', 700, 258);
+        }
+        bSignTex.needsUpdate = true;
+        return;
+      }
+
       c.fillStyle = tint || 'rgba(232,220,194,.92)';
       c.font = '600 54px "Songti SC","Noto Serif SC",serif';
       c.fillText(kicker, 512, 42);
@@ -1159,6 +1191,25 @@
        原来放在 z=-12.6 的后墙上，要抬头退后才能看见。 */
     bSign.position.set(0, 3.42, -2.5);
     buildG.add(bSign);
+
+    /* 题面牌按"这台机器实际的横向视野"缩一次。
+       竖屏只有二十来度横向视野，固定尺寸一定被裁两头 —— 与其在 CSS 里赌，
+       不如直接按相机算：牌子最宽不能超过视野宽度的 92%。 */
+    function fitBuildSign() {
+      if (!bSign) { return; }
+      /* 竖屏先落位，再量距离 —— 位置影响距离，距离影响缩放 */
+      bSign.position.y = signIsNarrow() ? 2.86 : 3.42;
+      /* ⚠ 必须取世界坐标：buildG 挂在 z = ANX_Z（-360）上，
+         拿局部坐标去和 camera.position（世界）比距离，会算出 360 米外的距离，
+         缩放永远是 1 —— 题面牌就怎么都不肯变小。 */
+      var hold = new T.Vector3();
+      bSign.getWorldPosition(hold);
+      var dist = Math.max(0.5, camera.position.distanceTo(hold));
+      var halfW = Math.tan(camera.fov * Math.PI / 360) * camera.aspect;
+      var maxW = 2 * dist * halfW * 0.92;
+      bSign.scale.setScalar(Math.min(1, Math.max(0.16, maxW / 6.2)));
+    }
+    fitBuildSign();
 
     /* 构件方块：顶上刻字，其余五面是石头 */
     var POOL = (App.data && App.data.BUILTIN_POOL) || [];
@@ -1200,10 +1251,127 @@
 
     var bState = { idx: 0, picks: [], blocks: [], done: false, flash: 0, solved: 0, target: null };
 
+
     /* 一局 5 题，和第一关入门课一个量级；顺序固定，便于"第 N / 5" */
     var DECK_N = 5;
     var bDeck = BUILDABLE.slice(0, DECK_N);
     if (!bDeck.length) { bDeck = BUILDABLE.slice(); }
+
+    /* ============================================================
+       集章牌
+       ------------------------------------------------------------
+       一局 5 题，光看"第 N/5"和"已拼成 N 字"还是文字进度；
+       每拼成一个字就在左手边这块牌子上盖一枚朱印，五枚齐了换一句题头。
+       印章的内容就是这个字本身 —— 走完一局，牌子上是一排你还记得的字。
+       ============================================================ */
+    var STAMP_N = DECK_N;
+    var stampChars = [];
+    var stampCv = App.museumTex.canvas(1024, 460);
+    var stampTex = canvasTex(stampCv, { srgb: true });
+    var stampMtl = new T.MeshBasicMaterial({ map: stampTex, transparent: true });
+
+    function paintStampBoard() {
+      var c = stampCv.getContext('2d');
+      var W = 1024, H = 460;
+      c.clearRect(0, 0, W, H);
+      /* 牌子底：和厅里那些说明碑同一族，压暗一点免得抢工作台 */
+      var g2 = c.createLinearGradient(0, 0, W * 0.4, H);
+      g2.addColorStop(0, 'rgba(44,36,26,.94)');
+      g2.addColorStop(1, 'rgba(26,21,15,.94)');
+      c.fillStyle = g2;
+      c.fillRect(0, 0, W, H);
+      c.strokeStyle = 'rgba(214,186,126,.38)';
+      c.lineWidth = 4;
+      c.strokeRect(10, 10, W - 20, H - 20);
+
+      var done = stampChars.length >= STAMP_N;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillStyle = done ? 'rgba(255,226,178,.96)' : 'rgba(240,226,200,.92)';
+      c.font = '600 46px "Songti SC","Noto Serif SC",serif';
+      c.fillText(done ? '五 枚 齐 了' : '集 章', W / 2, 62);
+      c.fillStyle = 'rgba(232,220,194,.42)';
+      c.font = '400 24px "Songti SC","Noto Serif SC",serif';
+      c.fillText(done ? '这一局五个字，都是你自己拼出来的'
+        : '拼成一个字，盖一枚印　·　' + stampChars.length + ' / ' + STAMP_N, W / 2, 108);
+
+      var n = STAMP_N;
+      var gap = 26;
+      var cell = Math.min(150, Math.floor((W - 120 - gap * (n - 1)) / n));
+      var total = cell * n + gap * (n - 1);
+      var x0 = (W - total) / 2;
+      var y0 = 158;
+      for (var i = 0; i < n; i++) {
+        var x = x0 + i * (cell + gap);
+        var ch = stampChars[i];
+        if (!ch) {
+          /* 空槽：虚线框 + 一个很淡的「印」 */
+          c.save();
+          c.setLineDash([9, 8]);
+          c.strokeStyle = 'rgba(190,150,96,.34)';
+          c.lineWidth = 3;
+          c.strokeRect(x, y0, cell, cell);
+          c.restore();
+          c.fillStyle = 'rgba(232,220,194,.12)';
+          c.font = '600 ' + Math.round(cell * 0.42) + 'px "Songti SC","Noto Serif SC",serif';
+          c.fillText('印', x + cell / 2, y0 + cell / 2 + 2);
+        } else {
+          /* 已盖：朱砂方块，边不求正（手按的印从来不是正的） */
+          var rot = ((i * 37) % 7 - 3) * 0.012;
+          c.save();
+          c.translate(x + cell / 2, y0 + cell / 2);
+          c.rotate(rot);
+          c.fillStyle = 'rgba(158,54,34,.90)';
+          c.fillRect(-cell / 2, -cell / 2, cell, cell);
+          /* 朱砂印面不匀：几处淡的白点 */
+          var R2 = App.museumTex.rng(900 + i * 31);
+          for (var k = 0; k < 26; k++) {
+            c.fillStyle = 'rgba(240,226,200,' + (0.03 + R2() * 0.10).toFixed(3) + ')';
+            c.fillRect(-cell / 2 + R2() * cell, -cell / 2 + R2() * cell, 2 + R2() * 3, 2 + R2() * 3);
+          }
+          c.strokeStyle = 'rgba(240,226,200,.55)';
+          c.lineWidth = 2;
+          c.strokeRect(-cell / 2 + 7, -cell / 2 + 7, cell - 14, cell - 14);
+          c.fillStyle = '#f4e6c8';
+          c.font = '600 ' + Math.round(cell * 0.56) + 'px "Songti SC","Noto Serif SC",serif';
+          c.fillText(ch, 0, 2);
+          c.restore();
+        }
+      }
+      c.fillStyle = 'rgba(232,220,194,.30)';
+      c.font = '400 20px "Songti SC","Noto Serif SC",serif';
+      c.fillText(done ? '再点「下一个字」，可以接着拼' : '五个字走完，这块牌子就满了', W / 2, H - 46);
+      stampTex.needsUpdate = true;
+    }
+
+    /* 盖一枚：返回是否刚好盖满（用来触发收尾） */
+    function addStamp(ch) {
+      if (!ch) { return false; }
+      if (stampChars.length >= STAMP_N) { return false; }
+      stampChars.push(ch);
+      paintStampBoard();
+      if (App.museumAudio && App.museumAudio.part) { App.museumAudio.part(); }
+      return stampChars.length >= STAMP_N;
+    }
+
+    paintStampBoard();
+    var stampBoard = new T.Mesh(new T.PlaneGeometry(2.42, 1.09), stampMtl);
+    /* 位置按默认机位调过：再往左就会被画面裁掉最左边那枚印 */
+    stampBoard.position.set(-2.62, 1.78, -2.05);
+    stampBoard.rotation.y = 0.60;
+    stampBoard.userData = { kind: 'stampboard' };
+    buildG.add(stampBoard);
+    pickables.push(stampBoard);
+    /* 牌脚：两根短柱，别让牌子悬在半空 */
+    [-1, 1].forEach(function (s) {
+      var leg = new T.Mesh(
+        new T.BoxGeometry(0.05, 1.2, 0.05),
+        std({ color: 0x2b2118, roughness: 0.8, metalness: 0.08 })
+      );
+      leg.position.set(-2.62 + Math.cos(0.60) * s * 0.9, 0.6, -2.05 - Math.sin(0.60) * s * 0.9);
+      leg.rotation.y = 0.60;
+      buildG.add(leg);
+    });
 
     /* 成字的金屑：一次 90 颗，散开后受重力落下、逐渐淡出 */
     var sparks = null, sparkData = null;
@@ -1289,6 +1457,11 @@
       );
 
       var n = p.list.length;
+      /* 竖屏横向只有 ±14°，原来那条 1.84 rad 的弧摆出去，
+         最外侧两块直接落在屏幕外 —— 手机上等于挑不全四个构件，拼不了。
+         窄屏改成工作台前的 2×2 栅格，四块都收进同一屏。 */
+      var narrow = signIsNarrow();
+      var GRID = [[-0.52, -0.52], [0.52, -0.52], [-0.52, -1.34], [0.52, -1.34]];
       p.list.forEach(function (ch, i) {
         var a = (-0.92 + (i / Math.max(1, n - 1)) * 1.84);
         var r = 2.05;
@@ -1297,8 +1470,14 @@
           mats.push(f === 2 ? compMtl(ch) : blockSideMtl);
         }
         var mesh = new T.Mesh(blockGeo, mats);
-        mesh.position.set(Math.sin(a) * r, 0.94, -2.5 + Math.cos(a) * r);
-        mesh.rotation.y = a * 0.5;
+        if (narrow) {
+          var gp = GRID[i % GRID.length];
+          mesh.position.set(gp[0], 0.94, gp[1]);
+          mesh.rotation.y = gp[0] * 0.5;
+        } else {
+          mesh.position.set(Math.sin(a) * r, 0.94, -2.5 + Math.cos(a) * r);
+          mesh.rotation.y = a * 0.5;
+        }
         mesh.userData = { kind: 'block', ch: ch, slot: i };
         mesh.castShadow = !low;
         var ped = new T.Mesh(
@@ -1342,15 +1521,21 @@
             App.progress.add('build', String(p.word.g));   /* 三关收口也记一笔 */
           }
           spawnSparks(new T.Vector3(0, 1.7, -2.5), 90, 0xffd9a0);
+          /* 盖一枚章。差一枚不满时只是"又多一枚"，盖满那一下换题头。 */
+          var full = addStamp(p.word.g);
           paintBuildSign('成 字 「' + p.word.g + '」',
-            '骨上这道刻好了 —— 看完讲解再点「下一个字」',
+            full
+              ? '五枚齐了 —— 这一局的五个字都盖在左手边那块牌子上'
+              : '骨上这道刻好了 —— 看完讲解再点「下一个字」（已集 ' +
+                stampChars.length + '/' + STAMP_N + ' 印）',
             '', 'rgba(255,214,150,.96)', p.pair, p.word.g);
           /* 交给馆里弹讲解卡；玩家点「下一个字」才 buildNext() */
           if (App.emit) {
             App.emit('museum-build', { solved: bState.solved, target: p.word.g, done: true });
             App.emit('museum-build-solved', {
               word: p.word, pair: p.pair, seq: bState.idx % bDeck.length,
-              total: bDeck.length, solved: bState.solved
+              total: bDeck.length, solved: bState.solved,
+              stamps: stampChars.slice(), stampFull: full
             });
           }
           return { kind: 'build-ok', word: p.word };
@@ -2699,9 +2884,11 @@
       if (areaId === 'hall' && narrow) {
         out.r = 12.4; out.y = 2.75; out.phi = 1.47;
       } else if (areaId === 'gallery' && narrow) {
-        /* 竖屏：再往里收就跑到房间外、露顶棚；再退开标题墙又被顶栏压住。
-           r 8.8 / y 2.1 是这两头之间能同时看见展品和标题的位置。 */
-        out.r = 8.8; out.y = 2.1; out.phi = 1.51;
+        /* 竖屏：r 8.8 的机位正好贴在骨版环（7.9）外面，
+           正对着的那块骨版离镜头不足一米 —— 手机上就是一块填满屏幕的骨面。
+           这里退到 8.6 但把镜头抬到 4.4 米、并把方位让开 15°（落在两块骨版中间），
+           于是最近的两块都退到画面两侧，中间留给中庭那件大骨版。 */
+        out.r = 8.6; out.y = 3.3; out.phi = 1.48; out.theta = 0.26;
       } else if (narrow) {
         /* 附区里的东西比展厅紧凑，竖屏往里收 30% 就够 */
         out.r = a.r * 0.70;
@@ -2721,7 +2908,7 @@
 
       setView({
         target: new T.Vector3(0, v.y, v.z + v.dz),
-        theta: id === 'hall' ? 0.16 : 0,
+        theta: v.theta != null ? v.theta : (id === 'hall' ? 0.16 : 0),
         phi: v.phi, radius: v.r,
         minPhi: v.minPhi, maxPhi: v.maxPhi, minR: v.minR, maxR: v.maxR
       });
@@ -2746,7 +2933,24 @@
 
       if (id === 'boss') { loadFaces(); }
       if (id === 'collection') { refreshCollection(); }
-      if (id === 'build' && !bState.blocks.length) { buildLayout(); }
+      if (id === 'build') {
+        if (!bState.blocks.length) { buildLayout(); }
+        /* 进造字区时相机已经落位，题面牌的尺寸这时才量得准。
+           重绘的内容要和 buildLayout 里那一版一致 —— 少了副标题，
+           横屏就会变成一块只写着"第 N/5"的空牌子。 */
+        if (bSign) {
+          fitBuildSign();
+          var bw = bState.target;
+          var bpair = bw ? String(bw.w || '').split('+').filter(Boolean) : null;
+          var bseq = (bState.idx % bDeck.length) + 1;
+          paintBuildSign(
+            '第 ' + bseq + ' / ' + bDeck.length + '　拼 出 「' + (bw ? bw.g : '') + '」',
+            '需要 ' + (bpair ? bpair.length : 2) + ' 块构件：从下排四块里挑出来　·　已拼成 ' +
+              bState.solved + ' 字',
+            '', null, bpair, bw ? bw.g : ''
+          );
+        }
+      }
       return id;
     }
 
@@ -2802,6 +3006,8 @@
          横屏（宽高比 ≥ 1.2）保持 42°。 */
       camera.fov = aspect >= 1.2 ? 42 : Math.min(57, 42 + (1.2 - aspect) * 19);
       camera.updateProjectionMatrix();
+      /* 造字区那块题面牌是按视野宽度算尺寸的，窗口一变就得重算 */
+      if (bSign) { fitBuildSign(); }
     }
     resize();
     /* 初次进场按当前屏幕比例取景（竖屏直接给"靠近"的那套） */
@@ -2991,9 +3197,15 @@
           target: bState.target ? bState.target.g : null,
           seq: bState.idx % bDeck.length, total: bDeck.length,
           need: bState.target ? String(bState.target.w || '').split('+').filter(Boolean).length : 2,
-          blocks: bState.blocks.map(function (b) { return b.ch; })
+          blocks: bState.blocks.map(function (b) { return b.ch; }),
+          /* 集章：已经盖了哪些、满没满 */
+          stamps: stampChars.slice(), stampTotal: STAMP_N,
+          stampsFull: stampChars.length >= STAMP_N
         };
       },
+
+      /* 自查 / 讲解卡用：单独取一次集章状态 */
+      stamps: function () { return stampChars.slice(); },
 
       /* 考古区 */
       dig: digTap,
@@ -3080,7 +3292,9 @@
           fov: +camera.fov.toFixed(1), aspect: +camera.aspect.toFixed(3),
           radius: +ctrl.radius.toFixed(2), targetY: +ctrl.target.y.toFixed(2),
           buildDone: bState.done, digFound: dState.found,
-          bossBroken: bossState.broken
+          bossBroken: bossState.broken,
+          signK: bSign ? +bSign.scale.x.toFixed(3) : -1,
+          signY: bSign ? +bSign.position.y.toFixed(2) : -1
         };
       }
     };
