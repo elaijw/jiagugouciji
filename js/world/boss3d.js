@@ -283,6 +283,166 @@
   }
 
   /* ================= 战场 ================= */
+  /* ============================================================
+     深处的巨影
+     ------------------------------------------------------------
+     把 boss.png 立在祭坛后方的黑暗里（z≈-13），压暗、吃雾、半透，
+     读起来是"有个巨大的东西站在那儿"，而不是贴在角落的一张画。
+     ============================================================ */
+  function buildBossGhost(st) {
+    var T = st.T;
+
+    /* ---------- 洞窟：石门 + 两根岩柱 ---------- */
+    var rockMtl = new T.MeshStandardMaterial({
+      color: 0x0a0807, roughness: 1.0, metalness: 0.0, flatShading: true
+    });
+    function pillar(x, z, h, r) {
+      var m = new T.Mesh(new T.CylinderGeometry(r * 0.72, r, h, 7, 1), rockMtl);
+      m.position.set(x, h / 2 - 0.4, z);
+      m.rotation.y = Math.random() * 3;
+      st.scene.add(m);
+      return m;
+    }
+    pillar(-7.2, -10.5, 7.2, 1.5);
+    pillar(7.2, -10.5, 6.6, 1.4);
+    pillar(-9.4, -14.0, 9.0, 1.8);
+    pillar(9.4, -14.0, 8.4, 1.7);
+
+    /* ---------- 门洞：黑色漩涡 ----------
+       先在画布上画螺旋（黑 + 深紫 + 一点极淡的赭金丝），
+       贴在门洞上慢慢转；中心再压一个纯黑圆，才像"往里吸的洞"。 */
+    function vortexTexture() {
+      var N2 = 512;
+      var vc = App.stage3d.canvas(N2, N2);
+      var c2 = vc.getContext('2d');
+      c2.clearRect(0, 0, N2, N2);
+      var cx = N2 / 2, cy = N2 / 2;
+      /* 底色：由中心向外的深紫→黑 */
+      var bg = c2.createRadialGradient(cx, cy, 4, cx, cy, N2 / 2);
+      bg.addColorStop(0, 'rgba(6,4,10,0.98)');
+      bg.addColorStop(0.55, 'rgba(14,9,24,0.92)');
+      bg.addColorStop(1, 'rgba(0,0,0,0)');
+      c2.fillStyle = bg;
+      c2.beginPath(); c2.arc(cx, cy, N2 / 2, 0, 6.2832); c2.fill();
+      /* 螺旋臂 */
+      for (var arm = 0; arm < 5; arm++) {
+        var a0 = (arm / 5) * Math.PI * 2;
+        for (var k = 0; k < 140; k++) {
+          var tt = k / 140;
+          var ang2 = a0 + tt * 2.7;
+          var rr = tt * (N2 * 0.46);
+          var x2 = cx + Math.cos(ang2) * rr;
+          var y2 = cy + Math.sin(ang2) * rr;
+          var rr2 = (1 - tt) * 26 + 5;
+          var g2 = c2.createRadialGradient(x2, y2, 0, x2, y2, rr2);
+          var light = 0.10 + (1 - tt) * 0.30;
+          g2.addColorStop(0, 'rgba(150,120,190,' + light.toFixed(3) + ')');
+          g2.addColorStop(1, 'rgba(40,16,60,0)');
+          c2.fillStyle = g2;
+          c2.beginPath(); c2.arc(x2, y2, rr2, 0, 6.2832); c2.fill();
+        }
+      }
+      /* 极淡的赭金丝：给一点"骨与火"的味道，不至于纯紫 */
+      c2.globalCompositeOperation = 'lighter';
+      for (var j = 0; j < 26; j++) {
+        var ang3 = Math.random() * Math.PI * 2;
+        var r3 = 40 + Math.random() * (N2 * 0.34);
+        var x3 = cx + Math.cos(ang3) * r3, y3 = cy + Math.sin(ang3) * r3;
+        var g3 = c2.createRadialGradient(x3, y3, 0, x3, y3, 10 + Math.random() * 14);
+        g3.addColorStop(0, 'rgba(200,150,90,0.16)');
+        g3.addColorStop(1, 'rgba(120,70,30,0)');
+        c2.fillStyle = g3;
+        c2.beginPath(); c2.arc(x3, y3, 26, 0, 6.2832); c2.fill();
+      }
+      c2.globalCompositeOperation = 'source-over';
+      /* 中心黑洞 */
+      var core = c2.createRadialGradient(cx, cy, 2, cx, cy, N2 * 0.20);
+      core.addColorStop(0, 'rgba(0,0,0,1)');
+      core.addColorStop(0.7, 'rgba(4,3,8,0.92)');
+      core.addColorStop(1, 'rgba(6,4,12,0)');
+      c2.fillStyle = core;
+      c2.beginPath(); c2.arc(cx, cy, N2 * 0.21, 0, 6.2832); c2.fill();
+      return App.stage3d.tex(vc);
+    }
+
+    var vortexTex = vortexTexture();
+    var mouth = new T.Mesh(
+      new T.PlaneGeometry(15.4, 14.8),
+      new T.MeshBasicMaterial({
+        map: vortexTex, transparent: true, opacity: 1.0,
+        depthWrite: false, fog: false, blending: T.NormalBlending, toneMapped: false
+      })
+    );
+    mouth.position.set(0, 5.6, -15.4);
+    st.scene.add(mouth);
+    S.vortex = mouth;
+
+    /* ---------- 地面的火：贴地光斑 + 点光 ---------- */
+    var cv = App.stage3d.canvas(256, 256), c = cv.getContext('2d');
+    var g = c.createRadialGradient(128, 128, 6, 128, 128, 124);
+    g.addColorStop(0, 'rgba(255,170,90,.85)');
+    g.addColorStop(0.35, 'rgba(220,90,40,.35)');
+    g.addColorStop(1, 'rgba(120,40,20,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(128, 128, 126, 0, 6.2832); c.fill();
+    var fireTex = App.stage3d.tex(cv);
+    var fires = [];
+    [[-5.2, -7.6, 1.6], [5.4, -7.9, 1.4], [-1.0, -12.0, 1.0]].forEach(function (f) {
+      var m = new T.Mesh(new T.PlaneGeometry(f[2] * 2.6, f[2] * 1.5),
+        new T.MeshBasicMaterial({
+          map: fireTex, transparent: true, opacity: 0.75,
+          depthWrite: false, blending: T.AdditiveBlending, fog: false, toneMapped: false
+        }));
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(f[0], 0.06, f[1]);
+      st.scene.add(m);
+      var lt = new T.PointLight(0xff7a2e, 2.2, 12, 2);
+      lt.position.set(f[0], 1.0, f[1]);
+      st.scene.add(lt);
+      fires.push({ mesh: m, light: lt, base: f[2] });
+    });
+    S.lairFires = fires;
+
+    /* ---------- 上升的火星 ---------- */
+    var N = 120, pos = new Float32Array(N * 3), spd = [];
+    for (var i = 0; i < N; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 13;
+      pos[i * 3 + 1] = Math.random() * 6;
+      pos[i * 3 + 2] = -8.6 - Math.random() * 6;
+      spd.push(0.25 + Math.random() * 0.7);
+    }
+    var eg = new T.BufferGeometry();
+    eg.setAttribute('position', new T.BufferAttribute(pos, 3));
+    var embers = new T.Points(eg, new T.PointsMaterial({
+      color: 0xffa25a, size: 0.07, transparent: true, opacity: 0.85,
+      depthWrite: false, blending: T.AdditiveBlending, fog: false, sizeAttenuation: true
+    }));
+    st.scene.add(embers);
+    S.lairEmbers = { mesh: embers, spd: spd };
+
+    /* ---------- 深处那个巨大的身影 ---------- */
+    var loader = new T.TextureLoader();
+    loader.load('assets/gen/boss.png', function (tex) {
+      tex.colorSpace = T.SRGBColorSpace;
+      var w = 17.0, h = 28.0;
+      var mat = new T.MeshBasicMaterial({
+        map: tex, transparent: true, opacity: 0.0,
+        color: 0x9a8d78, depthWrite: false, fog: true, toneMapped: true
+      });
+      var fig = new T.Mesh(new T.PlaneGeometry(w, h), mat);
+      fig.position.set(0, h * 0.46, -11.0);
+      fig.renderOrder = -1;
+      st.scene.add(fig);
+      S.ghostFigure = fig;
+      var t0 = performance.now();
+      (function fadeIn() {
+        if (!fig.parent) { return; }
+        var k = Math.min(1, (performance.now() - t0) / 1600);
+        mat.opacity = 0.62 * (1 - Math.pow(1 - k, 3));
+        if (k < 1) { requestAnimationFrame(fadeIn); }
+      })();
+    }, undefined, function () { /* 图没加载就只是一片黑洞，不影响玩 */ });
+  }
+
   function buildArena(st) {
     var T = st.T;
     st.renderer.toneMappingExposure = 1.0;
@@ -574,10 +734,8 @@
       '<button>开 始</button>' +
       '</div>';
 
-    var face = el('div', 'bd3-face');
-    face.innerHTML = '<img src="assets/gen/boss.png" alt="守字之骨">' +
-      '<span>守 字 之 骨</span>';
-    [top, task, step, src, sayBox, flash, tag, face, win, intro, fade, load].forEach(function (n) {
+    /* 角落立绘已撤：改成场景深处的一张巨影（见 buildBossGhost） */
+    [top, task, step, src, sayBox, flash, tag, win, intro, fade, load].forEach(function (n) {
       root.appendChild(n);
     });
 
@@ -1145,17 +1303,15 @@
   }
 
   /* 立绘浮出：进阶段时亮 2.6 秒，然后收回，避免长期挡画面 */
+  /* 原来这里控制角落立绘；现在立绘搬进场景深处，保留空实现避免调用处报错 */
   function showFace() {
-    var f = S.root && S.root.querySelector('.bd3-face');
-    if (!f) { return; }
-    f.classList.add('on');
-    f.classList.remove('idle');
-    if (S._faceT) { clearTimeout(S._faceT); }
-    S._faceT = setTimeout(function () {
-      f.classList.remove('on');
-      f.classList.add('idle');   /* 收起后不消失，留在角落当"这位是 Boss" */
-    }, 2600);
+    if (S.ghostFigure) {
+      var t0 = performance.now();
+      S.ghostFigure.userData.glowT = t0;
+    }
   }
+
+
 
   function startPhase1() {
     setPhase(1);
@@ -1599,6 +1755,39 @@
     positionTag();
     updateHalo(dt, t);
 
+    /* 门里的黑色漩涡：缓慢自转 + 极轻的呼吸 */
+    if (S.vortex) {
+      S.vortex.rotation.z -= dt * 0.10;
+      var pk = 1 + Math.sin(t * 0.7) * 0.012;
+      S.vortex.scale.set(pk, pk, 1);
+      S.vortex.material.opacity = 0.90 + Math.sin(t * 1.3) * 0.05;
+    }
+    /* 深处的巨影：极慢摆动 */
+    if (S.ghostFigure) {
+      S.ghostFigure.position.x = Math.sin(t * 0.18) * 0.35;
+      S.ghostFigure.rotation.z = Math.sin(t * 0.13) * 0.006;
+    }
+    /* 巢穴的火：光斑呼吸 + 火星上升 */
+    if (S.lairFires) {
+      for (var fi = 0; fi < S.lairFires.length; fi++) {
+        var f2 = S.lairFires[fi];
+        f2.light.intensity = 1.7 + Math.sin(t * 5.2 + fi * 1.7) * 0.5;
+        f2.mesh.material.opacity = 0.62 + Math.sin(t * 4.1 + fi * 2.1) * 0.14;
+      }
+    }
+    if (S.lairEmbers) {
+      var ea = S.lairEmbers.mesh.geometry.attributes.position.array;
+      for (var ei = 0; ei < S.lairEmbers.spd.length; ei++) {
+        ea[ei * 3 + 1] += S.lairEmbers.spd[ei] * dt;
+        if (ea[ei * 3 + 1] > 8.5) {
+          ea[ei * 3 + 1] = 0.1;
+          ea[ei * 3] = (Math.random() - 0.5) * 13;
+          ea[ei * 3 + 2] = -8.6 - Math.random() * 6;
+        }
+      }
+      S.lairEmbers.mesh.geometry.attributes.position.needsUpdate = true;
+    }
+
     /* Boss 待机：浮 + 护盾转 */
     var b = S.boss;
     if (b && b.root.visible) {
@@ -1764,6 +1953,7 @@
       st.el.style.height = '100%';
 
       buildArena(st);
+      buildBossGhost(st);
       S.boss = makeBoss(st);
 
       var gb = SHOW_GB ? App.stage3d.makeGuibao(st.T, { scale: 1.35 }) : null;
