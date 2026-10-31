@@ -22,8 +22,7 @@
 
   /* ---------- 展区定义（与 museum.js 共用文案键） ---------- */
   var ZONE_DEF = [
-    { id: 'prologue',   name: '文明序厅',   glyph: '卜', accent: 0xa58147, angle: -168 },
-    { id: 'gallery',    name: '甲骨文展厅', glyph: '日', accent: 0xcc523b, angle: -108 },
+    { id: 'gallery',    name: '甲骨文知识厅', glyph: '日', accent: 0xcc523b, angle: -108 },
     { id: 'build',      name: '造字探索区', glyph: '木', accent: 0x337663, angle: -48 },
     { id: 'excavate',   name: '考古任务区', glyph: '山', accent: 0xa58147, angle: 48 },
     { id: 'boss',       name: 'BOSS 挑战区', glyph: '戈', accent: 0x8c3a2a, angle: 108 },
@@ -1767,6 +1766,91 @@
     var heatT = -1;   /* >0 表示正在灼 */
 
     /* ============================================================
+       回主馆的交互碑（每个展区一块，摆在入口侧前方）
+       ------------------------------------------------------------
+       顶栏那颗"返回大厅"在视野之外，站着看展时不好找；
+       这里在每间屋子靠门的一侧立一块小碑，点一下就回大厅。
+       ============================================================ */
+    function addBackPlaque(group, opt) {
+      var o = opt || {};
+      var w = 1.55, h = 0.52;
+      var cv = App.museumTex.canvas(512, 172);
+      var c = cv.getContext('2d');
+      c.clearRect(0, 0, 512, 172);
+      /* 石面 */
+      var g = c.createLinearGradient(0, 0, 0, 172);
+      g.addColorStop(0, 'rgba(58,46,34,.96)');
+      g.addColorStop(1, 'rgba(32,25,19,.96)');
+      c.fillStyle = g;
+      c.fillRect(0, 0, 512, 172);
+      c.strokeStyle = 'rgba(214,186,126,.55)';
+      c.lineWidth = 5;
+      c.strokeRect(9, 9, 494, 154);
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillStyle = 'rgba(240,226,200,.94)';
+      c.font = '600 62px "Songti SC","Noto Serif SC",serif';
+      c.fillText('← 回 主 馆', 256, 70);
+      c.fillStyle = 'rgba(232,220,194,.46)';
+      c.font = '400 26px "Songti SC","Noto Serif SC",serif';
+      c.fillText('点此碑退出本展区', 256, 128);
+
+      var mat = new T.MeshBasicMaterial({
+        map: canvasTex(cv, { srgb: true }), transparent: true
+      });
+      var plaque = new T.Mesh(new T.PlaneGeometry(w, h), mat);
+      plaque.position.set(o.x == null ? 3.65 : o.x, o.y == null ? 1.55 : o.y,
+                          o.z == null ? -2.2 : o.z);
+      plaque.rotation.y = o.ry == null ? -0.55 : o.ry;
+      plaque.userData = { kind: 'back', zone: 'back' };
+      group.add(plaque);
+      pickables.push(plaque);
+
+      /* 碑脚：一小段石座，免得牌子悬空 */
+      var base = new T.Mesh(
+        new T.BoxGeometry(w * 0.72, 0.16, 0.12),
+        std({ color: 0x2a1f16, roughness: 0.9, metalness: 0.06 })
+      );
+      base.position.set(plaque.position.x, plaque.position.y - h * 0.5 - 0.06, plaque.position.z);
+      base.rotation.y = plaque.rotation.y;
+      group.add(base);
+      return plaque;
+    }
+
+    addBackPlaque(proG, { x: 3.5, y: 1.6, z: -3.0 });
+    addBackPlaque(gal, { x: 4.4, y: 1.6, z: -2.4 });
+    /* 序厅并进来之后，它的内容改成厅里这块说明碑：点开就是原来的序厅面板 */
+    (function prologueTablet() {
+      var cv = App.museumTex.canvas(512, 200);
+      var c = cv.getContext('2d');
+      c.fillStyle = 'rgba(58,46,34,.96)';
+      c.fillRect(0, 0, 512, 200);
+      c.strokeStyle = 'rgba(214,186,126,.55)';
+      c.lineWidth = 5;
+      c.strokeRect(9, 9, 494, 182);
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillStyle = 'rgba(240,226,200,.94)';
+      c.font = '600 54px "Songti SC","Noto Serif SC",serif';
+      c.fillText('甲 骨 是 什 么', 256, 74);
+      c.fillStyle = 'rgba(232,220,194,.5)';
+      c.font = '400 26px "Songti SC","Noto Serif SC",serif';
+      c.fillText('点开看：甲骨、灼骨与兆纹', 256, 138);
+      var mesh = new T.Mesh(
+        new T.PlaneGeometry(1.85, 0.72),
+        new T.MeshBasicMaterial({ map: canvasTex(cv, { srgb: true }), transparent: true })
+      );
+      mesh.position.set(-4.3, 1.62, -2.4);
+      mesh.rotation.y = 0.55;
+      mesh.userData = { kind: 'prologue', zone: 'prologue' };
+      gal.add(mesh);
+      pickables.push(mesh);
+    })();
+    addBackPlaque(buildG, { x: 4.2, y: 1.6, z: -2.6 });
+    addBackPlaque(digG, { x: 4.2, y: 1.6, z: -2.6 });
+    addBackPlaque(bossG, { x: 4.4, y: 1.6, z: -2.6 });
+
+    /* ============================================================
        ⑤ 我的典藏区：一面陈列柜，十二个龛
        看过哪一件，哪个龛就亮起来 —— 进度不是一句文字，是墙上的状态。
        ============================================================ */
@@ -1775,6 +1859,7 @@
     collG.visible = false;
     scene.add(collG);
     roomShell(collG, 14.4, 12, 6.4, 0x527d91);
+    addBackPlaque(collG, { x: 4.0, y: 1.6, z: -2.2 });   /* 典藏区也要能回主馆 */
 
     var cabMtl = std({ color: 0x241a12, roughness: 0.66, metalness: 0.22, envMapIntensity: 0.6 });
     var cabBack = new T.Mesh(new T.BoxGeometry(10.6, 5.9, 0.34), cabMtl);
@@ -2120,6 +2205,10 @@
       } else if (u.kind === 'heat') {
         heatT = 2.8;
         send({ type: 'heat' });
+      } else if (u.kind === 'back') {
+        send({ type: 'back' });
+      } else if (u.kind === 'prologue') {
+        send({ type: 'prologue' });
       }
     }
 

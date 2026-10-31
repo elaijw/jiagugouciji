@@ -1061,29 +1061,53 @@
       sizeAttenuation: true, depthWrite: false
     });
     var p = new T.Points(geo, mat);
+    p.userData = { debris: true };
     st.scene.add(p);
+    /* 兜底：不管队列有没有跑到，1.5 秒后一定从场景里摘掉，绝不留残渣 */
+    setTimeout(function () {
+      if (p.parent) { p.parent.remove(p); }
+      try { geo.dispose(); mat.dispose(); } catch (e) {}
+    }, 1500);
     var life = 1.1;
-    return {
-      obj: p,
-      update: function (dt) {
-        life -= dt;
-        var arr = geo.attributes.position.array;
-        for (var i2 = 0; i2 < n; i2++) {
-          vel[i2][1] -= 11 * dt;
-          arr[i2 * 3] += vel[i2][0] * dt;
-          arr[i2 * 3 + 1] += vel[i2][1] * dt;
-          arr[i2 * 3 + 2] += vel[i2][2] * dt;
-        }
-        geo.attributes.position.needsUpdate = true;
-        mat.opacity = Math.max(0, life / 1.1);
-        if (life <= 0) {
-          st.scene.remove(p);
-          geo.dispose(); mat.dispose();
-          return false;
-        }
-        return true;
+    /* 返回"可调用函数"：S.bursts 队列是按 fn(dt) 调的，
+       原来返回 {obj, update} 对象 → 每帧抛 TypeError → 队列清不掉 →
+       粒子冻结，画面上就剩一层碎屑残渣。 */
+    var step = function (dt) {
+      life -= dt;
+      var arr = geo.attributes.position.array;
+      for (var i2 = 0; i2 < n; i2++) {
+        vel[i2][1] -= 11 * dt;
+        arr[i2 * 3] += vel[i2][0] * dt;
+        arr[i2 * 3 + 1] += vel[i2][1] * dt;
+        arr[i2 * 3 + 2] += vel[i2][2] * dt;
       }
+      geo.attributes.position.needsUpdate = true;
+      mat.opacity = Math.max(0, life / 1.1);
+      if (life <= 0) {
+        st.scene.remove(p);
+        geo.dispose(); mat.dispose();
+        return false;
+      }
+      return true;
     };
+    step.obj = p;
+    return step;
+  }
+
+  /* 换阶段时把还挂着的碎屑一次清干净，避免上一轮的粒子留在新场景里 */
+  function clearDebris() {
+    if (!S.st || !S.st.scene) { return; }
+    var del = [];
+    S.st.scene.traverse(function (o) {
+      if (o.isPoints && o.geometry && o.material && o.material.transparent &&
+          o !== (S.sigil && S.sigil.grp) && o.userData && o.userData.debris) {
+        del.push(o);
+      }
+    });
+    del.forEach(function (o) {
+      if (o.parent) { o.parent.remove(o); }
+      try { o.geometry.dispose(); o.material.dispose(); } catch (e) {}
+    });
   }
 
   /* ================= 阶段一：构件拆解 ================= */
@@ -1440,6 +1464,22 @@
     refreshTip();
   }
 
+  /* 跑一次性动画队列：调用方可能是函数，也可能是老的 {update} 对象（兼容） */
+  function tickBursts(dt) {
+    if (!S.bursts || !S.bursts.length) { return; }
+    for (var bi = S.bursts.length - 1; bi >= 0; bi--) {
+      var b = S.bursts[bi];
+      try {
+        var keep = (typeof b === 'function')
+          ? b(dt)
+          : (b && typeof b.update === 'function' ? b.update(dt) : false);
+        if (!keep) { S.bursts.splice(bi, 1); }
+      } catch (e) {
+        S.bursts.splice(bi, 1);   /* 坏掉的项直接丢，别堵住队列 */
+      }
+    }
+  }
+
   function tickSigil(dt) {
     var g = S.sigil;
     if (!g) { return; }
@@ -1507,6 +1547,7 @@
 
 
   function startPhase1() {
+    clearDebris();
     setPhase(1);
     clearWidgets();
     summonPhase(1);
@@ -1604,6 +1645,7 @@
   };
 
   function startPhase2() {
+    clearDebris();
     setPhase(2);
     clearWidgets();
     summonPhase(2);
@@ -1706,6 +1748,7 @@
 
   /* ================= 阶段三：古句填字 ================= */
   function startPhase3() {
+    clearDebris();
     setPhase(3);
     clearWidgets();
     summonPhase(3);
@@ -2065,6 +2108,14 @@
     tickSigil(dt);
     positionTag();
     updateHalo(dt, t);
+    /* 一次性动画（碎屑、护盾炸、崩解）放在最前面跑：
+       原来它在阶段分支后面，某些阶段根本走不到，粒子就冻在原地成了"残渣"。 */
+    tickBursts(dt);
+    /* 战斗音乐自愈：进关卡时声音是关的，玩到一半打开了也要响 */
+    if (App.battleMusic && !App.battleMusic.isPlaying() &&
+        App.museumAudio && App.museumAudio.isOn && App.museumAudio.isOn() && S.phase !== 9) {
+      App.battleMusic.start(S.phase || 1);
+    }
 
     /* 门里的黑色漩涡 */
     if (S.vortex) {
@@ -2199,12 +2250,7 @@
       }
     }
 
-    /* 一次性动画（护盾炸、Boss 崩解） */
-    if (S.bursts && S.bursts.length) {
-      for (var bi = S.bursts.length - 1; bi >= 0; bi--) {
-        if (!S.bursts[bi](dt)) { S.bursts.splice(bi, 1); }
-      }
-    }
+    /* 一次性动画已移到 tick 顶部（见 tickBursts） */
 
     /* 龟宝 */
     if (S.guibao && S.guibao.update) {

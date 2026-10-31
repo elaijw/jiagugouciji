@@ -791,3 +791,7 @@ body.mu-play-lock .mu-vignette { visibility: hidden; }
 .mu-p-ob-pair .mu-p-ob-piece { width: 46px; height: 46px; }
 .mu-p-ob-pair .mu-p-ob-piece svg, .mu-p-ob-pair .mu-p-ob-piece img { width: 100%; height: 100%; }
 .mu-p-ob-piece-t { font-size: 30px; color: #efe3c8; }
+
+/* 玩法层里的声音开关：挨着「回馆」，往左让 84px */
+.mu-play-exit.mu-play-snd { right: 120px; letter-spacing: .04em; }
+.mu-play-snd[aria-pressed="true"] { border-color: #ffce8c; color: #ffe6bd; }

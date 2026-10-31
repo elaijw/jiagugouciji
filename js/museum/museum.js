@@ -20,8 +20,9 @@
   /* 展区：3D 里的七个区与这里一一对应（id 必须和 museum3d.js 的 GROUPS 一致）。
      href 只作"去正式关卡"的出口，不再作为点门的默认行为 —— 门后面现在都有自己的 3D 屋子。 */
   var ZONES = [
-    { id: 'prologue',   name: '文明序厅',   glyph: '卜', note: '甲骨是什么，先从这里说起' },
-    { id: 'gallery',    name: '甲骨文展厅', glyph: '日', note: '十二件骨版，可凑近看' },
+    /* 文明序厅与甲骨文展厅合并：一个「甲骨文知识厅」。
+       序厅的内容（甲骨是什么 / 灼骨 / 兆纹）改成厅里一块说明碑，点开就是原来那个面板。 */
+    { id: 'gallery',    name: '甲骨文知识厅', glyph: '日', note: '甲骨是什么 + 十二件骨版，可凑近看' },
     { id: 'build',      name: '造字探索区', glyph: '木', note: '把两个构件搬上台面', href: '#/play/bone-build' },
     { id: 'excavate',   name: '浮空骨片区', glyph: '山', note: '六片骨，点开长出来', href: '#/play/bone-float' },
     { id: 'boss',       name: '守字之骨区', glyph: '戈', note: '拆构件 · 断笔画 · 补古句', href: '#/play/boss-3d' },
@@ -428,11 +429,17 @@
     if (App.museumAudio && (hit.type === 'exhibit' || hit.type === 'hero')) {
       App.museumAudio.click();
     }
+    if (hit.type === 'back') {
+      say('回主馆。');
+      goHall();
+      return;
+    }
     if (hit.type === 'portal') { enterZone(hit.zone); return; }
     if (hit.type === 'hero') { openExhibit('卜', true); return; }
     if (hit.type === 'exhibit') { openExhibit(hit.char, false); return; }
     if (hit.type === 'tablet') { openTablet(); return; }
     if (hit.type === 'stele') { openPrologue(); return; }
+    if (hit.type === 'prologue') { openPrologue(); return; }
     if (hit.type === 'plastron') { openPlastron(); return; }
     if (hit.type === 'case') { openExhibit('鼎', false); return; }
     if (hit.type === 'slot') { openExhibit(hit.char, false); return; }
@@ -576,6 +583,30 @@
     exit.type = 'button';
     exit.onclick = closePlay;
     ov.appendChild(exit);
+
+    /* 玩关卡时馆里的顶栏是藏着的，声音开关跟着一起藏了 ——
+       这里补一颗，进了关卡也能把声音打开（战斗音乐随之起） */
+    var snd = App.el('button', 'mu-play-exit mu-play-snd', '♪ 声音');
+    snd.type = 'button';
+    function paintSnd() {
+      var on = !!(App.museumAudio && App.museumAudio.isOn && App.museumAudio.isOn());
+      snd.textContent = on ? '♪ 声音 开' : '♪ 声音';
+      snd.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    paintSnd();
+    snd.onclick = function () {
+      if (!App.museumAudio) { return; }
+      var on = App.museumAudio.toggle();
+      paintSnd();
+      if (on) {
+        App.museumAudio.click();
+        var ph = (App.boss3d && App.boss3d._S && App.boss3d._S.phase) || 1;
+        if (App.battleMusic && App.battleMusic.start) { App.battleMusic.start(ph); }
+      } else if (App.battleMusic) {
+        App.battleMusic.stop(0.4);
+      }
+    };
+    ov.appendChild(snd);
 
     document.body.appendChild(ov);
     document.body.classList.add('mu-play-lock');
@@ -753,7 +784,8 @@
       say('平面展厅里，十二件骨版就在下面那一排。');
       return;
     }
-    if (id === 'prologue') { openPrologue(); return; }
+    /* 序厅已并入知识厅：老链接落到知识厅 */
+    if (id === 'prologue') { enterZone('gallery'); return; }
     if (id === 'collection') { openCollection(); return; }
   }
 
