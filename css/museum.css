@@ -889,10 +889,10 @@ body.mu-play-lock .mu-vignette { visibility: hidden; }
 .mu-b-num {
   width: 26px; height: 26px;
   display: grid; place-items: center;
-  border: 1px solid color-mix(in srgb, var(--cinnabar) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cinnabar) 38%, transparent);
   border-radius: 50%;
   font-family: var(--font-title, "Kaiti SC", serif);
-  font-size: 13px; line-height: 1;
+  font-size: 14px; line-height: 1;
   color: var(--cinnabar-text);
 }
 .mu-b-k {
