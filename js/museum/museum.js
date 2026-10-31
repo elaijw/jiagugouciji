@@ -1403,6 +1403,29 @@
     }
   };
 
+  /* 展签正文里的两种行内标记：
+       「…」 = 原辞例句 → 朱砂 + 细下划线
+       **…** = 强调 → 加粗（BOARDS 里 rubbing 那条一直在用，原先会原样显示两个星号）
+     全部用文本节点拼装、不拼 innerHTML —— 这些内容将来若挪进数据文件，
+     拼字符串就是一个 XSS 口子。 */
+  var CN_ORD = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+  function inlineNodes(text) {
+    var out = [], i = 0, m;
+    var re = /「[^」]*」|\*\*[^*]+\*\*/g;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > i) { out.push(document.createTextNode(text.slice(i, m.index))); }
+      var s = m[0];
+      if (s.charAt(0) === '*') {
+        out.push(App.el('strong', null, s.slice(2, -2)));
+      } else {
+        out.push(App.el('em', 'mu-b-q', s));
+      }
+      i = m.index + s.length;
+    }
+    if (i < text.length) { out.push(document.createTextNode(text.slice(i))); }
+    return out;
+  }
+
   function openBoard(topic) {
     var b = BOARDS[topic];
     if (!b) { say('这块石板还没写完。'); return; }
@@ -1411,9 +1434,23 @@
       var body = App.el('div', 'mu-p-body');
       body.appendChild(App.el('h3', 'mu-p-board-t', b.title));
       body.appendChild(App.el('p', 'mu-p-board-lead', b.lead));
-      var dl = App.el('dl', 'mu-p-dl');
-      b.rows.forEach(function (kv) { row(dl, kv[0], kv[1]); });
-      body.appendChild(dl);
+
+      /* 原来是 <dl> 平铺四条 dt/dd：四条并排时只有粗细之别，眼睛没有落点。
+         改成带中文序号的条目 —— 序号给位置，名目给关键词，释义单独成段。 */
+      var list = App.el('ol', 'mu-b-list');
+      b.rows.forEach(function (kv, i) {
+        var li = App.el('li', 'mu-b-item');
+        li.appendChild(App.el('span', 'mu-b-num', CN_ORD[i] || String(i + 1)));
+        var main = App.el('div', 'mu-b-main');
+        main.appendChild(App.el('h4', 'mu-b-k', kv[0]));
+        var v = App.el('p', 'mu-b-v');
+        inlineNodes(kv[1]).forEach(function (nd) { v.appendChild(nd); });
+        main.appendChild(v);
+        li.appendChild(main);
+        list.appendChild(li);
+      });
+      body.appendChild(list);
+
       body.appendChild(App.el('p', 'mu-p-note', b.note));
       p.appendChild(body);
     });

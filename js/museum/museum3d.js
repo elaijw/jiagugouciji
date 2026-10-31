@@ -91,6 +91,46 @@
     return cv;
   }
 
+  /* 光锥贴图：上浓下淡的竖向渐变，配合加法混合做一束"顶光"。 */
+  var _beamTex = null;
+  function beamTex() {
+    if (_beamTex) { return _beamTex; }
+    var W = 64, H = 256;
+    var cv = App.museumTex.canvas(W, H);
+    var ctx = cv.getContext('2d');
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0.00, 'rgba(255,228,180,.58)');
+    g.addColorStop(0.22, 'rgba(255,214,158,.26)');
+    g.addColorStop(0.55, 'rgba(238,188,128,.07)');
+    g.addColorStop(0.80, 'rgba(220,170,110,0)');
+    g.addColorStop(1.00, 'rgba(220,170,110,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    _beamTex = canvasTex(cv, { srgb: true });
+    return _beamTex;
+  }
+
+  /* 洗墙光斑：展品背后墙面上的一团暖光。
+     纯贴图 + 加法混合，不打灯 —— 十二件各配一盏真 SpotLight 太贵，
+     而且十二盏点光叠在同一个场景里会把骨版打成一片惨白。
+     只生成一次，十二件共用同一张贴图。 */
+  var _washTex = null;
+  function washTex() {
+    if (_washTex) { return _washTex; }
+    var W = 160, H = 256;
+    var cv = App.museumTex.canvas(W, H);
+    var ctx = cv.getContext('2d');
+    var g = ctx.createRadialGradient(W / 2, H * 0.54, 4, W / 2, H * 0.54, W * 0.66);
+    g.addColorStop(0.00, 'rgba(255,228,182,.92)');
+    g.addColorStop(0.32, 'rgba(212,162,102,.44)');
+    g.addColorStop(0.68, 'rgba(138,94,50,.13)');
+    g.addColorStop(1.00, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    _washTex = canvasTex(cv, { srgb: true });
+    return _washTex;
+  }
+
   /* 一张软阴影贴图：展台底下那圈接地影。
      比开一堆实时阴影便宜得多，近距离也看不出破绽。 */
   function contactShadowTex() {
@@ -652,14 +692,40 @@
     gal.visible = false;
     scene.add(gal);
 
+    /* 环厅的几何常量：十二件展品绕的圆。
+       原来写在 EXHIBITS.forEach 之前（下面 700 多行处），
+       但地面嵌线、弧形壁、展品背光都要用，所以提到展厅开头统一定义。 */
+    var RING_R = 7.9, RING_CZ = -5.6;
+
     var galW = 26, galD = 22, galH = 8.4;
-    var galFloor = new T.Mesh(
-      new T.BoxGeometry(galW, 0.3, galD),
-      std({ color: 0x1d1510, roughness: 0.34, metalness: 0.26, envMapIntensity: 0.7 })
-    );
+    /* 地面：和大厅同一张磨光石。原来是 std({color:0x1d1510}) 一块纯色，
+       26×22 的空间里没有接缝、没有石脉，纵深完全靠雾和光斑撑 ——
+       所以远看像一面褐色的墙，不像地。
+       ⚠ metalness 不要给高：暗场里没有环境图，金属度一高漫反射就被压掉，
+       贴图再亮也是一片黑（这一版第一次就踩了，整块地面黑得像坑）。 */
+    var galFloorMtl = std({
+      map: canvasTex(stoneTex(), { srgb: true, aniso: 8 }),
+      color: 0xf2e9dc,
+      roughness: 0.24, metalness: 0.10, envMapIntensity: 1.0
+    });
+    var galFloor = new T.Mesh(new T.BoxGeometry(galW, 0.3, galD), galFloorMtl);
     galFloor.position.set(0, -0.15, -galD / 2 + 4);
     galFloor.receiveShadow = true;
     gal.add(galFloor);
+
+    /* 地面铜嵌线：两道同心圆，把视线收到中庭。
+       和主厅那两道是同一套语言，进来不会觉得换了个地方。
+       ⚠ 圆心是 (0, RING_CZ)。第一版写成 RING_CZ + RING_R，那是圆周上的
+       一个点（画面最前缘），铜线整个跑到观众脚底下去了。 */
+    [2.2, 3.4].forEach(function (r, i) {
+      var ring = new T.Mesh(
+        new T.TorusGeometry(r, i ? 0.026 : 0.040, 6, 84),
+        std({ color: 0x9a7a45, roughness: 0.42, metalness: 0.75, envMapIntensity: 1.2 })
+      );
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(0, 0.014, RING_CZ);
+      gal.add(ring);
+    });
 
     var galWallMtl = std({ color: 0x171009, roughness: 0.92, metalness: 0.05 });
     var backWall = new T.Mesh(new T.BoxGeometry(galW, galH, 0.4), galWallMtl);
@@ -678,6 +744,80 @@
     galCeil.position.set(0, galH, -galD / 2 + 4);
     gal.add(galCeil);
 
+    /* ------------------------------------------------------------------
+       环形背屏
+       十二件展品绕的圆心在 z = -5.6、半径 7.9，最靠里的那件离背墙还有
+       四米半 —— 也就是说这一圈背后原本什么都没有，环是"飘"在暗里的。
+       补一圈内壁，展品才有壁龛，厅才真的成其为圆厅。
+       照相机最远能拉到 10.4，仍在壁内，所以做满 360° 不开豁口。
+       ------------------------------------------------------------------ */
+    var ARC_R = 11.2;
+    /* 墙要高到天花板（galH 8.4）。第一次只做到 6.9，
+       结果屏幕上方露出一条横向的黑色缝隙，整面墙像是半截断的。 */
+    var arcWall = new T.Mesh(
+      new T.CylinderGeometry(ARC_R, ARC_R, galH, 72, 1, true),
+      std({ color: 0x1b130c, roughness: 0.9, metalness: 0.06, side: T.BackSide })
+    );
+    arcWall.position.set(0, galH / 2, RING_CZ);
+    gal.add(arcWall);
+
+    /* 踢脚：一圈略深的窄带，把壁面和地面压实（否则墙是"插"进地里的） */
+    var skirt = new T.Mesh(
+      new T.CylinderGeometry(ARC_R - 0.02, ARC_R - 0.02, 0.30, 72, 1, true),
+      std({ color: 0x120c07, roughness: 0.95, metalness: 0.05, side: T.BackSide })
+    );
+    skirt.position.set(0, 0.15, RING_CZ);
+    gal.add(skirt);
+
+    /* 顶部灯槽：一圈暗金细带。原来抬头是一整块 0x0d0906 的纯黑，
+       有了这条带，视线往上时才有一个"收口"。自发光，不参与照明。 */
+    var cove = new T.Mesh(
+      new T.CylinderGeometry(ARC_R - 0.06, ARC_R - 0.06, 0.15, 72, 1, true),
+      new T.MeshBasicMaterial({
+        /* 0.46 太亮：竖屏机位会正好看到这条带横切在画面上部，很扎眼。
+           灯槽只要"隐隐有一条"就够，不能当发光条看。 */
+        color: 0xd9a869, transparent: true, opacity: 0.20,
+        side: T.BackSide, fog: false, depthWrite: false
+      })
+    );
+    cove.position.set(0, galH - 0.26, RING_CZ);
+    gal.add(cove);
+
+    /* 壁柱：十二根，正好落在十二件展品的角度上 —— 一龛一柱，形成节拍 */
+    var pilMtl = std({ color: 0x342619, roughness: 0.78, metalness: 0.10 });
+    var pilGeo = new T.BoxGeometry(0.36, 6.7, 0.30);
+    for (var pi = 0; pi < 12; pi++) {
+      var pa = -Math.PI / 2 + (pi / 12) * Math.PI * 2;
+      var pil = new T.Mesh(pilGeo, pilMtl);
+      pil.position.set(
+        Math.sin(pa) * (ARC_R - 0.17),
+        3.35,
+        RING_CZ + Math.cos(pa) * (ARC_R - 0.17)
+      );
+      pil.rotation.y = pa;
+      gal.add(pil);
+    }
+
+    /* 中庭：一束顶光 + 地上一圈光。
+       这里原来吊着「表谱骨版」，拆掉之后圆心就是个黑洞 ——
+       环做得越完整，越显得中间空。不摆新展品（会抢十二件的戏），
+       只用一束柔和的光锥把视线收回来。 */
+    /* 这里本来试过一束可见的光锥（openEnded 圆柱 + 加法渐变）。
+       试了两版都是同样的毛病：锥面上那条从顶到地的斜边在暗场里太清楚，
+       读起来是一顶半透明的帐篷罩在厅里，而不是空气里的光。
+       做真正的体积光要单独一遍 raymarch，为这点氛围不值当 ——
+       改成只有地面一圈光：光落在石地上，空气里那截干脆不画。 */
+    var beamPool = new T.Mesh(
+      new T.PlaneGeometry(7.2, 7.2),
+      new T.MeshBasicMaterial({
+        map: washTex(), transparent: true, depthWrite: false,
+        blending: T.AdditiveBlending, opacity: 0.38, fog: false
+      })
+    );
+    beamPool.rotation.x = -Math.PI / 2;
+    beamPool.position.set(0, 0.022, RING_CZ);
+    gal.add(beamPool);
+
     /* 展厅主光：一盏洗墙灯，压低到只把展品那一条墙带亮起来 */
     var galKey = new T.SpotLight(0xffe2bd, 0.88, 30, 0.95, 0.95, 0.8);
     galKey.position.set(0, 7.4, -6);
@@ -688,6 +828,14 @@
     galRim.position.set(0, 5.6, 4);
     galRim.target.position.set(0, 2.2, -8);
     gal.add(galRim, galRim.target);
+
+    /* 厅内顶光：只负责把地面和展台脚下那一圈照出来。
+       上面两盏都冲着墙打，地面原本全靠半球光撑着；
+       地面换成石面贴图之后整块沉成黑的，人站在上面像踩空。 */
+    var galDeck = new T.SpotLight(0xffdcae, 2.6, 24, 0.60, 0.88, 0.95);
+    galDeck.position.set(0, 7.6, RING_CZ);
+    galDeck.target.position.set(0, 0, RING_CZ);
+    gal.add(galDeck, galDeck.target);
 
     var shadowTex = contactShadowTex();
     var shadowMtl = new T.MeshBasicMaterial({
@@ -711,11 +859,21 @@
     ];
 
     /* 十二件展品沿一圈摆开（环厅）：
-       人站在厅中央转头看，一件一件转过来；不再是一排挤在正前方。 */
-    var RING_R = 7.9, RING_CZ = -5.6;
-    var pedMtl = std({ color: 0x453d33, roughness: 0.55, metalness: 0.22, envMapIntensity: 0.7 });
-    var pedGeo = new T.CylinderGeometry(0.40, 0.46, 1.12, 18, 1);
-    var capGeo2 = new T.CylinderGeometry(0.50, 0.52, 0.08, 18, 1);
+       人站在厅中央转头看，一件一件转过来；不再是一排挤在正前方。
+       RING_R / RING_CZ 已在展厅开头定义。
+       ⚠ 不要退回 CylinderGeometry 做展台。圆台在暗场里没有一条清晰的棱，
+       近看就是一根柱；方座有四个面和四条棱，灯一打才立得住。
+       也和"骨版"这种方正的展品对得上形。 */
+    var pedMtl = std({ color: 0x4a4136, roughness: 0.5, metalness: 0.24, envMapIntensity: 0.8 });
+    var pedBaseGeo = new T.BoxGeometry(0.94, 0.13, 0.94);
+    var pedBodyGeo = new T.BoxGeometry(0.64, 0.90, 0.64);
+    var pedTopGeo = new T.BoxGeometry(0.80, 0.07, 0.80);
+    var pedBandGeo = new T.BoxGeometry(0.68, 0.035, 0.68);
+    var pedBandMtl = std({ color: 0x8d6f3e, roughness: 0.38, metalness: 0.82, envMapIntensity: 1.1 });
+    /* 座面顶到 1.10；骨版高约 1.42（几何居中），所以中心落在 1.81。
+       原来是 2.12 —— 骨版底离座面还有 0.24，看上去是浮在座上。 */
+    var SEAT_Y = 1.10;
+    var SLAB_H = 1.42;
     var exhibits = [];
     var n = EXHIBITS.length;
 
@@ -726,20 +884,34 @@
       var gz = RING_CZ + Math.cos(a) * RING_R;
       var face = a + Math.PI;   /* 每件都朝圆心 */
 
-      var ped = new T.Mesh(pedGeo, pedMtl);
-      ped.position.set(gx, 0.56, gz);
+      var ped = new T.Mesh(pedBaseGeo, pedMtl);
+      ped.position.set(gx, 0.065, gz);
+      ped.rotation.y = face;
       ped.userData = { kind: 'exhibit', char: e.ch };
       gal.add(ped);
       pickables.push(ped);
 
-      var base = new T.Mesh(capGeo2, pedMtl);
-      base.position.set(gx, 1.14, gz);
+      var pbody = new T.Mesh(pedBodyGeo, pedMtl);
+      pbody.position.set(gx, 0.13 + 0.45, gz);
+      pbody.rotation.y = face;
+      gal.add(pbody);
+
+      var pband = new T.Mesh(pedBandGeo, pedBandMtl);
+      pband.position.set(gx, 1.03, gz);
+      pband.rotation.y = face;
+      gal.add(pband);
+
+      var base = new T.Mesh(pedTopGeo, pedMtl);
+      base.position.set(gx, SEAT_Y - 0.035, gz);
+      base.rotation.y = face;
       gal.add(base);
 
-      var slab = makeSlab(e.ch, { size: 1.42, texSize: 512 });
-      slab.mesh.position.set(gx, 2.12, gz);
+      var slab = makeSlab(e.ch, { size: SLAB_H, texSize: 512 });
+      slab.mesh.position.set(gx, SEAT_Y + SLAB_H * 0.5, gz);
       slab.mesh.rotation.y = face;
-      slab.mesh.rotation.x = -0.05;
+      /* 不前倾。原来 -0.05 是为了让字朝向观众，但骨版下沿会往外探出，
+         把台座上的名签压掉半截。正立之后字仍然正对圆心。 */
+      slab.mesh.rotation.x = 0;
       slab.mesh.userData = { kind: 'exhibit', char: e.ch, index: i };
       gal.add(slab.mesh);
       pickables.push(slab.mesh);
@@ -749,34 +921,93 @@
       sh.position.set(gx, 0.006, gz);
       gal.add(sh);
 
-      /* 名签：今字 + 分区，贴在台座正面（跟着台座一起转） */
-      var tagCv = App.museumTex.canvas(256, 128);
+      /* 名签：今字 + 分区，贴在台座正面（跟着台座一起转）。
+         原来是"深底骨字"的小黑牌（0.42×0.21）—— 贴在深色座上就是一块黑，
+         字也小到看不清。改成骨白纸 + 朱砂细边，尺寸放大到 0.56×0.28。 */
+      var tagCv = App.museumTex.canvas(320, 160);
       var tctx = tagCv.getContext('2d');
-      tctx.fillStyle = 'rgba(22,16,10,.94)';
-      tctx.fillRect(0, 0, 256, 128);
-      tctx.strokeStyle = 'rgba(165,129,71,.5)';
-      tctx.lineWidth = 3;
-      tctx.strokeRect(5, 5, 246, 118);
+      tctx.fillStyle = '#f3e9d5';
+      tctx.fillRect(0, 0, 320, 160);
+      tctx.strokeStyle = 'rgba(204,82,59,.40)';
+      tctx.lineWidth = 4;
+      tctx.strokeRect(8, 8, 304, 144);
       tctx.textAlign = 'center';
-      tctx.fillStyle = '#e8dcc2';
-      tctx.font = '600 52px "Songti SC","Noto Serif SC",serif';
-      tctx.fillText(e.ch, 128, 56);
-      tctx.fillStyle = 'rgba(232,220,194,.52)';
-      tctx.font = '400 23px "Songti SC","Noto Serif SC",serif';
-      tctx.fillText(e.zone, 128, 96);
+      tctx.textBaseline = 'middle';
+      tctx.fillStyle = '#2b2318';
+      tctx.font = '600 76px "Songti SC","Noto Serif SC",serif';
+      tctx.fillText(e.ch, 98, 82);
+      tctx.fillStyle = 'rgba(204,82,59,.42)';   /* 中缝 */
+      tctx.fillRect(172, 40, 2, 80);
+      tctx.fillStyle = '#6b5a43';
+      tctx.font = '400 22px "Songti SC","Noto Serif SC",serif';
+      tctx.fillText(e.zone, 246, 82);
       var tag = new T.Mesh(
-        new T.PlaneGeometry(0.42, 0.21),
+        new T.PlaneGeometry(0.56, 0.28),
         new T.MeshBasicMaterial({ map: canvasTex(tagCv, { srgb: true }), transparent: true })
       );
-      tag.position.set(gx + Math.sin(face) * 0.45, 0.72, gz + Math.cos(face) * 0.45);
+      /* 方座半宽 0.32，签面往外推 0.34 —— 再远就离开座面浮在空中了 */
+      tag.position.set(gx + Math.sin(face) * 0.34, 0.50, gz + Math.cos(face) * 0.34);
       tag.rotation.y = face;
       gal.add(tag);
+
+      /* 洗墙光斑：贴在这件展品背后的内壁上，让每件骨版都有自己的一圈光。
+         半径比壁柱内沿再收 0.2，压住柱子的边不致于穿出来。 */
+      var wash = new T.Mesh(
+        new T.PlaneGeometry(2.2, 3.2),
+        new T.MeshBasicMaterial({
+          map: washTex(), transparent: true, depthWrite: false,
+          blending: T.AdditiveBlending, opacity: 0.40, fog: false
+        })
+      );
+      wash.position.set(
+        Math.sin(a) * (ARC_R - 0.26),
+        2.55,
+        RING_CZ + Math.cos(a) * (ARC_R - 0.26)
+      );
+      wash.rotation.y = face;
+      gal.add(wash);
 
       exhibits.push({
         data: e, mesh: slab.mesh, mats: slab.mats, baseY: 2.12,
         ped: ped, cap: base
       });
     });
+
+    /* 分区名：十二件按五类连续排开，在每一类中间、
+       靠墙那一侧的墙面上刻一个淡色的区名。远看是"厅里分了区"，
+       走近才知道刻的是什么 —— 不做成招牌，做成一刀的刻痕。
+       ⚠ 角度取 floor(mid) + 0.5：整数位上正好是壁柱，牌子会刻在柱子上。 */
+    (function zoneNames() {
+      var SPANS = [
+        { name: '天象', from: 0, to: 2 },
+        { name: '山川', from: 3, to: 5 },
+        { name: '草木', from: 6, to: 7 },
+        { name: '禽兽虫鱼', from: 8, to: 9 },
+        { name: '人居器物', from: 10, to: 11 }
+      ];
+      SPANS.forEach(function (sp) {
+        var idx = Math.floor((sp.from + sp.to) / 2) + 0.5;
+        var a = -Math.PI / 2 + (idx / n) * Math.PI * 2;
+        var cv = App.museumTex.textCanvas(sp.name, {
+          w: 112, h: 112 * sp.name.length, vertical: true, size: 72,
+          color: 'rgba(232,212,178,0.94)', tracking: 1.42
+        });
+        var tx = new T.Mesh(
+          new T.PlaneGeometry(0.58, 0.58 * sp.name.length),
+          new T.MeshBasicMaterial({
+            map: canvasTex(cv, { srgb: true }),
+            transparent: true, opacity: 0.22, depthWrite: false, fog: false
+          })
+        );
+        tx.position.set(
+          Math.sin(a) * (ARC_R - 0.30),
+          4.35,
+          RING_CZ + Math.cos(a) * (ARC_R - 0.30)
+        );
+        tx.rotation.y = a + Math.PI;
+        gal.add(tx);
+      });
+    })();
 
     /* 选中时才会亮的一盏追踪灯 */
     var pickSpot = new T.SpotLight(0xfff0d6, 0, 14, 0.34, 0.7, 0.9);
@@ -1980,36 +2211,85 @@
     function knowledgeBoard(opt) {
       var cv = App.museumTex.canvas(640, 420);
       var c = cv.getContext('2d');
+      /* 底色原来是近乎纯黑（52,42,32 → 28,22,17），在满室暖褐里像三块黑板。
+         提到石灰的明度上，再用朱砂压标题，才和整个厅是一个族。 */
       var g = c.createLinearGradient(0, 0, 0, 420);
-      g.addColorStop(0, 'rgba(52,42,32,.98)');
-      g.addColorStop(1, 'rgba(28,22,17,.98)');
+      g.addColorStop(0, 'rgba(92,74,54,.99)');
+      g.addColorStop(0.55, 'rgba(70,56,41,.99)');
+      g.addColorStop(1, 'rgba(48,38,28,.99)');
       c.fillStyle = g;
       c.fillRect(0, 0, 640, 420);
-      c.strokeStyle = 'rgba(214,186,126,.42)';
+      /* 石面细砂，免得整块色太平 */
+      var R = App.museumTex.rng(20261031);
+      for (var gi = 0; gi < 2600; gi++) {
+        c.fillStyle = 'rgba(255,232,196,' + (0.006 + R() * 0.022).toFixed(3) + ')';
+        c.fillRect(R() * 640, R() * 420, 1, 1);
+      }
+      c.strokeStyle = 'rgba(214,186,126,.50)';
       c.lineWidth = 4;
       c.strokeRect(10, 10, 620, 400);
+      c.strokeStyle = 'rgba(214,186,126,.22)';
+      c.lineWidth = 1.5;
+      c.strokeRect(22, 22, 596, 376);
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      c.fillStyle = 'rgba(242,228,200,.95)';
+      c.fillStyle = 'rgba(250,238,214,.98)';
       c.font = '600 46px "Songti SC","Noto Serif SC",serif';
-      c.fillText(opt.title, 320, 66);
-      c.fillStyle = 'rgba(232,220,194,.06)';
-      c.fillRect(56, 100, 528, 2);
-      c.fillStyle = 'rgba(232,220,194,.72)';
+      c.fillText(opt.title, 320, 68);
+      /* 标题下一条朱砂短线 */
+      c.fillStyle = 'rgba(204,82,59,.78)';
+      c.fillRect(292, 100, 56, 3);
+      c.fillStyle = 'rgba(240,226,198,.82)';
       c.font = '400 26px "Songti SC","Noto Serif SC",serif';
       (opt.lines || []).forEach(function (line, i) {
-        c.fillText(line, 320, 152 + i * 46);
+        c.fillText(line, 320, 154 + i * 46);
       });
-      c.fillStyle = 'rgba(232,220,194,.42)';
-      c.font = '400 20px "Songti SC","Noto Serif SC",serif';
-      c.fillText('点开细看', 320, 386);
+      c.fillStyle = 'rgba(240,226,198,.40)';
+      c.font = '400 19px "Songti SC","Noto Serif SC",serif';
+      c.fillText('点开细看', 320, 384);
+
+      var bw = opt.w || 2.5;
+      var bh = bw * 0.66;
+      var by = opt.y || 2.5;
+      var ry = opt.ry || 0;
+      /* 法线方向：牌子朝圆心，所以背后就是它的反方向 */
+      var nx = Math.sin(ry), nz = Math.cos(ry);
+
+      /* 石背板：原来只有一张没有厚度的平面，挂在半空里像一块发光的屏。
+         加一块略大的深色背板之后，它才有"板"这个身份。 */
+      var frame = new T.Mesh(
+        new T.BoxGeometry(bw + 0.15, bh + 0.15, 0.07),
+        std({ color: 0x2b221a, roughness: 0.74, metalness: 0.14, envMapIntensity: 0.5 })
+      );
+      frame.position.set(opt.x - nx * 0.055, by, opt.z - nz * 0.055);
+      frame.rotation.y = ry;
+      gal.add(frame);
+
+      /* 两根细吊索挂到顶棚：说明它是"吊起来的"，不是浮着的 */
+      var ropeTop = galH - 0.06;
+      var ropeH = ropeTop - (by + bh / 2);
+      if (ropeH > 0.2) {
+        var rx = Math.cos(ry), rz = -Math.sin(ry);
+        [-1, 1].forEach(function (sgn) {
+          var rope = new T.Mesh(
+            new T.CylinderGeometry(0.012, 0.012, ropeH, 5, 1),
+            std({ color: 0x6f5a3c, roughness: 0.42, metalness: 0.65 })
+          );
+          rope.position.set(
+            opt.x + rx * sgn * bw * 0.34,
+            by + bh / 2 + ropeH / 2,
+            opt.z + rz * sgn * bw * 0.34
+          );
+          gal.add(rope);
+        });
+      }
 
       var mesh = new T.Mesh(
-        new T.PlaneGeometry(opt.w || 2.5, (opt.w || 2.5) * 0.66),
+        new T.PlaneGeometry(bw, bh),
         new T.MeshBasicMaterial({ map: canvasTex(cv, { srgb: true }), transparent: true })
       );
-      mesh.position.set(opt.x, opt.y || 2.5, opt.z);
-      mesh.rotation.y = opt.ry || 0;
+      mesh.position.set(opt.x, by, opt.z);
+      mesh.rotation.y = ry;
       mesh.userData = { kind: 'board', topic: opt.topic, zone: 'board' };
       gal.add(mesh);
       pickables.push(mesh);
@@ -2830,7 +3110,9 @@
     var AREAS = {
       hall:       { z: 0,                  y: 3.05, dz: 0,    r: 19.0, phi: 1.43, minPhi: 0.62, maxPhi: 1.47, minR: 7.5, maxR: 27, fog: 0.020 },
       /* 知识厅：镜头在厅中央，绕着环看；可以拉远看全厅 */
-      gallery:    { z: GAL_Z - 5.6,        y: 3.6, dz: 0,     r: 9.4, phi: 1.18, minPhi: 0.66, maxPhi: 1.50, minR: 2.6, maxR: 18, fog: 0.022 },
+      gallery:    { z: GAL_Z - 5.6,        y: 2.9, dz: 0,     r: 9.4, phi: 1.30, minPhi: 0.66, maxPhi: 1.50, minR: 2.6, maxR: 10.2, fog: 0.022 },
+      /* maxR 从 18 收到 10.2：环厅补了一圈半径 11.2 的内壁，
+         再拉到 18 就穿出壁外，看见的是一块没有背面的黑。 */
       prologue:   { z: ANX_Z - ANX_GAP * 3, y: 2.4, dz: -2.8, r: 6.9, phi: 1.30, minPhi: 0.92, maxPhi: 1.46, minR: 3.4, maxR: 12, fog: 0.026 },
       build:      { z: ANX_Z,              y: 1.8, dz: -2.5,  r: 7.6, phi: 1.36, minPhi: 0.90, maxPhi: 1.46, minR: 3.6, maxR: 13, fog: 0.020 },
       excavate:   { z: ANX_Z - ANX_GAP,    y: 1.0, dz: -4.2,  r: 8.2, phi: 0.98, minPhi: 0.55, maxPhi: 1.42, minR: 4.0, maxR: 14, fog: 0.022 },
@@ -2933,6 +3215,8 @@
       spotOn = !spotOn;
       galKey.intensity = spotOn ? 1.05 : 0.22;
       galRim.intensity = spotOn ? 0.28 : 0.08;
+      /* 厅内顶光也要跟着「聚光」开关走，否则关掉聚光它还是全亮 */
+      galDeck.intensity = spotOn ? 2.6 : 1.35;
       keySpot.intensity = spotOn ? 2.15 : 1.25;
       annexKey.intensity = (area === 'hall' || area === 'gallery')
         ? 0 : (spotOn ? 1.95 : 1.05);

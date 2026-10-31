@@ -843,27 +843,102 @@ body.mu-play-lock .mu-vignette { visibility: hidden; }
   .mu-stamp.is-new { animation: none; }
 }
 
-/* 知识陈设面板 */
-.mu-p-board-t { margin: 2px 0 8px; font-family: var(--font-title, "Kaiti SC", serif);
-  font-size: 19px; letter-spacing: .08em; color: #ffe6bd; }
-.mu-p-board-lead { margin: 0 0 14px; font-size: 13px; line-height: 1.9; color: #c8b899; }
+/* ============================================================================
+   知识陈设面板（展签）
+   ⚠ 这一段原先整段是按「深色底」写的：标题 #ffe6bd、导语 #c8b899、
+   清单行 #e0d0b2。而 .mu-panel 的底色是 var(--bone-hi) = #fffdf6 米白纸。
+   于是标题成了白字压白纸 —— 截图上「一片卜辞的结构」几乎读不出来。
+   现在全部换回 --ink / --ink-2 / --ink-soft，与展签面板保持同一套。
+   ========================================================================= */
+.mu-p-board-t {
+  margin: 4px 0 12px;
+  font-family: var(--font-title, "Kaiti SC", serif);
+  font-size: 22px; line-height: 1.34;
+  letter-spacing: .06em;
+  color: var(--ink);
+}
+/* 标题下一条朱砂短划线：中式展签的起手式，也把标题和正文分开 */
+.mu-p-board-t::after {
+  content: '';
+  display: block;
+  width: 34px; height: 2px;
+  margin-top: 10px;
+  border-radius: 2px;
+  background: linear-gradient(90deg,
+    var(--cinnabar) 0%,
+    color-mix(in srgb, var(--cinnabar) 8%, transparent) 100%);
+}
+.mu-p-board-lead {
+  margin: 0 0 18px;
+  font-size: 13px; line-height: 1.95;
+  color: var(--ink-2);
+}
 
-/* 导览面板：清单 + 实时统计 */
+/* 知识条目：中文序号 + 名目 + 释义，条目之间靠发丝线分栏 */
+.mu-b-list {
+  list-style: none; margin: 0 0 16px; padding: 0;
+  display: flex; flex-direction: column;
+}
+.mu-b-item {
+  display: grid; grid-template-columns: 26px 1fr; gap: 13px;
+  padding: 14px 0 15px;
+  border-top: 1px solid var(--edge-in);
+}
+.mu-b-item:last-child { border-bottom: 1px solid var(--edge-in); }
+/* 序号做成细朱环里的一个楷体数字：一排下来有节拍，又不像西式项目符号 */
+.mu-b-num {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border: 1px solid color-mix(in srgb, var(--cinnabar) 26%, transparent);
+  border-radius: 50%;
+  font-family: var(--font-title, "Kaiti SC", serif);
+  font-size: 13px; line-height: 1;
+  color: var(--cinnabar-text);
+}
+.mu-b-k {
+  margin: 1px 0 7px;
+  font-size: 15px; line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: .18em;
+  color: var(--ink);
+}
+.mu-b-v { margin: 0; font-size: 13px; line-height: 1.85; color: var(--ink-2); }
+/* 例句：不倾斜 —— 中文斜体是机械倾斜，不合格。改朱砂 + 细下划线 */
+.mu-b-q {
+  font-style: normal;
+  color: var(--cinnabar-text);
+  border-bottom: 1px solid color-mix(in srgb, var(--cinnabar) 32%, transparent);
+  padding-bottom: 1px;
+}
+.mu-b-v strong { font-weight: 600; color: var(--ink); }
+
+/* 导览面板：清单 + 实时统计（同样从深色方案改回纸面） */
 .mu-p-filter { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
-.mu-p-filter .mu-btn.on { border-color: #ffce8c; color: #ffe6bd; background: rgba(120, 80, 40, .35); }
-.mu-index { display: flex; flex-direction: column; gap: 4px; }
+.mu-p-filter .mu-btn.on {
+  border-color: var(--cinnabar);
+  color: var(--cinnabar-text);
+  background: rgba(204, 82, 59, .07);
+}
+.mu-index { display: flex; flex-direction: column; gap: 5px; }
 .mu-index-row {
   display: flex; align-items: center; gap: 12px;
-  padding: 8px 10px; border: 1px solid rgba(214, 186, 126, .16);
-  border-radius: 2px; background: rgba(245, 231, 205, .04);
-  color: #e0d0b2; cursor: pointer; text-align: left; font: inherit;
-  transition: background .16s ease, transform .16s ease, border-color .16s ease;
+  padding: 8px 10px;
+  border: 1px solid var(--edge-in);
+  border-radius: 9px;
+  background: var(--bone-white);
+  color: var(--ink-2); cursor: pointer; text-align: left; font: inherit;
+  transition: background .16s ease, transform .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
-.mu-index-row:hover { background: rgba(245, 231, 205, .1); border-color: rgba(232, 206, 146, .5); transform: translateX(2px); }
-.mu-index-g { width: 30px; height: 30px; flex: 0 0 auto; }
+.mu-index-row:hover {
+  background: #fff;
+  border-color: color-mix(in srgb, var(--cinnabar) 42%, var(--edge));
+  box-shadow: 0 6px 14px -10px rgba(43, 35, 24, .5);
+  transform: translateX(2px);
+}
+.mu-index-g { width: 30px; height: 30px; flex: 0 0 auto; color: var(--ink-carve); }
 .mu-index-g svg, .mu-index-g img { width: 100%; height: 100%; }
 .mu-index-mid { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
-.mu-index-mid b { font-size: 14px; color: #ffe6bd; letter-spacing: .1em; }
-.mu-index-mid span { font-size: 11.5px; color: #9c8d76; }
-.mu-index-st { font-size: 11px; letter-spacing: .12em; color: #6f6552; flex: 0 0 auto; }
-.mu-index-st.is-on { color: #d08a5a; }
+.mu-index-mid b { font-size: 14px; color: var(--ink); letter-spacing: .1em; }
+.mu-index-mid span { font-size: 11.5px; color: var(--ink-soft); }
+.mu-index-st { font-size: 11px; letter-spacing: .12em; color: var(--ink-soft); flex: 0 0 auto; }
+.mu-index-st.is-on { color: var(--cinnabar-text); }
