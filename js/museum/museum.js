@@ -204,7 +204,7 @@
     btnIndex.onclick = function () { openIndex(''); };
     right.appendChild(btnIndex);
 
-    /* 声音：默认关。展厅不需要"一进来就有音乐"，但可以自己打开。
+    /* 声音：跟随站点总开关（用户关过就关着），馆里放的是那首古筝。
        ------------------------------------------------------------
        这一颗和关卡里那颗「♪ 声音」是**同一个状态**：
          · 画的时候读实时状态 isOn()，不再读存档 preferOn() ——
@@ -214,7 +214,7 @@
     var btnAudio = App.el('button', 'mu-btn mu-btn-audio', '声音');
     btnAudio.type = 'button';
     btnAudio.setAttribute('aria-pressed', 'false');
-    btnAudio.title = '展馆声音（环境音 · 战斗音乐 · 音效）';
+    btnAudio.title = '展馆声音（古筝 · 环境音 · 战斗音乐 · 音效）';
     function paintAudio(on) {
       on = !!on;
       btnAudio.classList.toggle('is-off', !on);
@@ -488,7 +488,7 @@
       return;
     }
     if (hit.type === 'portal') { enterZone(hit.zone); return; }
-    if (hit.type === 'hero') { openExhibit('卜', true); return; }
+    if (hit.type === 'hero') { openExhibit(hit.char || '卜', true); return; }
     if (hit.type === 'exhibit') { openExhibit(hit.char, false); return; }
     if (hit.type === 'tablet') { openTablet(); return; }
     if (hit.type === 'stele') { openPrologue(); return; }
@@ -1163,7 +1163,7 @@
     openPanel(function (p) {
       panelHead(p, ch,
         item ? (item.sec + ' · ' + item.tag)
-             : (isHero ? '中央展品 · 卜兆之形'
+             : (isHero ? (ch === '卜' ? '中央展品 · 卜兆之形' : '中央展品 · 骨版上的一个字')
                 : (obj ? obj.zone + ' · 甲骨实物' : '甲骨文展厅')),
         item ? item.now : null);
 

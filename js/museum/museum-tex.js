@@ -270,7 +270,7 @@
      但同一个字每次布展要落在同一个位置，所以抖动由字 + 行列算出，不用随机数。
 
      回传每字的 {ch,x,y,size,rot}，map 与 bump 共用同一份，保证刻痕与高度一致。 */
-  function colLayout(cols, W, H) {
+  function colLayout(cols, W, H, opt) {
     var list = (cols || []).filter(function (s) { return s && String(s).length; });
     var n = list.length;
     if (!n) { return []; }
@@ -278,8 +278,15 @@
     var maxLen = 1;
     list.forEach(function (c) { if (String(c).length > maxLen) { maxLen = String(c).length; } });
 
-    /* 字格取两个约束里小的那个：纵向要装下最长一列，横向要装下所有列 */
-    var cell = Math.min((H * 0.76) / maxLen, (W * 0.80) / (n * 1.30));
+    /* 字格取两个约束里小的那个：纵向要装下最长一列，横向要装下所有列。
+       opt.boost > 1 时放大字格 —— 造字区那两三个构件只有两个字，
+       按"成篇刻辞"的疏密排出来太小，刻上看不清是哪一个。 */
+    var boost = (opt && opt.boost) || 1;
+    var cell = Math.min((H * 0.76) / maxLen, (W * 0.80) / (n * 1.30)) * boost;
+    if (boost > 1) {
+      /* 放大了还要装得下，不然最外一列会压到骨边上去 */
+      cell = Math.min(cell, (W * 0.90) / (n * 1.16), (H * 0.84) / maxLen);
+    }
     var gapCol = cell * 1.30;
     var totalW = gapCol * n;
     var xRight = W / 2 + totalW / 2 - gapCol / 2;
@@ -313,30 +320,22 @@
 
      opt.columns 有值时走"竖行成篇"（表谱刻辞的形制），ch 可以留空；
      没有 columns 时是单字展品。 */
-  function slabTextures(ch, opt) {
+  /* 骨面底图（没有字的）：骨色 + 骨纹 + 斑点 +（可选）发丝裂。
+     ★ 单独拿出来，是因为中央那块展品要换字：换字只该重刻字，
+       不该把骨面（十四块色斑 + 几万个噪声点 + 裂纹）重画一遍 ——
+       1024 上重画一次要几十毫秒，切换时一眼就能看出来卡了一下。
+     画一次、存着，之后每次换字只是 copy + 刻字。 */
+  function slabBase(opt) {
     var o = opt || {};
     var W = o.w || 512;
     var H = o.h || 512;
-    var seed = hashStr(ch || (o.columns || []).join('') || 'bone') || 7;
+    var seed = o.seed != null ? o.seed : 7;
 
     var cv = canvas(W, H);
     var ctx = cv.getContext('2d');
     paintBone(ctx, W, H, seed, { cracks: !!o.cracks });
 
-    /* 骨版是竖长的，贴图也得是竖长的。
-       否则正方形的字画在 1:1.58 的骨版上会被拉长一倍半 —— 字就变形了。 */
-    var marks = o.columns ? colLayout(o.columns, W, H) : [];
-    var has = !!glyphRec(ch);
-    /* 主字放大 1.18：字形数据四周留了白，不放大占不住这块骨。
-       放的是同一套笔画，不是另一个字。 */
-    var mainSize = Math.min(W, H) * 1.18;
-
-    marks.forEach(function (m) {
-      carveAt(ctx, m.ch, m.x, m.y, m.size, 'map', { rot: m.rot });
-    });
-    if (has) { carveAt(ctx, ch, W / 2, H / 2, mainSize, 'map'); }
-
-    /* bump：中性灰 + 骨面纹理 + 字为暗（凹） */
+    /* bump 的骨面：中性灰 + 极淡的起伏；字待会儿单独刻进去 */
     var bv = canvas(Math.max(64, W >> 1), Math.max(64, H >> 1));
     var bctx = bv.getContext('2d');
     bctx.fillStyle = '#8a8a8a';
@@ -357,9 +356,50 @@
     }
     /* 裂纹在高度图上也是凹的，否则侧面打光时看不到裂口 */
     if (o.cracks) { paintCracks(bctx, bv.width, bv.height, seed, true); }
+    return { map: cv, bump: bv, w: W, h: H };
+  }
+
+  /* 拷一张画布（底图要复用，不能把字直接刻到原件上） */
+  function cloneCv(src) {
+    var cv = canvas(src.width, src.height);
+    cv.getContext('2d').drawImage(src, 0, 0);
+    return cv;
+  }
+
+  function slabTextures(ch, opt) {
+    var o = opt || {};
+    var W = o.w || 512;
+    var H = o.h || 512;
+    var seed = hashStr(ch || (o.columns || []).join('') || 'bone') || 7;
+
+    /* o.base 是预先画好的骨面底图（见 slabBase）。尺寸不符就当没传，
+       免得拿一张 1024 的底往 512 上贴 —— 那样字会糊一半。 */
+    var base = o.base;
+    if (base && (base.map.width !== W || base.map.height !== H)) { base = null; }
+    if (!base) { base = slabBase({ w: W, h: H, seed: seed, cracks: o.cracks }); }
+
+    var cv = cloneCv(base.map);
+    var ctx = cv.getContext('2d');
+
+    /* 骨版是竖长的，贴图也得是竖长的。
+       否则正方形的字画在 1:1.58 的骨版上会被拉长一倍半 —— 字就变形了。 */
+    var marks = o.columns ? colLayout(o.columns, W, H, { boost: o.boost }) : [];
+    var has = !!glyphRec(ch);
+    /* 主字放大 1.18：字形数据四周留了白，不放大占不住这块骨。
+       放的是同一套笔画，不是另一个字。 */
+    var mainSize = Math.min(W, H) * 1.18;
+
+    marks.forEach(function (m) {
+      carveAt(ctx, m.ch, m.x, m.y, m.size, 'map', { rot: m.rot });
+    });
+    if (has) { carveAt(ctx, ch, W / 2, H / 2, mainSize, 'map'); }
+
+    /* bump：底图的灰度接着用，只把字刻上去 */
+    var bv = cloneCv(base.bump);
+    var bctx = bv.getContext('2d');
     /* bump 用同一套坐标：重新按半分辨率排一次，与 map 逐字对位 */
     if (marks.length) {
-      var bm = colLayout(o.columns, bv.width, bv.height);
+      var bm = colLayout(o.columns, bv.width, bv.height, { boost: o.boost });
       bm.forEach(function (m) {
         carveAt(bctx, m.ch, m.x, m.y, m.size, 'bump', { rot: m.rot });
       });
@@ -458,6 +498,7 @@
     paintBone: paintBone,
     carveAt: carveAt,
     colLayout: colLayout,
+    slabBase: slabBase,
     slabTextures: slabTextures,
     textCanvas: textCanvas,
     envCanvas: envCanvas

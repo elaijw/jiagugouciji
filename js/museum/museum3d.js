@@ -276,7 +276,9 @@
     var tw = o.texSize || 512;
     var ratio = o.ratio || SLAB_RATIO;
     var tex = App.museumTex.slabTextures(ch, {
-      w: tw, h: Math.round(tw * ratio), columns: o.columns, cracks: o.cracks
+      w: tw, h: Math.round(tw * ratio), columns: o.columns, cracks: o.cracks,
+      /* 预画好的骨面底图：中央那块换字时复用，不重画骨面 */
+      base: o.base
     });
     var map = canvasTex(tex.map, { srgb: true, aniso: 8 });
     var bump = canvasTex(tex.bump, { aniso: 4 });
@@ -307,9 +309,11 @@
     return {
       mesh: mesh, geo: geo, mats: [mtl, sideMtl], map: map, bump: bump,
       /* 重刻：造字区把构件摆上骨面时用（换贴图不换几何） */
-      recarve: function (columns) {
+      recarve: function (columns, opt2) {
         var t2 = App.museumTex.slabTextures('', {
-          w: tw, h: Math.round(tw * ratio), columns: columns
+          w: tw, h: Math.round(tw * ratio), columns: columns,
+          /* 造字区只有两三个构件，字格要放大，不然刻上看不清是哪个 */
+          boost: (opt2 && opt2.boost) || 1
         });
         var nm = canvasTex(t2.map, { srgb: true, aniso: 8 });
         var nb = canvasTex(t2.bump, { aniso: 4 });
@@ -514,8 +518,47 @@
 
     /* 程序化替身（GLB 读不到时才显出来）。size 与 Blender 那件对齐，
        落座也按几何中心算到台面上，别手写一个 3.05 —— 那样会浮空。 */
+
+    /* ---------- 中央骨版：换着刻不同的字 ----------
+       原来这块一直刻着「卜」，一个展厅的中心只有一件东西，
+       却永远是同一个字 —— 看完一次，第二次进来就没有可看的了。
+
+       现在它按 HERO_CYCLE 轮着刻，铜牌跟着换一句话，点开就是当前这个字的展签。
+       两条前提：
+         1. 刻的字必须在 js/core/glyph-parts.json 里（骨面上的字是现画的，
+            数据集里没有的字会静默刻不出来）。所以挑的都是那 73 个里的。
+         2. 骨面底图只画一次（heroBase）：换字只重刻字，骨色/裂纹不动。
+            否则每次切换都要重画骨面，一秒一卡。 */
+    var HERO_CYCLE = [
+      { ch: '卜', mean: '灼骨所现之兆' },
+      { ch: '日', mean: '一轮圆日，中加一点' },
+      { ch: '月', mean: '一弯缺月' },
+      { ch: '雨', mean: '云下三点雨' },
+      { ch: '山', mean: '三峰并列' },
+      { ch: '川', mean: '两畔夹一水' },
+      { ch: '木', mean: '上枝下根' },
+      { ch: '林', mean: '二木成林' },
+      { ch: '鱼', mean: '有头有尾有鳍' },
+      { ch: '牛', mean: '双角横张' },
+      { ch: '目', mean: '一只竖起来的眼' },
+      { ch: '鼎', mean: '三足两耳，煮牲之器' }
+    ].filter(function (it) {
+      /* 数据集里没有的字直接剔掉：宁可少轮几个，也不要空着一块骨 */
+      return !!(App.museumTex.glyphRec && App.museumTex.glyphRec(it.ch));
+    });
+    if (!HERO_CYCLE.length) { HERO_CYCLE = [{ ch: '卜', mean: '灼骨所现之兆' }]; }
+
+    var HERO_TW = 1024;
+    var HERO_TH = Math.round(HERO_TW * SLAB_RATIO);
+    var heroBase = App.museumTex.slabBase({
+      w: HERO_TW, h: HERO_TH, seed: 0x5117, cracks: true
+    });
+
     var HERO_SIZE = 2.2;
-    var heroSlab = makeSlab('卜', { size: HERO_SIZE, texSize: 1024, castShadow: false, cracks: true });
+    var heroSlab = makeSlab(HERO_CYCLE[0].ch, {
+      size: HERO_SIZE, texSize: HERO_TW, ratio: SLAB_RATIO,
+      castShadow: false, cracks: true, base: heroBase
+    });
     heroSlab.mesh.position.y = 0.95 + (HERO_SIZE * SLAB_RATIO) / 2;
     heroSlab.mesh.rotation.x = 0.06;
     hero.add(heroSlab.mesh);
@@ -533,30 +576,122 @@
 
     /* 光柱：极淡的一柱，把中央那件罩住。
        不是特效，是把"这里只有一件东西被照亮"讲清楚。 */
-    /* 展台前的说明牌 */
+    /* 展台前的说明牌：字换了它就重写一行（同一张画布重画，不新建贴图） */
     var heroPlateCv = App.museumTex.canvas(512, 128);
-    var hpc = heroPlateCv.getContext('2d');
-    hpc.fillStyle = 'rgba(18,13,9,0.92)';
-    hpc.fillRect(0, 0, 512, 128);
-    hpc.strokeStyle = 'rgba(165,129,71,0.55)';
-    hpc.lineWidth = 2;
-    hpc.strokeRect(6, 6, 500, 116);
-    hpc.textAlign = 'center';
-    hpc.textBaseline = 'middle';
-    hpc.fillStyle = '#e8dcc2';
-    hpc.font = '600 44px "Songti SC","Noto Serif SC",serif';
-    hpc.fillText('卜 · 灼骨所现之兆', 256, 48);
-    hpc.fillStyle = 'rgba(232,220,194,.62)';
-    hpc.font = '400 22px "Songti SC","Noto Serif SC",serif';
-    hpc.fillText('字形取自甲骨字形数据集 · 点选可看展签', 256, 92);
+    var heroPlateTex = canvasTex(heroPlateCv, { srgb: true });
+    function paintHeroPlate(item) {
+      var c = heroPlateCv.getContext('2d');
+      c.clearRect(0, 0, 512, 128);
+      c.fillStyle = 'rgba(18,13,9,0.92)';
+      c.fillRect(0, 0, 512, 128);
+      c.strokeStyle = 'rgba(165,129,71,0.55)';
+      c.lineWidth = 2;
+      c.strokeRect(6, 6, 500, 116);
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+
+      /* 一行：字 · 一句话。字多的句子缩字号，不要撑出铜牌 */
+      var line = (item.now || item.ch) + ' · ' + item.mean;
+      var fs = 44;
+      var fam = '"Songti SC","Noto Serif SC",serif';
+      c.font = '600 ' + fs + 'px ' + fam;
+      while (fs > 26 && c.measureText(line).width > 462) {
+        fs -= 2;
+        c.font = '600 ' + fs + 'px ' + fam;
+      }
+      c.fillStyle = '#e8dcc2';
+      c.fillText(line, 256, 50);
+      c.fillStyle = 'rgba(232,220,194,.62)';
+      c.font = '400 21px ' + fam;
+      c.fillText('字形取自甲骨字形数据集 · 点选可看展签', 256, 94);
+      heroPlateTex.needsUpdate = true;
+    }
+    paintHeroPlate(HERO_CYCLE[0]);
+
     var heroPlate = new T.Mesh(
       new T.PlaneGeometry(2.3, 0.575),
-      std({ map: canvasTex(heroPlateCv, { srgb: true }), roughness: 0.6, metalness: 0.1 })
+      std({ map: heroPlateTex, roughness: 0.6, metalness: 0.1 })
     );
     /* 铜牌往前下方挪：骨版放大到 2.2 之后，原来那个位置会被骨版下缘压住。 */
     heroPlate.position.set(0, 1.26, 2.62);
     heroPlate.rotation.x = -0.30;
     hero.add(heroPlate);
+
+    /* ---------- 换字的机制 ----------
+       骨版是同一块几何，变的是"刻的字"。所以不必换模型，
+       只要在骨面材质里多挂一张贴图，用 uMix 把新旧两张混一下：
+       旧字化开、新字凝住，中间没有"啪"地一跳。
+
+       ⚠ 只在 three r149 的 map_fragment 上做过；换 three 版本时
+       这一步可能匹配不到，匹配不到就退化成硬切（字照样会换），不会崩。 */
+    var heroFade = { uMapB: { value: null }, uMix: { value: 0 } };
+    (function patchHeroFade() {
+      var mtl = heroSlab.mats[0];
+      heroFade.uMapB.value = mtl.map;
+      mtl.onBeforeCompile = function (sh) {
+        sh.uniforms.uMapB = heroFade.uMapB;
+        sh.uniforms.uMix = heroFade.uMix;
+        sh.fragmentShader = 'uniform sampler2D uMapB;\nuniform float uMix;\n' +
+          sh.fragmentShader.replace(
+            'vec4 sampledDiffuseColor = texture2D( map, vUv );',
+            'vec4 sampledDiffuseColor = mix( texture2D( map, vUv ), texture2D( uMapB, vUv ), uMix );'
+          );
+      };
+      mtl.needsUpdate = true;
+    })();
+
+    var heroIdx = 0;
+    var heroWait = 0;          /* 距离上一次换字过了多久 */
+    var heroFading = -1;       /* <0：没在过渡；>=0：已过渡的秒数 */
+    var heroNext = null;       /* 下一张字面（提前画好，别在过渡时抢帧） */
+    var HERO_HOLD = 6.4;       /* 一个字停多久 */
+    var HERO_XFADE = 0.62;     /* 化开用多久 */
+
+    function heroTexOf(ch) {
+      var t = App.museumTex.slabTextures(ch, { w: HERO_TW, h: HERO_TH, base: heroBase });
+      return {
+        ch: ch,
+        map: canvasTex(t.map, { srgb: true, aniso: 8 }),
+        bump: canvasTex(t.bump, { aniso: 4 })
+      };
+    }
+
+    function heroAhead() {
+      if (heroNext) { return; }
+      heroNext = heroTexOf(HERO_CYCLE[(heroIdx + 1) % HERO_CYCLE.length].ch);
+    }
+
+    function heroStartSwap() {
+      heroAhead();
+      heroFade.uMapB.value = heroNext.map;
+      heroFade.uMix.value = 0;
+      heroFading = 0;
+      heroIdx = (heroIdx + 1) % HERO_CYCLE.length;
+    }
+
+    function heroCommit() {
+      var mtl = heroSlab.mats[0];
+      var oldMap = mtl.map, oldBump = mtl.bumpMap;
+      mtl.map = heroNext.map;
+      mtl.bumpMap = heroNext.bump;
+      mtl.needsUpdate = true;
+      heroFade.uMapB.value = mtl.map;
+      heroFade.uMix.value = 0;
+      heroFading = -1;
+      heroWait = 0;
+      /* 旧的两张图要释放：每 6 秒换一次，不释放就是一直往上漏显存 */
+      if (oldMap && oldMap !== mtl.map) { oldMap.dispose(); }
+      if (oldBump && oldBump !== mtl.bumpMap) { oldBump.dispose(); }
+      heroSlab.map = mtl.map;
+      heroSlab.bump = mtl.bumpMap;
+      heroSlab.mesh.userData.char = HERO_CYCLE[heroIdx].ch;
+      /* 铜牌等字真正刻上去再换：先换牌后刻字，中间那半秒就是"牌上说日、骨上是卜" */
+      paintHeroPlate(HERO_CYCLE[heroIdx]);
+      heroNext = null;
+      /* 换完再画下一张 —— 过渡那一帧不抢时间 */
+      setTimeout(heroAhead, 700);
+    }
+    setTimeout(heroAhead, 900);
 
     /* ---------- 六个展区入口 ---------- */
     var portals = [];
@@ -1450,17 +1585,31 @@
     });
 
     var faceMtlCache = {};
+    /* 备选构件：一块立起来的小石牌，字面朝观众。
+       原来是平放的立方体（字贴在顶面）—— 站在工作台前是偏低的角度，
+       顶面几乎看不见，四块挤在一起更认不出哪个是「日」哪个是「月」。
+       立起来之后，四块就是四张立牌，字正对着人。 */
+    var BLK_W = 0.50, BLK_H = 0.66, BLK_D = 0.10;
+    var PED_H = 0.72;                 /* 台座高：牌底就落在它顶上 */
+    var BLK_Y = PED_H + BLK_H / 2;    /* 牌心 = 座顶 + 半个牌高 */
+
     function compMtl(ch) {
       if (faceMtlCache[ch]) { return faceMtlCache[ch]; }
       var S = 256;
-      var cv = App.museumTex.canvas(S, S);
+      var SH = Math.round(S * BLK_H / BLK_W);
+      var cv = App.museumTex.canvas(S, SH);
       var c = cv.getContext('2d');
       c.fillStyle = '#3b3128';
-      c.fillRect(0, 0, S, S);
+      c.fillRect(0, 0, S, SH);
       c.strokeStyle = 'rgba(165,129,71,.55)';
       c.lineWidth = 6;
-      c.strokeRect(10, 10, S - 20, S - 20);
-      App.museumTex.paintGlyph(cv, ch, { color: '#efe3c8', weight: 2.6 });
+      c.strokeRect(10, 10, S - 20, SH - 20);
+      /* 字画在正方形小画布上再贴过来：
+         paintGlyph 是按画布宽度的百分比定位的，直接画在竖长画布上会偏到上半截。 */
+      var g = App.museumTex.canvas(128, 128);
+      App.museumTex.paintGlyph(g, ch, { color: '#efe3c8', weight: 2.6 });
+      var gs = Math.min(S, SH) * 0.80;
+      c.drawImage(g, (S - gs) / 2, (SH - gs) / 2, gs, gs);
       var m = std({
         map: canvasTex(cv, { srgb: true }), roughness: 0.62, metalness: 0.10
       });
@@ -1468,9 +1617,11 @@
       return m;
     }
     var blockSideMtl = std({ color: 0x6b5c49, roughness: 0.76, metalness: 0.10 });
-    var blockGeo = new T.BoxGeometry(0.56, 0.56, 0.56);
+    /* BoxGeometry 的材质顺序：+x -x +y -y +z -z —— 字在 +z，也就是正面那块 */
+    var BLK_FACE = 4;
+    var blockGeo = new T.BoxGeometry(BLK_W, BLK_H, BLK_D);
 
-    var bState = { idx: 0, picks: [], blocks: [], done: false, flash: 0, solved: 0, target: null };
+    var bState = { idx: 0, picks: [], blocks: [], done: false, flash: 0, cut: 0, solved: 0, target: null };
 
 
     /* 一局 5 题，和第一关入门课一个量级；顺序固定，便于"第 N / 5" */
@@ -1682,30 +1833,42 @@
          最外侧两块直接落在屏幕外 —— 手机上等于挑不全四个构件，拼不了。
          窄屏改成工作台前的 2×2 栅格，四块都收进同一屏。 */
       var narrow = signIsNarrow();
-      var GRID = [[-0.52, -0.52], [0.52, -0.52], [-0.52, -1.34], [0.52, -1.34]];
+      /* 竖屏的四块错开摆：后排比前排更靠外、略高一点。
+         原来两排正对着摆（x 相同），前排那块立牌正好把后排整个挡住 ——
+         手机上只看得到两块，等于挑不全四个构件。 */
+      var GRID = [[-0.31, -0.75], [0.31, -0.75], [-0.66, -1.45], [0.66, -1.45]];
       p.list.forEach(function (ch, i) {
-        var a = (-0.92 + (i / Math.max(1, n - 1)) * 1.84);
-        var r = 2.05;
         var mats = [];
         for (var f = 0; f < 6; f++) {
-          mats.push(f === 2 ? compMtl(ch) : blockSideMtl);
+          mats.push(f === BLK_FACE ? compMtl(ch) : blockSideMtl);
         }
         var mesh = new T.Mesh(blockGeo, mats);
         if (narrow) {
           var gp = GRID[i % GRID.length];
-          mesh.position.set(gp[0], 0.94, gp[1]);
-          mesh.rotation.y = gp[0] * 0.5;
+          /* 后排站在圆台上（台面 0.80）：抬 0.08 正好落座，台座也刚好没进台子里 */
+          var gy = BLK_Y + (i >= 2 ? 0.08 : 0);
+          mesh.position.set(gp[0], gy, gp[1]);
+          mesh.rotation.y = gp[0] * 0.34;
         } else {
-          mesh.position.set(Math.sin(a) * r, 0.94, -2.5 + Math.cos(a) * r);
-          mesh.rotation.y = a * 0.5;
+          /* 一横排：中间两块略靠前、两边略后，成一道浅弧。
+             ⚠ 不许再按 2.05 的半径绕工作台排 —— 台沿在 z≈-0.9，
+             那样排出来的两侧会退到圆台后面，下半截连同台座都被台子吃掉。 */
+          var bx = (i - (n - 1) / 2) * 0.92;
+          var bz = -0.60 - Math.abs(i - (n - 1) / 2) * 0.10;
+          mesh.position.set(bx, BLK_Y, bz);
+          /* 微微转向中间：四块朝人，但不至于排成一张完全平行的墙 */
+          mesh.rotation.y = -bx * 0.16;
         }
         mesh.userData = { kind: 'block', ch: ch, slot: i };
         mesh.castShadow = !low;
+        /* 台座跟着立牌一起抬：竖屏后排抬高 0.2，座子也得高 0.2，
+           不然牌是浮在座子上方的 */
+        var pedH = PED_H + (mesh.position.y - BLK_Y);
         var ped = new T.Mesh(
-          new T.CylinderGeometry(0.30, 0.34, 0.62, 14),
+          new T.CylinderGeometry(0.255, 0.30, pedH, 14),
           std({ color: 0x3a2f24, roughness: 0.6, metalness: 0.2 })
         );
-        ped.position.set(mesh.position.x, 0.31, mesh.position.z);
+        ped.position.set(mesh.position.x, pedH / 2, mesh.position.z);
         buildG.add(ped);
         mesh.userData.ped = ped;
         buildG.add(mesh);
@@ -1729,7 +1892,8 @@
 
       /* 台面上的字：放一个刻一个，位置按放上的先后（先放的靠右，同甲骨竖行） */
       var cols = bState.picks.map(function (c) { return c; });
-      work.recarve(cols);
+      work.recarve(cols, { boost: 1.45 });
+      bState.cut = 1;   /* 刚刻上去：骨面亮一下，让人看见"刻在这儿了" */
 
       if (bState.picks.length === 2) {
         var p = buildPair();
@@ -3059,7 +3223,8 @@
         select(u.char);
         send({ type: 'exhibit', char: u.char });
       } else if (u.kind === 'hero') {
-        send({ type: 'hero' });
+        /* 骨版上现在是哪个字，展签就开哪个 */
+        send({ type: 'hero', char: (HERO_CYCLE[heroIdx] || {}).ch || '卜' });
       } else if (u.kind === 'portal') {
         send({ type: 'portal', zone: u.zone });
       } else if (u.kind === 'tablet') {
@@ -3330,11 +3495,32 @@
       ctrl.target.lerp(ctrl.tTarget, k);
       applyCamera();
 
-      /* 中央那件做极慢的转台（0.05 rad/s，转一圈两分钟）。
-         悬停时停下，让人能看住一面。 */
+      /* 中央那件不是一直转 —— 原来 0.05 rad/s 转一圈两分钟，
+         大半时间骨版是侧着的，刻辞根本看不见。
+         改成极小幅度地来回摆（±0.42 rad，约 35 秒一个来回）：
+         看得出它是件立体的东西，但正面始终朝着人。 */
       if (!reduceMotion && !ctrl.dragging) {
-        if (heroHolder) { heroHolder.rotation.y += dt * 0.05; }
-        else if (heroSlab) { heroSlab.mesh.rotation.y += dt * 0.05; }
+        var sway = Math.sin(clock.elapsedTime * 0.18) * 0.42;
+        if (heroHolder) { heroHolder.rotation.y = sway; }
+        else if (heroSlab) { heroSlab.mesh.rotation.y = sway; }
+      }
+
+      /* 中央那件换字：停一会儿换一个，换的时候旧字化开、新字凝住。
+         只在序厅跑 —— 别的屋子看不见它，白烧 CPU。 */
+      if (area === 'hall' && heroSlab) {
+        if (heroFading >= 0) {
+          heroFading += dt;
+          var hk = Math.min(1, heroFading / HERO_XFADE);
+          heroFade.uMix.value = hk * hk * (3 - 2 * hk);
+          if (hk >= 1) { heroCommit(); }
+        } else {
+          heroWait += dt;
+          if (heroWait >= HERO_HOLD) {
+            heroStartSwap();
+            /* 关掉动效的机器：不化，直接换 */
+            if (reduceMotion) { heroCommit(); }
+          }
+        }
       }
       /* 门的呼吸光：幅度很小，只是让空间"活着" */
       if (!reduceMotion) {
@@ -3351,20 +3537,30 @@
       if (area === 'build') {
         var kb = Math.min(1, dt * 9);
         bState.blocks.forEach(function (b) {
-          var ty = b.up ? 1.38 : 0.94;
+          /* 选中就抬起来一点：立牌比原来的方块轻，抬 0.2 就看得出来 */
+          var ty = b.up ? BLK_Y + 0.20 : BLK_Y;
           b.mesh.position.y += (ty - b.mesh.position.y) * kb;
-          /* 方块顶面是本品字形贴图（material[2]），选中时自发光 */
-          var mt = b.mesh.material[2];
+          /* 正面（+z）是本品字形贴图，选中时自发光 */
+          var mt = b.mesh.material[BLK_FACE];
           if (mt && mt.emissive) {
             mt.emissive.setHex(b.up ? 0x4a3410 : 0x000000);
           }
         });
         stepSparks(dt);
+        var wm = work.mats[0];
+        if (!wm.emissive) { wm.emissive = new T.Color(0x000000); }
         if (bState.flash > 0) {
+          /* 拼成了：整块骨亮起来 */
           bState.flash = Math.max(0, bState.flash - dt * 0.55);
-          var gl2 = bState.flash;
-          work.mats[0].emissive = new T.Color(0x3a2a10);
-          work.mats[0].emissiveIntensity = 0.4 + gl2 * 1.6;
+          wm.emissive.setHex(0x3a2a10);
+          wm.emissiveIntensity = 0.4 + bState.flash * 1.6;
+        } else if (bState.cut > 0) {
+          /* 刚刻上一道：只在刻痕那一瞬亮一下，0.5 秒退干净 */
+          bState.cut = Math.max(0, bState.cut - dt * 2.0);
+          wm.emissive.setHex(0x4a3413);
+          wm.emissiveIntensity = bState.cut * 0.85;
+        } else {
+          wm.emissiveIntensity = 0;
         }
       }
 
@@ -3576,9 +3772,24 @@
           fov: +camera.fov.toFixed(1), aspect: +camera.aspect.toFixed(3),
           radius: +ctrl.radius.toFixed(2), targetY: +ctrl.target.y.toFixed(2),
           buildDone: bState.done, digFound: dState.found,
+          picks: bState.picks.join(''), buildIdx: bState.idx,
           bossBroken: bossState.broken,
           signK: bSign ? +bSign.scale.x.toFixed(3) : -1,
           signY: bSign ? +bSign.position.y.toFixed(2) : -1
+        };
+      },
+
+      /* 自查用：中央那件现在刻的是哪个字、换到第几个、过渡进行到哪儿 */
+      hero: function () {
+        var mtl = heroSlab ? heroSlab.mats[0] : null;
+        return {
+          ch: (HERO_CYCLE[heroIdx] || {}).ch || '',
+          idx: heroIdx, n: HERO_CYCLE.length,
+          wait: +heroWait.toFixed(2), fading: +heroFading.toFixed(2),
+          mix: +heroFade.uMix.value.toFixed(3),
+          pending: heroNext ? heroNext.ch : '',
+          mapId: mtl && mtl.map ? mtl.map.uuid.slice(0, 8) : '',
+          sameAsPending: !!(mtl && heroNext && mtl.map === heroNext.map)
         };
       }
     };

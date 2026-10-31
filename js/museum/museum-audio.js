@@ -1,12 +1,16 @@
 /* ============================================================
    甲骨奇谭 · 3D 博物馆 / 环境音
    ------------------------------------------------------------
-   为什么不用音频文件：
-     站点里已经有一首 bgm（assets/bgm-guzheng.mp3，2MB），但那是给关卡用的
-     曲子，放进展馆会抢戏；而且再挂一个大文件，首屏和手机都吃亏。
-     这里的声音全部用 Web Audio 现算：一层低频垫（展馆的"空"）、一层
-     极轻的房间噪声（石头与人的呼吸）、一点混响（大厅的体积感），
-     外加三个极短的交互音（选中 / 成功 / 拆构件）。
+   两层声音：
+     1. 底噪 —— 全部用 Web Audio 现算：一层低频垫（展馆的"空"）、一层
+        极轻的房间噪声（石头与人的呼吸）、一点混响（大厅的体积感），
+        外加三个极短的交互音（选中 / 成功 / 拆构件）。现算的东西不占请求，
+        也不会和曲子打架。
+     2. 曲子 —— 就是站点那首 assets/bgm-guzheng.mp3（古筝独奏）。
+        原来是"进馆就让路"（site 的 App.sound 被 suspend）：展厅里只有
+        一层电流声，走一圈像在机房里。现在把这首曲子接进来当馆里的背景，
+        音量压到比关卡低一档，跟环境音垫一起过同一个 master：
+        关「声音」时两者一起淡出，打 Boss 时一起让路。
 
    为什么默认关：
      浏览器不允许无交互自动播放；更何况不请自来的声音很无礼。
@@ -18,11 +22,16 @@
   'use strict';
 
   var KEY = 'museumaudio';
+  /* 馆里的古筝：与关卡里是同一个文件，浏览器只会下载一次 */
+  var BGM_SRC = 'assets/bgm-guzheng.mp3?v=20261021-1';
+  var BGM_VOL = 0.62;         /* 相对 master 的音量：比关卡那档（0.13）低一点 */
+  var BGM_DUCK = 0.30;        /* 打 Boss 时压到三成 */
+
   var A = {
-    ctx: null, master: null, pad: null, noise: null, verb: null,
+    ctx: null, master: null, pad: null, noise: null, verb: null, bgm: null,
     on: false, built: false, nodes: [],
     /* 环境音垫的基准音量（duck 之前的值，恢复时按它还原） */
-    padBase: 0.30, noiseBase: 0.05,
+    padBase: 0.24, noiseBase: 0.045,
     ducked: false,
     /* 开关变化时要通知谁：馆顶栏那颗、关卡右上角那颗，两边必须同一个状态 */
     watchers: []
@@ -32,7 +41,21 @@
 
   function readPref() {
     var s = store();
-    return !!(s && s.get(KEY, false));
+    var v = s ? s.get(KEY, null) : null;
+    if (v !== null && v !== undefined) { return !!v; }
+    /* 没设过：跟随站点总开关（默认开）。
+       用户在关卡里是开着声音的，进馆却一片安静，只会以为"馆里没做声音"。
+
+       ⚠ 读的是**存档里的** sound，不是 App.sound.on()：
+       进馆时 site 的 BGM 已经被 suspend 了，那一刻 on() 恒为 false，
+       拿它当默认值等于"馆里永远默认静音"。 */
+    try {
+      if (App.store && App.store.get) {
+        var sv = App.store.get('sound', true);
+        return !(sv === false || sv === 0 || sv === '0');
+      }
+    } catch (e) { /* 忽略 */ }
+    return true;
   }
   function writePref(v) {
     var s = store();
@@ -155,6 +178,67 @@
     return true;
   }
 
+  /* ------------------------------------------------------------------
+     古筝（真实音频文件）
+     ------------------------------------------------------------------
+     走 WebAudio：<audio> → MediaElementSource → gain → master。
+     这样它和底下那层环境音垫共用同一个推子 —— 开关、duck、dispose
+     都不用各写一份，也不会出现"关了声音还有曲子"。
+     ------------------------------------------------------------------ */
+  var bgmBroken = false;
+
+  function ensureBgm() {
+    if (A.bgm) { return A.bgm; }
+    if (bgmBroken) { return null; }
+    var ctx = ensureCtx();
+    if (!ctx || !document.createElement) { bgmBroken = true; return null; }
+    try {
+      var el = document.createElement('audio');
+      el.src = BGM_SRC;
+      el.loop = true;
+      el.preload = 'auto';
+      el.volume = 1;                 /* 音量交给 gain 管，元素本身不动 */
+      var src = ctx.createMediaElementSource(el);
+      var g = ctx.createGain();
+      g.gain.value = 0;
+      src.connect(g);
+      g.connect(A.master);
+      if (A.verb) { g.connect(A.verb); }
+      A.bgm = el;
+      A.bgmGain = g;
+      A.bgmSrc = src;
+    } catch (e) { bgmBroken = true; return null; }
+    return A.bgm;
+  }
+
+  function bgmRamp(to, sec) {
+    var g = A.bgmGain && A.bgmGain.gain;
+    if (!g || !A.ctx) { return; }
+    var t = A.ctx.currentTime;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(g.value, t);
+    g.linearRampToValueAtTime(to, t + (sec || 0.8));
+  }
+
+  function bgmUp(sec) {
+    var el = ensureBgm();
+    if (!el) { return; }
+    try {
+      var p = el.play();
+      if (p && p.catch) { p.catch(function () { /* 没拿到手势：下次开关再来 */ }); }
+    } catch (e) { /* 忽略 */ }
+    bgmRamp(A.ducked ? BGM_VOL * BGM_DUCK : BGM_VOL, sec == null ? 2.4 : sec);
+  }
+
+  function bgmDown(sec) {
+    bgmRamp(0, sec == null ? 0.6 : sec);
+    setTimeout(function () {
+      /* 淡出期间又开起来了就别停 */
+      if (A.on || !A.bgm) { return; }
+      try { A.bgm.pause(); } catch (e) { /* 忽略 */ }
+    }, (sec == null ? 0.6 : sec) * 1000 + 80);
+  }
+
   function fade(to, sec) {
     if (!A.ctx || !A.master) { return; }
     var t = A.ctx.currentTime;
@@ -190,6 +274,8 @@
       ng.setValueAtTime(ng.value, t);
       ng.linearRampToValueAtTime(A.noiseBase * k, t + 0.4);
     }
+    /* 战斗音乐有自己的旋律，馆里的曲子必须让开，不然两条旋律打架 */
+    if (A.bgmGain) { bgmRamp(BGM_VOL * (toDuck ? BGM_DUCK : 1), 0.4); }
   }
 
   /* 一次极短的音：选中展品 / 拆掉一个构件都用它 */
@@ -228,9 +314,11 @@
         A.on = true;
         /* 被 duck 过（正在打 Boss）就还原成战场该有的音量，别一开声音就顶满 */
         if (A.ducked) { applyDuck(true); } else { fade(0.20, 1.2); }
+        bgmUp(2.4);
       } else {
         A.on = false;
         fade(0, 0.5);
+        bgmDown();
       }
       writePref(A.on);
       notify();
@@ -279,6 +367,12 @@
         ducked: A.ducked,
         built: A.built,
         master: A.master ? +A.master.gain.value.toFixed(4) : -1,
+        ctx: A.ctx ? A.ctx.state : 'none',
+        bgm: A.bgm ? (A.bgm.paused ? 'paused' : 'playing') : 'none',
+        bgmVol: A.bgmGain ? +A.bgmGain.gain.value.toFixed(3) : -1,
+        bgmT: A.bgm ? +A.bgm.currentTime.toFixed(2) : -1,
+        bgmDur: A.bgm && isFinite(A.bgm.duration) ? +A.bgm.duration.toFixed(1) : -1,
+        bgmReady: A.bgm ? A.bgm.readyState : -1,
         pad: A.pad ? +A.pad.gain.value.toFixed(4) : -1,
         noise: A.noise ? +A.noise.gain.value.toFixed(4) : -1
       };
@@ -289,6 +383,17 @@
       A.on = false;
       A.ducked = false;
       notify();
+      if (A.bgm) { bgmRamp(0, 0.2); }
+      var bgmEl = A.bgm;
+      A.bgm = null;
+      A.bgmGain = null;
+      A.bgmSrc = null;
+      setTimeout(function () {
+        try { if (bgmEl) { bgmEl.pause(); } } catch (e) {}
+        /* MediaElementSource 断开之后这个 <audio> 才能被回收；
+           ctx 也关了，下次进馆 ensureBgm 会重新建一份 */
+        try { if (bgmEl) { bgmEl.removeAttribute('src'); bgmEl.load(); } } catch (e) {}
+      }, 320);
       var nodes = A.nodes;
       A.nodes = [];
       setTimeout(function () {
