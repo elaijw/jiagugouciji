@@ -2,13 +2,15 @@
 
 > 给接手的 AI 会话看。读完这一份就能继续，不必回翻历史。
 >
-> **最后更新 2026-11-01（一）**：§7.20 —— **第二关从六片骨到七十三片；典藏区改成一面七十三格字墙**。
-> 字表独立成 `js/world/glyph-plates.js`（73 条 ↔ `glyph-parts.json` 73 个键），
-> 骨片铺成四层环，开场视角抬起来（`fov 60 / pitch 0.12`）；
-> 典藏区原来的 12 龛改成一张烘焙贴图的字墙 + 73 片隐形拾取面。
+> **最后更新 2026-11-01（一）**：§7.21 —— **七十三片骨，一片浮出一件东西**。
+> 用本机 ComfyUI 给剩下六十七片各出一张物件图（`tools/gen_ghost_specs.py` →
+> `comfy_batch.py` → `tools/finalize_ghost.py`），凑齐 73 张骨面虚影；
+> 前端改成"字 → 图"映射（`js/world/ghost-src.js`），虚影乘一层骨色才像从骨里浮出来。
+> 上一轮 §7.20 把第二关从六片骨铺成七十三片、典藏区改成一面七十三格字墙。
+> 再加一条要记的：**虚影图必须是方图**（1024 方图贴到 1.30×1.46 会把腿拉长）。
 > 前一轮 §7.19 的两条坑仍然要记：古筝**不能接 `createMediaElementSource`**（file:// 下输出恒 0），
 > **three 的 `Raycaster` 不看 `visible`**（隐形点击球会吃掉点击）。
-> **接手先读 §7.20 与 §7.19，再读 §7.18 / §7.17 / §7.16 / §7.15**。
+> **接手先读 §7.21 / §7.20 / §7.19，再读 §7.18 / §7.17 / §7.16 / §7.15**。
 > §7.15 里 10 条坑每条都花掉一轮以上（尤其是第 3 条：暗场里 `metalness > 0`
 > 一定会给出一条消不掉的假高光，别再去改几何了）。
 > §7.12 / §7.13 / §7.14 讲的是被替换掉的旧王邑方案，只当历史读，**不要再照着改**。
@@ -1778,3 +1780,93 @@ python dev/_bsp_probe.py "<js>" <out.png> [wait] [W] [H] [route]
 - 字墙目前是"看过就算收"：点空格也会开卡片并把字收进来（和原来 12 龛的行为一致），
   要不要改成"先认过才算"待定。
 - `bonespace.js / wangyi-map.js / boss-raid.js / guibao.js` 留作历史未删。
+
+---
+
+## 7.21 本轮（**当前状态**）：七十三片骨，一片浮出一件东西
+
+### 7.21.1 问题
+
+上一轮把第二关从六片骨铺成七十三片，但只有前六片（山 水 木 日 目 鼎）点开能在骨面上
+浮出实物虚影（`assets/gen/obj_*.png`），其余六十七片点开只有字 + 一句 gloss。
+一片骨摊在那里却"点了什么都浮不出来"，跟第二关的立意（字画的是东西）对不上。
+
+用户原话：「肯定要补 本地有模型生成 去调动」。
+
+### 7.21.2 做法：本机 ComfyUI 出七十三张，一张一个物件
+
+沿用项目已有的出图管线（`docs/comfy-workflows.md`），只加两个脚本：
+
+| 脚本 | 干什么 |
+|---|---|
+| `tools/gen_ghost_specs.py` | 写 `tools/specs_ghost.json`（73 条提示词）＋ `js/world/ghost-src.js`（字 → 图路径） |
+| `tools/finalize_ghost.py` | 把 `C:/DSH/comfy_assets/ghost/o-<key>_*.png`（1024）缩成 `assets/gen/obj_<key>.jpg`（512, q88） |
+
+出图命令：
+
+```bat
+python tools/gen_ghost_specs.py
+python tools/comfy_batch.py --spec tools/specs_ghost.json          :: 73 张，约 45 s/张
+python tools/finalize_ghost.py --sheet                             :: 定稿 + 联系表
+```
+
+四套画法后缀（`OBJ / LIFE / LAND / SKY`）—— 器物走博物馆棚拍、动物走纪录片、
+山川走电影感静帧、日月火走夜景自发光。共同点：**单件、居中、占满、四周压黑、不写字**。
+实测 `一张图一个物件` 是唯一稳定的配方，多物件必融合（旧结论，见 `docs/comfy-workflows.md`）。
+
+### 7.21.3 字表里的文件名：拼音会撞
+
+`key` 只做文件名，撞了就加数字后缀，spec 里同时存 `char` 对得上字：
+
+`泉 quan / 犬 quan2` · `石 shi / 矢 shi2 / 豕 shi3` · `雨 yu / 玉 yu2 / 鱼 yu3` ·
+`米 mi / 糸 si / 絲 si2` · `又 you / 酉 you2` · `邑 yi / 彝 yi2 / 衣 yi3` · `谷 gu / 鼓 gu2`
+
+### 7.21.4 前端改动（`js/world/bone-float.js`）
+
+- `GHOST_SRC`（六条写死的 key）→ `ghostSrcFor(ch)`：先查 `App.ghostSrc`，
+  查不到再落到 `GHOST_SRC_FALLBACK`（还是那六张旧 PNG）。
+  **兜底是故意的**：万一 `ghost-src.js` 没加载（浏览器缓存里的旧 index.html），
+  这一关不该整片变白。
+- `ghostOn()` 的缓存键从 `d.make` 改成 `d.ch`。
+- 贴图缓存加了上限：`GHOST_CACHE_MAX = 22`，超出 dispose 最久没用的那张，
+  正在屏幕上显示的那张不动。七十三张 512 贴图全留着要吃掉 70MB 显存。
+- `softMaskTexture()` 里加一层 `multiply` 暖褐（`rgba(196,160,112,1)`）：
+  生成的图是"棚拍灰底 + 亮主体"，直接贴上去像一张打印照片糊在骨头上；
+  乘上骨色之后亮部收进来，才像"从骨面里浮出来"。羽化内圈 0.16→0.10、外圈 0.50→0.52。
+- 虚影平面 1.30×1.46 → **1.34×1.34**：图是方图，非等比会把人、牛、马的腿拉长。
+- 淡入不透明度 0.72 → **0.88**（乘了暖褐会整体压暗，需要抬一点）。
+- 文案：`focusPlate` 统一「看骨面上浮出什么来」；`card()` 的 `link` 兜底改成
+  「骨面上浮着的那件东西，就是它画的样子。」；页脚「点一片，看它浮出什么来」；
+  `desc` / `tagline` 改成"一片一个浮起来的世界"。
+
+`index.html` 新增 `<script src="js/world/ghost-src.js?v=20261101-1"></script>`，
+`bone-float.js` 版本串升到 `v=20261101-40`。
+
+### 7.21.5 实测（CDP 真视口 `dev/_bsp_probe.py`，1440×900）
+
+- `App.bonefloat.focusAt(0)`（山）：`mode show`、`ghost true`；
+  骨面上浮出山景，金色字形叠在图上可读，卡片在左下、提示在底部。
+- 虚影色调：乘暖褐前是"白亮照片贴纸"，乘后与骨面同调（`_check/ghost_tint.png` 对比
+  `_check/ghost_focus1.png`）。
+- 联系表 `_check/ghost_sheet.jpg`：13 张逐格核对，主体的确画的是那个字
+  （日=金色圆盘、雨=乌云雨帘、川=三股水道、泉=泉眼涟漪、丘=低圆丘、谷=两坡间小路）。
+
+### 7.21.6 这一轮踩到的
+
+- 合成 `PointerEvent` 按屏幕比例点击**打不中**骨片（`pointerdown`/`pointerup` 都派发到
+  `st.el`、移动 0、60 ms 内抬起，仍然无反应）。`__clickWorld(App.bonefloat._S.plates[i])`
+  反而能命中。没深究 —— 真鼠标点得动（上一轮 `_check/bf_click3.png` 已验证），
+  探针里就用 `__clickWorld` / `focusAt`。
+- `finalize_ghost.py` 按 key 找最新的一张 `o-<key>_*.png`；同一 key 重跑过好多次时
+  要留意别拿到旧 seed 的图。
+- 六张老图（山 水 木 日 目 鼎）也在 73 条 spec 里，会被**重新生成**覆盖。
+  新 prompt 与旧图构图不同（旧山是远景山脉、新山是单峰），已逐张比对后保留新版。
+
+### 7.21.7 待办
+
+- 七十三张里若有画崩的（多头/多腿/物件缺失），`--only <key>` 重跑那一张即可，
+  提示词改 `tools/gen_ghost_specs.py`。
+- 典藏区 / 博物馆展签目前**不显示**这张虚影图，只有文字。要不要在展签里也放一张，
+  待定（字墙格子太小，塞不下；大展签可以）。
+- 第二关那六片的 3D 实物（`propShan` 等六个函数）仍然留着但没启用
+  （`SHOW_3D_PROP = false`），要不要挑几片恢复成"真 3D"另说。

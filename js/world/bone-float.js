@@ -24,11 +24,13 @@
 
   /* ---------------- 数据：这一批骨片 ----------------
      字表在 js/world/glyph-plates.js：整 73 个字，与 glyph-parts.json 一一对应。
-     前六片带 make/ghost —— 点开会从骨面上长出一件实物；其余六十七片是纯骨片：
-     点开、字亮起来、收进典藏。七十三片全挂实物既做不出来，也没必要。
+     七十三片现在都能"浮出东西"：骨面虚影的图在 assets/gen/obj_<key>.jpg，
+     字 → 图的映射在 js/world/ghost-src.js（tools/gen_ghost_specs.py 生成）。
+     前六片的 make/ghost 还留着 —— 3D 实物（propShan 那六个函数）没删，
+     把 SHOW_3D_PROP 改 true 就能重新长出来。
 
      cat 只用来给卡片分类，不对应任何旧区域。
-     gloss 是字形本身的说明；link 是把字形和实物连起来的那一句。 */
+     gloss 是字形本身的说明；link 是把字形和实物连起来的那一句（只有六片有）。 */
   var PLATES = (App.glyphPlates && App.glyphPlates.items && App.glyphPlates.items.length)
     ? App.glyphPlates.items
     : [{
@@ -109,14 +111,23 @@
 
   /* 整组透明度：骨板的 body 与两面刻字一起淡 */
   function setOpacity(o, v) {
+    /* 字形走乘法：骨片淡到多淡，字就跟着淡多少，但字的"底子"（0.03 / 1）不变。
+       骨片本体直接设 v。 */
+    var ga = o.userData && o.userData.gAlpha;
     o.traverse(function (m) {
       if (!m.material) { return; }
       var ms = Array.isArray(m.material) ? m.material : [m.material];
+      var isGlyph = !!(m.userData && m.userData.isGlyph) && ga != null;
       for (var i = 0; i < ms.length; i++) {
         var mm = ms[i];
         mm.transparent = true;
-        mm.opacity = v;
-        mm.depthWrite = v > 0.75;
+        if (isGlyph) {
+          mm.opacity = ga * v;
+          mm.depthWrite = (ga * v) > 0.5;
+        } else {
+          mm.opacity = v;
+          mm.depthWrite = v > 0.75;
+        }
       }
     });
   }
@@ -733,6 +744,10 @@
       if (gm) {
         gm.position.z = fz;
         gm.userData.plate = grp;
+        /* 标记"我是字"：setOpacity() 整组调透明度时必须区别对待 ——
+           字有自己的底子透明度（认过 0.03、认开 1），不能跟着骨片一起被设成
+           0.10 / 1。不标的后果：点过一片之后，满天骨片的字全亮起来。 */
+        gm.userData.isGlyph = true;
         grp.add(gm);
         glyphs.push(gm);
       }
@@ -740,6 +755,7 @@
     grp.userData.pickable = true;
     grp.userData.plateData = data;
     grp.userData.glyphs = glyphs;
+    grp.userData.gAlpha = 0.03;
     grp.userData.op = 1;
     return grp;
   }
@@ -1265,20 +1281,44 @@
        图 → 画布加径向 alpha 羽化 → 贴到骨片正面的 UV 平面
      这样字与物在同一块骨上，才像拓片上的层叠。
      ============================================================ */
-  var GHOST_SRC = {
-    shan: 'assets/gen/obj_shan.png',
-    shui: 'assets/gen/obj_shui.png',
-    mu:   'assets/gen/obj_mu.png',
-    ri:   'assets/gen/obj_ri.png',
-    mue:  'assets/gen/obj_mue.png',
-    ding: 'assets/gen/obj_ding.png'
-  };
-  var _ghostCache = {};
+  /* 七十三片骨、七十三张图：字 → 图路径由 tools/gen_ghost_specs.py 生成到
+     js/world/ghost-src.js（App.ghostSrc）。图是 ComfyUI 出的 1024 方图，
+     经 tools/finalize_ghost.py 缩成 512 的 JPEG 放在 assets/gen/obj_<key>.jpg。
 
-  function ghostTexture(st, key) {
-    if (_ghostCache[key]) { return _ghostCache[key]; }
-    var tex = st.T ? null : null;
-    return null;   /* 真正的加载走 ghostOn 的异步路径 */
+     下面这六条是兜底：万一 ghost-src.js 没被加载（比如缓存里是旧 index.html），
+     至少原来那六片还能浮出东西来，而不是整关忽然变成一片空白骨。 */
+  var GHOST_SRC_FALLBACK = {
+    '山': 'assets/gen/obj_shan.jpg',
+    '水': 'assets/gen/obj_shui.jpg',
+    '木': 'assets/gen/obj_mu.jpg',
+    '日': 'assets/gen/obj_ri.jpg',
+    '目': 'assets/gen/obj_mue.jpg',
+    '鼎': 'assets/gen/obj_ding.jpg'
+  };
+
+  function ghostSrcFor(ch) {
+    var m = App.ghostSrc;
+    if (m && m[ch]) { return m[ch]; }
+    return GHOST_SRC_FALLBACK[ch];
+  }
+
+  /* 虚影贴图缓存。一片骨一张 512 的贴图，七十三张全留在显存里约 70MB，
+     一局认真玩下来会把显存啃掉一大块 —— 所以按最近使用保留二十来张，
+     超出的 dispose 掉。重看同一片时重新 load 一次，本地文件，几毫秒。 */
+  var _ghostCache = {}, _ghostOrder = [], GHOST_CACHE_MAX = 22;
+
+  function cacheGhost(key, tex) {
+    _ghostCache[key] = tex;
+    _ghostOrder.push(key);
+    while (_ghostOrder.length > GHOST_CACHE_MAX) {
+      var old = _ghostOrder.shift();
+      if (old === key || !_ghostCache[old]) { continue; }
+      /* 正在屏幕上显示的那一张不能拆 */
+      var g = S.focus && S.focus.userData && S.focus.userData.ghost;
+      if (g && g.material && g.material.map === _ghostCache[old]) { continue; }
+      if (_ghostCache[old].dispose) { _ghostCache[old].dispose(); }
+      delete _ghostCache[old];
+    }
   }
 
   function softMaskTexture(st, img) {
@@ -1287,17 +1327,24 @@
     var cv = App.stage3d.canvas(N, N);
     var c = cv.getContext('2d');
     c.clearRect(0, 0, N, N);
-    /* 先铺图（cover 裁成正方形），再用径向渐变把四周擦掉 */
+    /* 先铺图（cover 裁成正方形） */
     var side = Math.min(img.width, img.height);
     var sx = (img.width - side) / 2, sy = (img.height - side) / 2;
     c.drawImage(img, sx, sy, side, side, 0, 0, N, N);
+    /* 乘一层暖褐：生成的图本身是"摄影棚灰底 + 亮主体"，
+       直接贴上去像一张打印照片糊在骨头上。乘上骨色之后，
+       亮部收进来、暗部并与骨面同调，看起来才是"骨面里浮出来的"。 */
+    c.globalCompositeOperation = 'multiply';
+    c.fillStyle = 'rgba(196,160,112,1)';
+    c.fillRect(0, 0, N, N);
+    /* 再用径向渐变把四周擦掉 */
     c.globalCompositeOperation = 'destination-in';
-    var g = c.createRadialGradient(N / 2, N / 2, N * 0.16, N / 2, N / 2, N * 0.50);
+    var g = c.createRadialGradient(N / 2, N / 2, N * 0.10, N / 2, N / 2, N * 0.52);
     g.addColorStop(0, 'rgba(255,255,255,1)');
-    g.addColorStop(0.62, 'rgba(255,255,255,.92)');
+    g.addColorStop(0.55, 'rgba(255,255,255,.90)');
     g.addColorStop(1, 'rgba(255,255,255,0)');
     c.fillStyle = g;
-    c.beginPath(); c.arc(N / 2, N / 2, N * 0.52, 0, 6.2832); c.fill();
+    c.beginPath(); c.arc(N / 2, N / 2, N * 0.54, 0, 6.2832); c.fill();
     c.globalCompositeOperation = 'source-over';
     var tex = App.stage3d.tex(cv);
     return tex;
@@ -1359,8 +1406,8 @@
   function ghostOn(grp, d) {
     var st = S.st;
     var T = st.T;
-    var key = d.make;
-    var src = GHOST_SRC[key];
+    var key = d.ch;
+    var src = ghostSrcFor(key);
     if (!src) { return; }
     if (grp.userData.ghost) { return; }
 
@@ -1384,7 +1431,9 @@
         var bb = body.geometry.boundingBox;
         if (bb && bb.max) { faceZ = bb.max.z + 0.018; }
       }
-      var pw = 1.30, ph = 1.46;
+      /* 方形图就贴方形 —— 1.30×1.46 会把出自 1024 方图的景物拉长一成，
+         山的坡度和牛的腿都会显得细长。 */
+      var pw = 1.22, ph = 1.22;
       var plane = new T.Mesh(new T.PlaneGeometry(pw, ph), mat);
       plane.position.set(0, 0.02, faceZ + 0.06);
       plane.renderOrder = 4;
@@ -1397,7 +1446,7 @@
       (function fade() {
         if (!plane.parent) { return; }
         var k = Math.min(1, (performance.now() - t0) / 700);
-        mat.opacity = 0.72 * (1 - Math.pow(1 - k, 3));
+        mat.opacity = 0.88 * (1 - Math.pow(1 - k, 3));
         if (k < 1) { requestAnimationFrame(fade); }
       })();
     }
@@ -1407,7 +1456,7 @@
     loader.load(src, function (img) {
       img.colorSpace = T.SRGBColorSpace;
       var tex = softMaskTexture(st, img.image || img);
-      _ghostCache[key] = tex;
+      cacheGhost(key, tex);
       build(tex);
     }, undefined, function () { /* 加载失败：不显示虚影，保留字形 */ });
   }
@@ -1420,7 +1469,7 @@
     var t0 = performance.now();
     (function fade() {
       var k = Math.min(1, (performance.now() - t0) / 420);
-      mat.opacity = 0.72 * (1 - k);
+      mat.opacity = 0.88 * (1 - k);
       if (k < 1) { requestAnimationFrame(fade); }
       else if (g.parent) { g.parent.remove(g); }
       if (k >= 1 && grp.userData) { grp.userData.ghost = null; }
@@ -1480,8 +1529,7 @@
     var d = grp.userData.plateData;
     card(false);
     crumb(d.now + ' · ' + d.cat);
-    say('<b>提示</b>：你点了「' + d.now + '」。' +
-        (d.make ? '看它长出什么来。' : '看这个字本来的样子。'), 5200);
+    say('<b>提示</b>：你点了「' + d.now + '」。看骨面上浮出什么来。', 5200);
 
     S.plates.forEach(function (p) {
       if (p === grp) { return; }
@@ -1541,14 +1589,25 @@
 
   /* 字形的透明度：未点开前几乎看不见，点开后亮起来。
      只有"点了才知道这是哪个字"——这是这一关的核心设计。 */
+  /* 字的透明度：只记"底子"（认过 0.03、点开 1），实际写进材质时要乘上
+     骨片本身当前的 op —— 骨片淡到 0.10 时字也跟着淡，收回时一起回来。
+     这样 setOpacity() 整组刷的时候就不会把字的底子冲掉。 */
   function setGlyphAlpha(grp, a) {
+    grp.userData.gAlpha = a;
+    applyGlyphAlpha(grp);
+  }
+
+  function applyGlyphAlpha(grp) {
     var gs = (grp.userData && grp.userData.glyphs) || [];
+    var a = grp.userData.gAlpha == null ? 0.03 : grp.userData.gAlpha;
+    var op = grp.userData.op == null ? 1 : grp.userData.op;
+    var v = a * op;
     for (var i = 0; i < gs.length; i++) {
       gs[i].traverse(function (m) {
         if (m.material && !Array.isArray(m.material)) {
           m.material.transparent = true;
-          m.material.opacity = a;
-          m.material.depthWrite = a > 0.5;
+          m.material.opacity = v;
+          m.material.depthWrite = v > 0.5;
         }
       });
     }
@@ -1584,7 +1643,8 @@
       /* 没有 3D 实物（虚影模式下就是这样）：仍然要进 show 态 ——
          卡片、提示、收回按钮全靠这一步。之前直接 return，
          状态卡在 unveil，6 秒后被守卫踢回 idle，收回按钮根本没出来。
-         纯骨片（六十七片里的大多数）也走这一支：字亮起来，卡片说出它画的是什么。 */
+         七十三片现在都有虚影（ghostOn 里那张物件图），所以这里只是"虚影已经浮起、
+         卡片该出来了"的交接点，不再分"有实物/纯骨片"两支。 */
       S.mode = 'show';
       S.stateSince = 0;
       S.busy = false;
@@ -1672,9 +1732,13 @@
         px: b.x, py: b.y, pz: b.z, ry: b.ry, rz: b.rz,
         sx: b.s, sy: b.s, sz: b.s, op: 1
       }, 0.78, easeInOut, function () {
+        /* 顺序要紧：ghostOff 里的 setGlyphGhostMode(false) 会把字形材质还原成
+           "进虚影模式时记下的那份"（那时 opacity 还是 1）。先 setGlyphAlpha(0.03)
+           再 ghostOff，还原动作会把它盖回 1 —— 结果就是收回之后字还亮着，
+           认过的骨片在环上一直显形。必须 ghostOff 在前、压 alpha 在后。 */
+        ghostOff(grp);
         setGlyphGlow(grp, 0.10);
         setGlyphAlpha(grp, 0.03);
-        ghostOff(grp);
         backToIdle();
       });
     } else {
@@ -1859,10 +1923,11 @@
     hd.appendChild(App.el('div', 'tag', d.cat));
     c.appendChild(hd);
     c.appendChild(App.el('div', 'gl', d.gloss));
-    /* 六片"会长出实物"的骨有自己的 link（把字形和实物连起来的一句）；
-       其余六十七片没有实物，就换成"收进典藏"这一句，不要留一行空 div。 */
+    /* 六片"有故事"的骨有自己的 link（把字形和实物连起来的一句）；
+       其余六十七片现在也有虚影了，但没有那句专属文案 —— 用一句通用的顶上，
+       不要留一行空 div。 */
     c.appendChild(App.el('div', 'lk', d.link ||
-      '这个字已经收进典藏。收回骨片，再认下一片。'));
+      '骨面上浮着的那件东西，就是它画的样子。'));
     var btn = App.el('button', '', '收　回');
     btn.onclick = function () { dismiss(); };
     c.appendChild(btn);
@@ -1916,7 +1981,7 @@
   function updateFoot() {
     if (!S.ui || !S.ui.foot) { return; }
     S.ui.foot.innerHTML = '共 <b>' + PLATES.length + '</b> 片骨 · 已认 <b>' +
-      knownCount() + '</b> 片 · 点一片，看它是什么字';
+      knownCount() + '</b> 片 · 点一片，看它浮出什么来';
   }
 
   /* ==========================================================================
@@ -1925,10 +1990,10 @@
   App.modes.register({
     id: 'bone-float',
     name: '骨片浮空',
-    tagline: '一片骨，一个长出来的世界',
-    desc: '七十三片刻着甲骨文的骨片浮在星海里，围成三层。点开一片，它飞到眼前放大，' +
-          '字亮起来；山、水、木、日、目、鼎这六片还会从骨面上长出它们所指的东西 —— ' +
-          '收回时再缩回骨里。其余六十七片是纯骨片：认一个字，收一格典藏。',
+    tagline: '一片骨，一个浮起来的世界',
+    desc: '七十三片刻着甲骨文的骨片浮在星海里，围成四层。点开一片，它飞到眼前放大，' +
+          '字亮起来，骨面上浮出它画的那件东西 —— 山、水、目、牛、车、邑，一片一个。' +
+          '收回时再缩回骨里，认一个字，收一格典藏。',
     icon: '骨',
     accent: 'var(--gold, #c8a86a)',
     tags: ['3D', '探索', '字形'],

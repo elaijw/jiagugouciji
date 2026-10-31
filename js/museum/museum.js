@@ -24,7 +24,7 @@
        序厅的内容（甲骨是什么 / 灼骨 / 兆纹）改成厅里一块说明碑，点开就是原来那个面板。 */
     { id: 'gallery',    name: '甲骨文知识厅', glyph: '日', note: '四段陈列：卜材 · 卜辞 · 文字 · 发现' },
     { id: 'build',      name: '造字探索区', glyph: '木', note: '把两个构件搬上台面', href: '#/play/bone-build' },
-    { id: 'excavate',   name: '浮空骨片区', glyph: '山', note: '六片骨，点开长出来', href: '#/play/bone-float' },
+    { id: 'excavate',   name: '浮空骨片区', glyph: '山', note: '七十三片骨，点开浮出东西', href: '#/play/bone-float' },
     { id: 'boss',       name: '守字之骨区', glyph: '戈', note: '拆构件 · 断笔画 · 补古句', href: '#/play/boss-3d' },
     { id: 'collection', name: '我的典藏区', glyph: '贝', note: '一面字墙：七十三格，认过的亮' }
   ];
