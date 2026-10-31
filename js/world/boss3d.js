@@ -155,13 +155,23 @@
     '.bd3-win{position:absolute;inset:0;z-index:9;display:none;place-items:center;',
     'background:radial-gradient(circle at 50% 42%,rgba(20,16,12,.55),rgba(6,5,8,.9))}',
     '.bd3-win.on{display:grid}',
-    '.bd3-card{position:relative;width:min(480px,90vw);padding:36px 34px 30px;',
+    '.bd3-card{position:relative;width:min(480px,90vw);max-height:90vh;overflow-y:auto;',
+    'overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(180,73,47,.35) transparent;',
+    'padding:30px 30px 24px;',
     'border:1px solid #d9cfb6;border-radius:2px;text-align:center;color:#2b2318;',
     'background:linear-gradient(180deg,#f6f3e9 0%,#efe9d9 62%,#e8e0cc 100%);',
     'box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.7)}',
     '.bd3-card:before{content:"";position:absolute;inset:6px;border:1px solid rgba(43,35,24,.09);',
     'border-radius:1px;pointer-events:none}',
     /* 入场：卡纸拍下 → 印章砸下 → 数字→三句→按钮 依次出现 */
+    /* 评级印：盖在右上角的一枚方印 */
+    '@keyframes bd3grade{0%{opacity:0;transform:scale(2.4) rotate(16deg)}',
+    '55%{opacity:1;transform:scale(.94) rotate(4deg)}',
+    '80%{transform:scale(1.05) rotate(9deg)}100%{opacity:1;transform:scale(1) rotate(8deg)}}',
+    /* 骨屑：从卡片上沿落下，落到一半就淡掉 */
+    '@keyframes bd3dust{0%{opacity:0;transform:translateY(-8px)}',
+    '12%{opacity:.9}70%{opacity:.5}100%{opacity:0;transform:translateY(64px)}}',
+    '@keyframes bd3perfect{0%{opacity:0;letter-spacing:.5em}100%{opacity:1;letter-spacing:.22em}}',
     '@keyframes bd3slam{0%{opacity:0;transform:translateY(-26px) scale(1.06) rotate(-1.2deg)}',
     '62%{opacity:1;transform:translateY(4px) scale(.995) rotate(.25deg)}',
     '100%{opacity:1;transform:none}}',
@@ -211,8 +221,22 @@
     'display:grid;place-items:center;background:#b4492f;color:#fdf6e3;',
     'font-family:var(--font-title,"Kaiti SC",serif);font-size:22px;',
     'box-shadow:0 2px 0 rgba(120,40,24,.35);transform:rotate(-3deg)}',
+    '.bd3-card .bd3-grade{position:absolute;right:16px;top:14px;width:52px;height:52px;',
+    'border:2px solid #b4492f;border-radius:2px;display:grid;place-items:center;gap:0;',
+    'color:#b4492f;opacity:0;transform:rotate(8deg);background:rgba(180,73,47,.06);',
+    'font-family:var(--font-title,"Kaiti SC",serif);line-height:1.02;letter-spacing:0}',
+    '.bd3-card .bd3-grade span{font-size:16px;display:block}',
+    '.bd3-card .bd3-grade.on{animation:bd3grade 460ms cubic-bezier(.2,1.1,.3,1.3) both}',
+    '.bd3-card .bd3-grade .gl{font-size:8px;letter-spacing:.16em;color:rgba(180,73,47,.75);',
+    'margin-top:2px;writing-mode:horizontal-tb}',
+    '.bd3-card .bd3-dust{position:absolute;inset:0;overflow:hidden;pointer-events:none}',
+    '.bd3-card .bd3-dust i{position:absolute;width:2px;height:2px;border-radius:50%;',
+    'background:rgba(120,98,66,.55);animation:bd3dust 1500ms ease-in both}',
+    '.bd3-card .bd3-perfect{margin-top:10px;text-align:center;font-size:12.5px;',
+    'color:#b4492f;letter-spacing:.22em;opacity:0}',
+    '.bd3-card.rows .bd3-perfect{animation:bd3perfect 620ms ease-out 420ms both}',
     '.bd3-card .wk{font-size:11px;letter-spacing:.34em;color:#a8552f}',
-    '.bd3-card .wt{font-family:var(--font-title,"Kaiti SC",serif);font-size:30px;',
+    '.bd3-card .wt{font-family:var(--font-title,"Kaiti SC",serif);font-size:27px;',
     'letter-spacing:.18em;color:#241d14;margin:10px 0 8px}',
     '.bd3-card .ws{font-size:13px;color:#5b4d3a;letter-spacing:.03em;line-height:1.95}',
     '.bd3-card .wline{height:1px;margin:18px 0 4px;position:relative;',
@@ -230,7 +254,7 @@
     '.bd3-stat .v{font-family:var(--font-title,"Kaiti SC",serif);font-size:24px;color:#241d14}',
     '.bd3-stat .v.grade{color:#b4492f}',
     '.bd3-stat .k{font-size:11px;letter-spacing:.16em;color:#8a7a5e;margin-top:3px}',
-    '.bd3-know{margin-top:20px;padding:14px 16px;border-left:2px solid #b4492f;',
+    '.bd3-know{margin-top:16px;padding:12px 14px;border-left:2px solid #b4492f;',
     'background:rgba(255,255,255,.5);text-align:left}',
     '.bd3-know .kh{font-size:11.5px;letter-spacing:.22em;color:#a8552f;margin-bottom:10px}',
     '.bd3-know .kr{margin:10px 0 12px}',
@@ -1847,6 +1871,11 @@
       (SHOW_GB ? '<div class="bd3-gb"><img src="assets/guibao-front.png" alt="龟宝">' +
         '<span><b>提示</b>：守字之骨散了。<br>你看，骨头碎了，字留下来了。</span></div>' : '') +
       '<div class="wseal">骨</div>' +
+      '<div class="bd3-grade' + (S.wrong === 0 ? '' : (S.wrong <= 3 ? '' : ' low')) + '">' +
+      '<div><span>' + (S.wrong === 0 ? '上上' : (S.wrong <= 3 ? '上' : '中')).slice(0, 1) + '</span>' +
+      '<div class="gl">' + (S.wrong === 0 ? '无失' : (S.wrong <= 3 ? '小失' : '有失')) + '</div></div>' +
+      '</div>' +
+      '<div class="bd3-dust"></div>' +
       '<div class="wk">第三关 · 通过</div>' +
       '<div class="wt">守字之骨已散</div>' +
       '<div class="ws">构件拆了，笔画断了，残句也补齐了。<br>' +
@@ -1855,9 +1884,6 @@
       '<div class="bd3-stats">' +
       '<div class="bd3-stat"><div class="v" data-to="' + secs + '">0s</div><div class="k">用时</div></div>' +
       '<div class="bd3-stat"><div class="v" data-to="' + S.wrong + '">0</div><div class="k">失误</div></div>' +
-      '<div class="bd3-stat"><div class="v grade">' +
-      (S.wrong === 0 ? 'S' : (S.wrong <= 3 ? 'A' : 'B')) +
-      '</div><div class="k">评级</div></div>' +
       '</div>' +
       /* 胜利界面要交代"刚刚补的那三句是什么"。
          玩家打完了只看一个 S 评级，等于白打。 */
@@ -1868,7 +1894,8 @@
           '<em>' + q.gloss + '</em></div>';
       }).join('') +
       '<div class="kn">三句都出自《论语》，不是甲骨文原文 —— ' +
-      '它们是这套字后来走过的路。Boss 身上那个「泉」才是商人刻在骨头上的写法。</div></div>';
+      '它们是这套字后来走过的路。Boss 身上那个「泉」才是商人刻在骨头上的写法。</div></div>' +
+      (S.wrong === 0 ? '<div class="bd3-perfect">这一遍，一笔没断。</div>' : '');
     var row = el('div', 'wrow');
     var again = el('button', 'bd3-btn primary', '再来一次');
     again.onclick = function () { restart(); };
@@ -1902,7 +1929,24 @@
     setTimeout(function () {
       card.classList.add('nummed');
       [].forEach.call(card.querySelectorAll('.bd3-stat .v[data-to]'), countUp);
+      var grade = card.querySelector('.bd3-grade');
+      if (grade) { grade.classList.add('on'); }
     }, 620);
+    /* 骨屑：卡片落定后撒一把 */
+    setTimeout(function () {
+      var dust = card.querySelector('.bd3-dust');
+      if (!dust) { return; }
+      for (var di = 0; di < 18; di++) {
+        var bit = document.createElement('i');
+        bit.style.left = (6 + Math.random() * 88).toFixed(1) + '%';
+        bit.style.top = (Math.random() * 18).toFixed(1) + '%';
+        bit.style.animationDelay = (Math.random() * 380).toFixed(0) + 'ms';
+        bit.style.opacity = (0.35 + Math.random() * 0.5).toFixed(2);
+        if (Math.random() > 0.7) { bit.style.width = '3px'; bit.style.height = '3px'; }
+        dust.appendChild(bit);
+      }
+      setTimeout(function () { if (dust.parentNode) { dust.parentNode.removeChild(dust); } }, 2200);
+    }, 560);
     setTimeout(function () { card.classList.add('rows'); }, 980);
     setTimeout(function () { card.classList.add('acts'); }, 1320);
 
