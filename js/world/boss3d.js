@@ -161,7 +161,53 @@
     'box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.7)}',
     '.bd3-card:before{content:"";position:absolute;inset:6px;border:1px solid rgba(43,35,24,.09);',
     'border-radius:1px;pointer-events:none}',
-    '.bd3-card .wseal{width:42px;height:42px;margin:0 auto 12px;border-radius:3px;',
+    /* 入场：卡纸拍下 → 印章砸下 → 数字→三句→按钮 依次出现 */
+    '@keyframes bd3slam{0%{opacity:0;transform:translateY(-26px) scale(1.06) rotate(-1.2deg)}',
+    '62%{opacity:1;transform:translateY(4px) scale(.995) rotate(.25deg)}',
+    '100%{opacity:1;transform:none}}',
+    '@keyframes bd3stamp{0%{opacity:0;transform:scale(2.1) rotate(-14deg)}',
+    '55%{opacity:1;transform:scale(.92) rotate(-1deg)}',
+    '78%{transform:scale(1.06) rotate(-4deg)}100%{opacity:1;transform:scale(1) rotate(-3deg)}}',
+    '@keyframes bd3ink{0%{opacity:.55;transform:scale(.2)}100%{opacity:0;transform:scale(1.9)}}',
+    '@keyframes bd3up{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}',
+    '.bd3-card.in{animation:bd3slam 520ms cubic-bezier(.2,.9,.25,1.15) both}',
+    '.bd3-card .wseal{opacity:0}',
+    '.bd3-card .wseal.stamp{animation:bd3stamp 460ms cubic-bezier(.2,1.1,.3,1.3) both}',
+    '.bd3-card .wseal:after{content:"";position:absolute;margin:-10px 0 0 -10px;width:62px;height:62px;',
+    'border-radius:50%;background:radial-gradient(circle,rgba(180,73,47,.5),rgba(180,73,47,0) 70%);',
+    'opacity:0;pointer-events:none}',
+    '.bd3-card .wseal.splat:after{animation:bd3ink 520ms ease-out both}',
+    '.bd3-card .wk,.bd3-card .wt,.bd3-card .ws{opacity:0}',
+    '.bd3-card.typed .wk,.bd3-card.typed .wt,.bd3-card.typed .ws{animation:bd3up 420ms ease-out both}',
+    '.bd3-card.typed .wt{animation-delay:70ms}',
+    '.bd3-card.typed .ws{animation-delay:150ms}',
+    '.bd3-card .bd3-stats,.bd3-card .wline{opacity:0}',
+    '.bd3-card.nummed .wline{animation:bd3up 360ms ease-out both}',
+    '.bd3-card.nummed .bd3-stats{animation:bd3up 420ms ease-out 90ms both}',
+    '.bd3-card .bd3-know{opacity:0}',
+    '.bd3-card.rows .bd3-know{animation:bd3up 460ms ease-out both}',
+    '.bd3-card .bd3-know .kr{opacity:0}',
+    '.bd3-card.rows .bd3-know .kr{animation:bd3up 380ms ease-out both}',
+    '.bd3-card.rows .bd3-know .kr:nth-of-type(1){animation-delay:60ms}',
+    '.bd3-card.rows .bd3-know .kr:nth-of-type(2){animation-delay:180ms}',
+    '.bd3-card.rows .bd3-know .kr:nth-of-type(3){animation-delay:300ms}',
+    '.bd3-card .wrow{opacity:0}',
+    '.bd3-card.acts .wrow{animation:bd3up 380ms ease-out both}',
+    '.bd3-card .bd3-stat .v{font-variant-numeric:tabular-nums}',
+    '.bd3-card .wrow .bd3-btn:active{transform:translateY(1px)}',
+    '@media (prefers-reduced-motion: reduce){',
+    '.bd3-card.in,.bd3-card .wseal.stamp,.bd3-card .wseal.splat:after,',
+    '.bd3-card.typed .wk,.bd3-card.typed .wt,.bd3-card.typed .ws,',
+    '.bd3-card.nummed .wline,.bd3-card.nummed .bd3-stats,',
+    '.bd3-card.rows .bd3-know,.bd3-card.rows .bd3-know .kr,',
+    '.bd3-card.acts .wrow{animation:none!important}',
+    '.bd3-card .wseal,.bd3-card .wk,.bd3-card .wt,.bd3-card .ws,',
+    '.bd3-card .bd3-stats,.bd3-card .wline,.bd3-card .bd3-know,',
+    '.bd3-card .bd3-know .kr,.bd3-card .wrow{opacity:1!important}}',
+    '.bd3-card{transition:transform .22s ease-out,box-shadow .22s ease-out;transform-style:preserve-3d}',
+    '.bd3-card .wseal{cursor:pointer}',
+    '.bd3-card .wseal:hover{filter:brightness(1.06)}',
+    '.bd3-card .wseal{position:relative;width:42px;height:42px;margin:0 auto 12px;border-radius:3px;',
     'display:grid;place-items:center;background:#b4492f;color:#fdf6e3;',
     'font-family:var(--font-title,"Kaiti SC",serif);font-size:22px;',
     'box-shadow:0 2px 0 rgba(120,40,24,.35);transform:rotate(-3deg)}',
@@ -1807,8 +1853,8 @@
       '这三个字不是被记住的，是被你拆开又装回去的。</div>' +
       '<div class="wline"></div>' +
       '<div class="bd3-stats">' +
-      '<div class="bd3-stat"><div class="v">' + secs + 's</div><div class="k">用时</div></div>' +
-      '<div class="bd3-stat"><div class="v">' + S.wrong + '</div><div class="k">失误</div></div>' +
+      '<div class="bd3-stat"><div class="v" data-to="' + secs + '">0s</div><div class="k">用时</div></div>' +
+      '<div class="bd3-stat"><div class="v" data-to="' + S.wrong + '">0</div><div class="k">失误</div></div>' +
       '<div class="bd3-stat"><div class="v grade">' +
       (S.wrong === 0 ? 'S' : (S.wrong <= 3 ? 'A' : 'B')) +
       '</div><div class="k">评级</div></div>' +
@@ -1832,6 +1878,57 @@
     card.appendChild(row);
     w.appendChild(card);
     w.classList.add('on');
+
+    /* ---------- 出场时序 ---------- */
+    var seal = card.querySelector('.wseal');
+    function countUp(node) {
+      var to = parseInt(node.getAttribute('data-to'), 10) || 0;
+      var suffix = /s$/.test(node.textContent) ? 's' : '';
+      var t0 = performance.now(), dur = 620;
+      (function step() {
+        var k = Math.min(1, (performance.now() - t0) / dur);
+        var e = 1 - Math.pow(1 - k, 3);
+        node.textContent = Math.round(to * e) + suffix;
+        if (k < 1) { requestAnimationFrame(step); }
+      })();
+    }
+    requestAnimationFrame(function () { card.classList.add('in'); });
+    setTimeout(function () {
+      card.classList.add('typed');
+      if (seal) { seal.classList.add('stamp', 'splat'); }
+      if (App.museumAudio && App.museumAudio.good) { App.museumAudio.good(); }
+      else if (App.museumAudio && App.museumAudio.click) { App.museumAudio.click(); }
+    }, 300);
+    setTimeout(function () {
+      card.classList.add('nummed');
+      [].forEach.call(card.querySelectorAll('.bd3-stat .v[data-to]'), countUp);
+    }, 620);
+    setTimeout(function () { card.classList.add('rows'); }, 980);
+    setTimeout(function () { card.classList.add('acts'); }, 1320);
+
+    /* 小彩蛋：点印章再砸一次（带朱砂溅点和声音） */
+    if (seal) {
+      seal.onclick = function () {
+        seal.classList.remove('stamp', 'splat');
+        void seal.offsetWidth;
+        seal.classList.add('stamp', 'splat');
+        if (App.museumAudio && App.museumAudio.part) { App.museumAudio.part(); }
+      };
+    }
+    /* 卡面轻微视差：鼠标在卡片范围内时，纸面跟着偏一点 */
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduce) {
+      card.addEventListener('mousemove', function (e) {
+        var r = card.getBoundingClientRect();
+        var dx = (e.clientX - r.left) / r.width - 0.5;
+        var dy = (e.clientY - r.top) / r.height - 0.5;
+        card.style.transform = 'perspective(900px) rotateY(' + (dx * 3.2).toFixed(2) +
+          'deg) rotateX(' + (-dy * 2.4).toFixed(2) + 'deg)';
+      });
+      card.addEventListener('mouseleave', function () {
+        card.style.transform = '';
+      });
+    }
   }
 
   function restart() {
