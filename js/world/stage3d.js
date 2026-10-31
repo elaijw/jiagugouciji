@@ -479,10 +479,28 @@
         -((clientY - r.top) / r.height) * 2 + 1
       );
     }
+    /* 物体自己或任何一层祖先 visible=false 就算看不见。
+       ⚠ three 的 Raycaster **不看 visible**：把挡在中间的东西设成
+       visible=false，它照样参与相交，而且常常还带着 pickable，
+       点击就被它整口吃掉（守阵兽那只隐形点击球就是这样让
+       "打散小怪之后点不到字"的）。射线结果必须自己筛一遍。 */
+    function visibleChain(o) {
+      var p = o;
+      while (p) {
+        if (p.visible === false) { return false; }
+        p = p.parent;
+      }
+      return true;
+    }
+
     function raycast(ndc, objs) {
       rc.setFromCamera(ndc, camera);
       var list = objs || scene.children;
-      var hits = rc.intersectObjects(list, true);
+      var all = rc.intersectObjects(list, true);
+      var hits = [];
+      for (var i = 0; i < all.length; i++) {
+        if (visibleChain(all[i].object)) { hits.push(all[i]); }
+      }
       return hits;
     }
 
@@ -515,17 +533,26 @@
       if (!wasDrag && pickFn && performance.now() - drag.t < 900) {
         var ndc = ndcOf(e.clientX, e.clientY);
         var hits = raycast(ndc);
+        /* 命中链上所有 pickable 都收齐（由近到远）再交出去。
+           只给第一个的话，前面任何一件"点击区"（隐形球、透明底板）
+           都能把后面真正该点的东西整个遮住，而玩法层根本不知道
+           后面还压着东西 —— 表现就是"点了没反应"。 */
+        var alts = [];
         for (var i = 0; i < hits.length; i++) {
           var ob = hits[i].object;
           while (ob) {
             if (ob.userData && ob.userData.pickable) {
-              pickFn({ obj: ob, hit: hits[i], point: hits[i].point, ndc: ndc });
-              return;
+              if (alts.indexOf(ob) < 0) { alts.push(ob); }
+              break;
             }
             ob = ob.parent;
           }
         }
-        pickFn({ obj: null, hit: null, point: null, ndc: ndc });
+        if (alts.length) {
+          pickFn({ obj: alts[0], alts: alts, hit: hits[0], point: hits[0].point, ndc: ndc });
+        } else {
+          pickFn({ obj: null, alts: alts, hit: null, point: null, ndc: ndc });
+        }
       }
     }
     function onWheel(e) {

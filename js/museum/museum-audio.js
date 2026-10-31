@@ -21,15 +21,23 @@
 (function (App) {
   'use strict';
 
-  var KEY = 'museumaudio';
+  /* v2：上一代把「声音」关过的人存档里是 false，而那一代根本发不出声
+     （古筝接错了路由，见下面 ensureBgm 的注释）。换个键，让这些人重新
+     按一次「跟随站点开关」，不然他们会一直觉得馆里没声音。 */
+  var KEY = 'museumaudio2';
   /* 馆里的古筝：与关卡里是同一个文件，浏览器只会下载一次 */
   var BGM_SRC = 'assets/bgm-guzheng.mp3?v=20261021-1';
-  var BGM_VOL = 0.62;         /* 相对 master 的音量：比关卡那档（0.13）低一点 */
-  var BGM_DUCK = 0.30;        /* 打 Boss 时压到三成 */
+  /* 直接作用在 el.volume 上（文件 RMS 0.103 → ×0.17 ≈ -35dBFS）。
+     关卡那档是 0.13：馆里没有讲解在抢，可以比关卡稍微分明一点。 */
+  var BGM_VOL = 0.17;
+  var BGM_DUCK = 0.28;        /* 打 Boss 时压到三成 */
 
   var A = {
     ctx: null, master: null, pad: null, noise: null, verb: null, bgm: null,
     on: false, built: false, nodes: [],
+    /* 古筝的状态只在元素这一侧：bgmWant=该响，bgmTimer=正在渐变，
+       bgmKick=兜底重试的定时器，bgmBlocked=上次 play 被自动播放策略拒了 */
+    bgmWant: false, bgmTimer: 0, bgmKick: 0, bgmBlocked: false,
     /* 环境音垫的基准音量（duck 之前的值，恢复时按它还原） */
     padBase: 0.24, noiseBase: 0.045,
     ducked: false,
@@ -181,62 +189,104 @@
   /* ------------------------------------------------------------------
      古筝（真实音频文件）
      ------------------------------------------------------------------
-     走 WebAudio：<audio> → MediaElementSource → gain → master。
-     这样它和底下那层环境音垫共用同一个推子 —— 开关、duck、dispose
-     都不用各写一份，也不会出现"关了声音还有曲子"。
+     ⚠ 只能走 <audio> + el.volume，**绝不能**接进 Web Audio。
+     js/core/audio.js 第 10–16 行早就验过：这站要能在 file:// 下双击就跑，
+     那时 origin 是 opaque，媒体被判跨源 tainted，一旦
+     createMediaElementSource 接进 AudioContext，输出**恒为 0** ——
+     不报错、不抛异常，就是没声。第一版这里接的是
+     mediaElementSource → gain → master，走的正是这条死路：
+     ctx 在跑、readyState 4、推子拉到 0.62，一个音都没有。
+
+     于是古筝与环境音垫**不共用 master**：
+       · 环境音垫 / 提示音 —— Web Audio 现算的，没有跨源问题，受 master 管
+       · 古筝 —— <audio> 元素，音量归 el.volume 管
+     开关、duck、离馆三件事都得两边各动一次，别指望一个推子管两头。
      ------------------------------------------------------------------ */
   var bgmBroken = false;
 
   function ensureBgm() {
     if (A.bgm) { return A.bgm; }
-    if (bgmBroken) { return null; }
-    var ctx = ensureCtx();
-    if (!ctx || !document.createElement) { bgmBroken = true; return null; }
+    if (bgmBroken || !document.createElement) { return null; }
     try {
       var el = document.createElement('audio');
       el.src = BGM_SRC;
       el.loop = true;
       el.preload = 'auto';
-      el.volume = 1;                 /* 音量交给 gain 管，元素本身不动 */
-      var src = ctx.createMediaElementSource(el);
-      var g = ctx.createGain();
-      g.gain.value = 0;
-      src.connect(g);
-      g.connect(A.master);
-      if (A.verb) { g.connect(A.verb); }
+      el.volume = 0;                  /* 从 0 淡进来，别一上来就"弹" */
+      /* 文件缺了 / 编码不支持：记下来，别每帧再试 */
+      el.addEventListener('error', function () { bgmBroken = true; });
       A.bgm = el;
-      A.bgmGain = g;
-      A.bgmSrc = src;
     } catch (e) { bgmBroken = true; return null; }
     return A.bgm;
   }
 
-  function bgmRamp(to, sec) {
-    var g = A.bgmGain && A.bgmGain.gain;
-    if (!g || !A.ctx) { return; }
-    var t = A.ctx.currentTime;
-    g.cancelScheduledValues(t);
-    g.setValueAtTime(g.value, t);
-    g.linearRampToValueAtTime(to, t + (sec || 0.8));
+  /* el.volume 没有 ramp，只能自己插值。
+     30ms 一步 —— 比一帧一步省，听感上是连续的。 */
+  function bgmFadeTo(to, sec, stopAfter) {
+    var el = A.bgm;
+    if (!el) { return; }
+    if (A.bgmTimer) { clearInterval(A.bgmTimer); A.bgmTimer = 0; }
+    var from = el.volume;
+    var now = function () {
+      return (window.performance && performance.now) ? performance.now() : Date.now();
+    };
+    var t0 = now();
+    var dur = Math.max(40, (sec == null ? 0.8 : sec) * 1000);
+    A.bgmTimer = setInterval(function () {
+      var k = Math.min(1, (now() - t0) / dur);
+      el.volume = Math.max(0, Math.min(1, from + (to - from) * k));
+      if (k >= 1) {
+        clearInterval(A.bgmTimer); A.bgmTimer = 0;
+        if (stopAfter) { try { el.pause(); } catch (e) { /* 忽略 */ } }
+      }
+    }, 30);
   }
+
+  function bgmTarget() { return A.ducked ? BGM_VOL * BGM_DUCK : BGM_VOL; }
 
   function bgmUp(sec) {
     var el = ensureBgm();
-    if (!el) { return; }
+    if (!el || bgmBroken) { return; }
+    A.bgmWant = true;
     try {
       var p = el.play();
-      if (p && p.catch) { p.catch(function () { /* 没拿到手势：下次开关再来 */ }); }
-    } catch (e) { /* 忽略 */ }
-    bgmRamp(A.ducked ? BGM_VOL * BGM_DUCK : BGM_VOL, sec == null ? 2.4 : sec);
+      if (p && p.catch) {
+        /* 还没拿到手势授权：play 会被拒。不在这里死磕 ——
+           交给 kickBgm 每 0.7s 再试，馆里点任何东西都算手势。 */
+        p.catch(function () { A.bgmBlocked = true; });
+      }
+    } catch (e) { A.bgmBlocked = true; }
+    /* 先把音量推上去：真响的那一刻已经淡到位，不会"先漏一声再变小" */
+    bgmFadeTo(bgmTarget(), sec == null ? 2.4 : sec);
+    kickBgm();
   }
 
   function bgmDown(sec) {
-    bgmRamp(0, sec == null ? 0.6 : sec);
-    setTimeout(function () {
-      /* 淡出期间又开起来了就别停 */
-      if (A.on || !A.bgm) { return; }
-      try { A.bgm.pause(); } catch (e) { /* 忽略 */ }
-    }, (sec == null ? 0.6 : sec) * 1000 + 80);
+    A.bgmWant = false;
+    bgmFadeTo(0, sec == null ? 0.6 : sec, true);
+  }
+
+  /* 兜底重试：只要"该响却没响"，就接着试。
+     会走到这里的情况：自动播放被拒、标签页切回来元素被系统暂停、
+     第一次 play 与手势撞在同一帧。最多 20 次（约 14 秒），不轮询一辈子。 */
+  function kickBgm() {
+    if (A.bgmKick) { return; }
+    var n = 0;
+    A.bgmKick = setInterval(function () {
+      var el = A.bgm;
+      n++;
+      if (!A.bgmWant || !el || bgmBroken || n > 20) {
+        clearInterval(A.bgmKick); A.bgmKick = 0; return;
+      }
+      if (!el.paused) {
+        A.bgmBlocked = false;
+        clearInterval(A.bgmKick); A.bgmKick = 0; return;
+      }
+      try {
+        var p = el.play();
+        if (p && p.catch) { p.catch(function () { /* 下一轮再说 */ }); }
+      } catch (e) { /* 忽略 */ }
+    }, 700);
   }
 
   function fade(to, sec) {
@@ -274,8 +324,9 @@
       ng.setValueAtTime(ng.value, t);
       ng.linearRampToValueAtTime(A.noiseBase * k, t + 0.4);
     }
-    /* 战斗音乐有自己的旋律，馆里的曲子必须让开，不然两条旋律打架 */
-    if (A.bgmGain) { bgmRamp(BGM_VOL * (toDuck ? BGM_DUCK : 1), 0.4); }
+    /* 战斗音乐有自己的旋律，馆里的曲子必须让开，不然两条旋律打架。
+       古筝不归 master 管，得单独压一次 el.volume。 */
+    if (A.bgm && A.bgmWant) { bgmFadeTo(bgmTarget(), 0.4); }
   }
 
   /* 一次极短的音：选中展品 / 拆掉一个构件都用它 */
@@ -314,7 +365,9 @@
         A.on = true;
         /* 被 duck 过（正在打 Boss）就还原成战场该有的音量，别一开声音就顶满 */
         if (A.ducked) { applyDuck(true); } else { fade(0.20, 1.2); }
-        bgmUp(2.4);
+        /* 不管在不在 duck 里都得起播：applyDuck 只压低音量，不负责 play，
+           少这一句就会出现"开着声音、显示正常、但一直不响"。 */
+        bgmUp(A.ducked ? 0.6 : 2.4);
       } else {
         A.on = false;
         fade(0, 0.5);
@@ -369,8 +422,11 @@
         master: A.master ? +A.master.gain.value.toFixed(4) : -1,
         ctx: A.ctx ? A.ctx.state : 'none',
         bgm: A.bgm ? (A.bgm.paused ? 'paused' : 'playing') : 'none',
-        bgmVol: A.bgmGain ? +A.bgmGain.gain.value.toFixed(3) : -1,
+        bgmVol: A.bgm ? +A.bgm.volume.toFixed(3) : -1,
         bgmT: A.bgm ? +A.bgm.currentTime.toFixed(2) : -1,
+        bgmWant: !!A.bgmWant,
+        bgmBlocked: !!A.bgmBlocked,
+        bgmErr: !!bgmBroken,
         bgmDur: A.bgm && isFinite(A.bgm.duration) ? +A.bgm.duration.toFixed(1) : -1,
         bgmReady: A.bgm ? A.bgm.readyState : -1,
         pad: A.pad ? +A.pad.gain.value.toFixed(4) : -1,
@@ -383,16 +439,17 @@
       A.on = false;
       A.ducked = false;
       notify();
-      if (A.bgm) { bgmRamp(0, 0.2); }
+      /* 离馆：曲子必须停，不然回到关卡会跟站点那首叠成二重奏 */
+      A.bgmWant = false;
+      if (A.bgm && A.bgmTimer === 0) { bgmFadeTo(0, 0.2, true); }
+      if (A.bgmKick) { clearInterval(A.bgmKick); A.bgmKick = 0; }
       var bgmEl = A.bgm;
       A.bgm = null;
-      A.bgmGain = null;
-      A.bgmSrc = null;
       setTimeout(function () {
-        try { if (bgmEl) { bgmEl.pause(); } } catch (e) {}
-        /* MediaElementSource 断开之后这个 <audio> 才能被回收；
-           ctx 也关了，下次进馆 ensureBgm 会重新建一份 */
-        try { if (bgmEl) { bgmEl.removeAttribute('src'); bgmEl.load(); } } catch (e) {}
+        try {
+          if (bgmEl) { bgmEl.pause(); bgmEl.removeAttribute('src'); bgmEl.load(); }
+        } catch (e) { /* 忽略 */ }
+        /* 元素连同它的 MediaElement 一起放掉；下次进馆 ensureBgm 重建 */
       }, 320);
       var nodes = A.nodes;
       A.nodes = [];

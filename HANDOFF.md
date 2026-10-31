@@ -2,12 +2,14 @@
 
 > 给接手的 AI 会话看。读完这一份就能继续，不必回翻历史。
 >
-> **最后更新 2026-10-31（四）**：§7.18 —— **序厅中央骨版换着刻字、造字区构件立起来、馆内接上古筝**。
-> 中央那块不再永远刻「卜」，按 `HERO_CYCLE` 轮十二个字（换字只重刻字、骨面底图复用、
-> 两张字面用 `uMix` 化开）；造字区四块备选构件从平放方块改成**立起来的牌子**；
-> `museum-audio.js` 把 `assets/bgm-guzheng.mp3` 接进馆里（与关卡同一个 master）。
-> **接手先读 §7.18，再读 §7.17 / §7.16 / §7.15**。§7.15 里 10 条坑每条都花掉一轮以上
-> （尤其是第 3 条：暗场里 `metalness > 0` 一定会给出一条消不掉的假高光，别再去改几何了）。
+> **最后更新 2026-11-01（一）**：§7.19 —— **馆内古筝终于出声；打散守阵兽后点不到字**。
+> 两条都是"看起来没问题、就是不工作"的坑：
+> ① 古筝**不能接 `createMediaElementSource`**（file:// 下媒体被判跨源，输出恒 0，静默无报错），
+>    只能用 `<audio>` + `el.volume`；② **three 的 `Raycaster` 不看 `visible`**，
+>    守阵兽那只隐形点击球在它被打散后仍挡在最前面吃点击，必须在射线结果里自己筛。
+> **接手先读 §7.19，再读 §7.18 / §7.17 / §7.16 / §7.15**。
+> §7.15 里 10 条坑每条都花掉一轮以上（尤其是第 3 条：暗场里 `metalness > 0`
+> 一定会给出一条消不掉的假高光，别再去改几何了）。
 > §7.12 / §7.13 / §7.14 讲的是被替换掉的旧王邑方案，只当历史读，**不要再照着改**。
 
 ---
@@ -1606,3 +1608,67 @@ python dev/_bsp_probe.py "<js>" <out.png> [wait] [W] [H] [route]
   点第二块「月」→ 成字「明」、集章 1/5、讲解卡弹出
 - 造字区 390×844：四块立牌全部在屏内、四个字都看得清
 - `dev/_syntax_probe.js` / `dev/_verify_deploy.js` 全绿（75 个引用可命中）
+
+---
+
+## 7.19 本轮（**当前状态**）：馆内古筝终于出声 · 打散小怪后点不到字
+
+### 7.19.1 古筝没声：接错了路由（本轮最重要的坑）
+
+`museum-audio.js` 第一版把古筝接成
+`<audio>` → `createMediaElementSource` → `gain` → `master` → destination。
+表现是：`ctx.state = running`、`readyState 4`、`bgmGain 0.62`、文件时长 85.1s，
+**一个音都没有，也不报错**。
+
+原因 `js/core/audio.js` 顶部第 10–16 行早就写死了：这站要能在 `file://` 下双击就跑，
+那时 origin 是 opaque，媒体被判跨源 tainted，**一旦 `createMediaElementSource`
+接进 AudioContext，输出恒为 0**。站点自己的 BGM 为此才一直只用 `el.volume`。
+
+改法（`js/museum/museum-audio.js`）：
+
+| 项 | 现在的做法 |
+|---|---|
+| 路由 | 古筝**不接 Web Audio**，只有 `<audio>` 一个元素；音量用 `el.volume` |
+| 淡入淡出 | `el.volume` 没有 ramp，`bgmFadeTo()` 每 30ms 插值一步（2.4s 淡入 / 0.6s 淡出后 pause） |
+| 音量 | `BGM_VOL = 0.17`（文件 RMS 0.103 ≈ -35dBFS，关卡那档是 0.13） |
+| 起播兜底 | `kickBgm()`：只要"该响却没响"（`A.bgmWant && el.paused`）就每 0.7s 再 `play()`，最多 20 次 |
+| duck | 打 Boss 时 `el.volume → 0.17 × 0.28`（古筝不归 master，得单独压） |
+| dispose | 淡出 → pause → `removeAttribute('src') + load()` |
+| 存档键 | `museumaudio` → **`museumaudio2`**：上一代把它关过的人存档里是 false，而那一代根本没声，换键让他们重新跟上站点开关 |
+
+⚠ **"接进 Web Audio 才有混响/能过压缩器"这个念头不要再有**。这条站点的硬约束优先级更高：
+宁可没有混响，也不能没声。要混响只能在能起 `AudioContext` 且媒体不跨源时另说。
+
+实测（headless + `--autoplay-policy=no-user-gesture-required`）：
+`bgm: playing`、`bgmVol 0.17`、`bgmT 2.72 → 4.41`（在推进）、`ctx running`。
+默认 headless 下会 `bgmBlocked: true`（浏览器策略），这是环境问题，不是代码问题。
+
+### 7.19.2 打散守阵兽之后，中间点不到字
+
+`summonPhase()` 给每只守阵兽配了一个**隐形点击球**
+（`SphereGeometry(1.1)`、`opacity 0`、`pickable = true`，局部 `(0, 0.55, 0.06)`，
+法阵在 `z = 5.55` —— 比四片构件骨 `z = 4.2` 还靠近相机）。
+守阵兽被打散后代码只写了 `S.guardHit.visible = false`。
+
+**three 的 `Raycaster` 不看 `visible`**（`intersectObject` 只测 layers）。
+于是那只球仍在射线里、仍在最前面、仍带 `pickable`：`stage3d.onUp` 把它交给
+`boss3d.onPick`，它没有 `tag` / `strokeIndex`，所有分支都不匹配 →
+**静默什么都不做**。表现就是"打完小怪，中间那一片点不动"。
+
+三处一起改：
+
+1. `stage3d.js` 的 `raycast()` 自己筛：`visibleChain()` 检查物体自身与全部祖先，
+   有 `visible === false` 的一律剔出命中表（治根，任何"藏起来的遮挡物"都不会再吃点击）。
+2. `stage3d.js` 的 `onUp()` 把命中链上**所有** pickable 收成 `alts`（由近到远）交给 `pickFn`，
+   `obj` 仍是最前面那个（向后兼容）。只给第一个的话，玩法层根本不知道后面还压着东西。
+3. `boss3d.js`：`killGuard()` 里把球从场景**摘掉**（`parent.remove`），
+   `onPick()` 改成在 `alts` 里从近到远找"本阶段真正该点的那个"（跳过 `userData.guard`）。
+
+实测：进关 → 点三下打散骨甲虫（`hp 3→0`、`hitBall: removed`）→ 点「水」
+（`need = 水石`）→ `phaseData.got` 0 → 1，HUD 走 1/2。修复前这一步是死点。
+
+### 7.19.3 顺手
+
+- `dev/_bsp_probe.py` 加 `PROBE_AUTOPLAY=1` 环境变量（只在验音频时放开自动播放策略），
+  默认行为不变。
+- 版本号：`stage3d / boss3d / museum-audio` → `20261101-11`。

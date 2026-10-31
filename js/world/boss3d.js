@@ -1010,6 +1010,12 @@
     if (!gd || gd.dead) { return; }
     gd.dead = true;
     S.guardDead = true;
+    /* 隐形点击球必须从场景里摘掉，不能只 visible=false：
+       three 的 Raycaster 不看 visible，球（r=1.1，站在 z=5.55，
+       比四片构件骨还靠近相机）会一直挡在最前面，而且它 pickable ——
+       守阵兽散了之后点屏幕上那一片全被它吃掉，字点不动。
+       这就是"打完小怪中间点不了字"的真正原因。 */
+    if (S.guardHit && S.guardHit.parent) { S.guardHit.parent.remove(S.guardHit); }
     updateStep();
     var T = S.st.T;
     var wp = new T.Vector3();
@@ -1539,10 +1545,11 @@
     g.beast.rotation.z = Math.sin(g.t * 1.1) * 0.06;
     /* 受击：短暂的横向抖动 + 放大，让"打中了"有手感 */
     /* 点击球跟着兽体升降 */
-    if (S.guardHit && S.guard && !S.guard.dead) {
+    if (S.guardHit && S.guardHit.parent && S.guard && !S.guard.dead) {
       S.guardHit.position.y = g.beast.position.y + 0.55;
       S.guardHit.visible = true;
     } else if (S.guardHit) {
+      /* 已经被摘掉（父节点为空）就别再动它；还挂着就先藏起来 */
       S.guardHit.visible = false;
     }
     if (S.guard && S.guard.hitT > 0) {
@@ -2296,7 +2303,10 @@
   function onPick(ev) {
     if (S.phase === 9 || S.intro) { return; }
     var o = ev.obj;
-    if (!o) { return; }
+    /* 命中的第一个不一定是要点的那件（前面可能压着一块"点击区"），
+       所以同时拿到整条射线上的候选，从近到远挑本阶段该点的那个。 */
+    var alts = (ev.alts && ev.alts.length) ? ev.alts : (o ? [o] : []);
+    if (!o && !alts.length) { return; }
 
     /* 1) 点到的如果是守阵兽，就是"打一下" */
     var g = o;
@@ -2309,10 +2319,18 @@
       return;
     }
 
-    var tag = o.userData && o.userData.tag;
-    if (S.phase === 1 && tag === 'comp') { onPickComp(o); return; }
-    if (S.phase === 2 && o.userData && o.userData.strokeIndex != null) { onPickStroke(o); return; }
-    if (S.phase === 3 && tag === 'opt') { onPickOption(o); return; }
+    /* 从近到远找"本阶段真正该点的那个"。
+       隐形点击球这类东西没有 tag / strokeIndex，落在它身上就什么都
+       不匹配 —— 以前会静默结束，表现就是"点了没反应"。 */
+    for (var i = 0; i < alts.length; i++) {
+      var c = alts[i];
+      if (!c || !c.userData) { continue; }
+      if (c.userData.guard) { continue; }          /* 守阵兽的点击区，已散，跳过 */
+      var tg = c.userData.tag;
+      if (S.phase === 1 && tg === 'comp') { onPickComp(c); return; }
+      if (S.phase === 2 && c.userData.strokeIndex != null) { onPickStroke(c); return; }
+      if (S.phase === 3 && tg === 'opt') { onPickOption(c); return; }
+    }
   }
 
   /* ================= mount ================= */
