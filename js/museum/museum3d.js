@@ -798,43 +798,15 @@
       new T.PlaneGeometry(7.2, 1.8),
       new T.MeshBasicMaterial({ map: canvasTex(introCv, { srgb: true }), transparent: true })
     );
-    /* 抬高到 7.0：下面中间要挂那件表谱骨版，两者不能叠 */
-    intro.position.set(0, 7.0, -galD + 4 + 0.24);
+    /* 原本为了给中庭那件"表谱骨版"让位，这块标题墙被抬到 7.0（贴着顶棚）。
+       表谱骨版拆掉之后，它自己回到 5.9 —— 一进门就能读到，不用仰头。 */
+    intro.position.set(0, 5.9, -galD + 4 + 0.24);
     gal.add(intro);
 
-    /* ---------- 表谱骨版：成篇竖行的形制 ----------
-       甲骨上成篇的刻辞是竖行、右起，一列写完换左边一列；另有「表谱刻辞」
-       （干支表之类）把字排成整齐的竖行表。这里用馆藏十二字排四列，
-       演示的是**行款形制**（右起 / 竖行 / 行气 / 字距与手刻抖动），
-       不是某一片出土卜辞的摹本 —— 展签里会写明这一点。 */
-    var TABLE_COLS = ['日月雨', '山川泉', '木林牛', '鱼门鼎'];
-    var tableSlab = makeSlab('', {
-      size: 1.85, texSize: 1024, ratio: 1.52, columns: TABLE_COLS
-    });
-    tableSlab.mesh.position.set(0, 5.35, -8.6);
-    tableSlab.mesh.rotation.x = 0.055;
-    tableSlab.mesh.userData = { kind: 'tablet' };
-    /* 悬吊件自带一点自发光：洗墙灯照的是下面那一排，照不到半空 */
-    tableSlab.mats[0].emissive = new T.Color(0x352a1b);
-    tableSlab.mats[0].emissiveMap = tableSlab.map;
-    tableSlab.mats[0].emissiveIntensity = 0.9;
-    gal.add(tableSlab.mesh);
-    pickables.push(tableSlab.mesh);
-
-    /* 两根吊索 + 一道细框：没有这些，它就像一块浮在空中的图 */
-    var cableMtl = std({ color: 0x6b5637, roughness: 0.5, metalness: 0.7 });
-    [-1, 1].forEach(function (s) {
-      /* 骨版顶在 6.76，吊到顶棚 8.4，所以索长 1.64、中心 7.58 */
-      var cab = new T.Mesh(new T.BoxGeometry(0.022, 1.64, 0.022), cableMtl);
-      cab.position.set(s * 0.72, 7.58, -8.6);
-      gal.add(cab);
-    });
-    var tFrame = new T.Mesh(
-      new T.BoxGeometry(2.12, 0.05, 0.12),
-      std({ color: 0x2a2018, roughness: 0.45, metalness: 0.55 })
-    );
-    tFrame.position.set(0, 5.35 - 1.42, -8.6);
-    gal.add(tFrame);
+    /* 中庭原来还挂着一件「表谱骨版」（吊索 + 细框 + 十二字排四列）。
+       它在厅中央抢掉整块视线，又把标题墙挡在背后，已按反馈拆掉。
+       行款形制这件事没有丢 —— 知识石板「一片卜辞的结构」和环上的
+       「卜辞拓片」都在讲，比半空中一块悬着的图更清楚。 */
 
     /* ============================================================
        GLB 模型接入
