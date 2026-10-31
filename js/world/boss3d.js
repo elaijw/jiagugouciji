@@ -295,19 +295,28 @@
      按"没有可靠依据不硬造字形"的规矩，阶段三的字片一律用楷书，
      不拿现代楷体冒充甲骨形。 */
   var SENTENCES = [
-    { text: '学而时习之，不亦说乎', miss: '说', missIdx: 8,
-      from: '《论语·学而》',
-      gloss: '学了又按时温习，不也令人喜悦吗。「说」通「悦」。',
-      note: '「说」通「悦」，此处读 yuè。' },
-    { text: '知之为知之，不知为不知，是知也', miss: '知', missIdx: 14,
-      from: '《论语·为政》',
-      gloss: '知道就是知道，不知道就是不知道，这才是真正的智慧。末字「知」通「智」。',
-      note: '句末「知」通「智」，指智慧。' },
-    { text: '三人行，必有我师焉', miss: '师', missIdx: 7,
+    { text: '三人行，必有我师焉', miss: '人', missIdx: 0,
       from: '《论语·述而》',
       gloss: '几个人同行，其中一定有可以做我老师的人。',
-      note: '「师」指可师法之人，不必是职业教师。' }
+      note: '「人」是侧身站立的人形，甲骨文里一笔写到底。' },
+    { text: '知者乐水', miss: '水', missIdx: 2,
+      from: '《论语·雍也》',
+      gloss: '有智慧的人爱水：水随物赋形，遇阻而绕，终归大海。',
+      note: '「水」是一条主流加两侧水点，三千年前的水花还没干。' },
+    { text: '仁者乐山', miss: '山', missIdx: 2,
+      from: '《论语·雍也》',
+      gloss: '有仁德的人爱山：山静而稳，草木生焉，四时不移。',
+      note: '「山」是三峰并立，中间一峰高、两侧低。' },
+    { text: '朽木不可雕也', miss: '木', missIdx: 1,
+      from: '《论语·公冶长》',
+      gloss: '腐烂的木头没法雕刻 —— 说的是人不可教的样子。',
+      note: '「木」上面是枝、中间是干、下面是根。' },
+    { text: '大巧若拙', miss: '大', missIdx: 0,
+      from: '《道德经·第四十五章》',
+      gloss: '真正高明的技艺，看上去反而朴拙。',
+      note: '「大」是张开双臂的人形 —— 张到最大，就是大。' }
   ];
+
 
   /* 阶段一的字必须同时满足三个条件：
        ① 在 App.glyphs.parts 里有字形（没有字形 = Boss 版心一块白板）；
@@ -1587,18 +1596,31 @@
   }
 
   /* ================= 阶段二：笔画拆解 ================= */
+  /* 阶段二拆两个字的笔画：木 → 水 */
+  var PHASE2_SEQ = ['木', '水'];
+  var PHASE2_DESC = {
+    '木': '「<em>木</em>」是一棵树的正面：上为枝，中为干，下为根。',
+    '水': '「<em>水</em>」是一条主流加两侧水点 —— 水没有固定形状。'
+  };
+
   function startPhase2() {
     setPhase(2);
     clearWidgets();
     summonPhase(2);
     showFace();
-    var st = S.st, boss = S.boss;
-    var strokes = engraveStrokes(boss, PHASE2_CHAR, 1.72);
+    S.p2Index = 0;
+    strokeRound(S.st, S.boss);
+  }
+
+  function strokeRound(st, boss) {
+    var ch = PHASE2_SEQ[S.p2Index % PHASE2_SEQ.length];
+    var strokes = engraveStrokes(boss, ch, 1.72);
     S.strokeRefs = strokes;
-    S.phaseData = { remain: strokes.length, target: -1, wrong: 0, timer: 0 };
-    S.ui.name.textContent = '守字之骨 · 木';
-    task('「<em>木</em>」是一棵树的正面：上为枝，中为干，下为根。<br>点中发光的那一段，把它折断。',
-      '共 <b>' + strokes.length + '</b> 段 · 点错会反噬');
+    S.phaseData = { remain: strokes.length, target: -1, wrong: 0, timer: 0, ch: ch };
+    S.ui.name.textContent = '守字之骨 · ' + ch;
+    task((PHASE2_DESC[ch] || '') + '<br>点中发光的那一段，把它折断。',
+      '第 <b>' + (S.p2Index + 1) + '/' + PHASE2_SEQ.length + '</b> 个字 · 共 <b>' +
+      strokes.length + '</b> 段 · 点错会反噬');
     S.busy = false;
     pickNextStroke();
   }
@@ -1630,8 +1652,13 @@
       if (d.remain <= 0) {
         S.busy = true;
         later(function () {
-          task('护盾裂了。', '');
-          shieldBurst(function () { startPhase3(); });
+          task('这一段拆完了。', '');
+          if (S.p2Index + 1 < PHASE2_SEQ.length) {
+            S.p2Index += 1;
+            strokeRound(S.st, S.boss);
+          } else {
+            shieldBurst(function () { startPhase3(); });
+          }
         }, 700);
       } else {
         pickNextStroke();
@@ -1712,7 +1739,7 @@
     S.ui.q.innerHTML = shown;
     S.ui.tip.innerHTML = '从下面四片字骨里，选出缺的那个字　·　第 <b>' +
       (S.qIndex + 1) + '/' + SENTENCES.length + '</b> 句' +
-      '<span class="bd3-kai">字片用楷书 · Boss 身上是甲骨文</span>';
+      '<span class="bd3-kai">字片即甲骨字形 · Boss 身上是同一个字</span>';
     S.ui.src.classList.remove('on');
 
     /* 四个选项：正确 + 干扰。干扰要"模棱两可但不能也对"：
@@ -1733,7 +1760,7 @@
     }
 
     for (var m = 0; m < opts.length; m++) {
-      var p = makePlate(st, opts[m], 1.04, { seed: 500 + m * 13, tag: 'opt', kai: true });
+      var p = makePlate(st, opts[m], 1.04, { seed: 500 + m * 13, tag: 'opt' });
       p.position.set(-3.55 + m * 1.42, 1.62, 4.6);
       p.userData.baseY = p.position.y;
       addWidget(p);
