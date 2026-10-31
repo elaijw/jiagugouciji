@@ -23,52 +23,26 @@
   var SHOW_GB = false;
 
   /* ---------------- 数据：这一批骨片 ----------------
+     字表在 js/world/glyph-plates.js：整 73 个字，与 glyph-parts.json 一一对应。
+     前六片带 make/ghost —— 点开会从骨面上长出一件实物；其余六十七片是纯骨片：
+     点开、字亮起来、收进典藏。七十三片全挂实物既做不出来，也没必要。
+
      cat 只用来给卡片分类，不对应任何旧区域。
-     gloss 是字形本身的说明；link 是把字形和实物连起来的那一句。
-     所有释义按甲骨学通行的象形解释写，不编造。 */
-  var PLATES = [
-    {
-      ch: '山', cat: '自然', now: '山',
-      gloss: '三座山峰并立，中间一峰高、两侧低，底下一条横线是地面。',
-      link: '把「山」横过来看，就是一道连绵的山脊线。',
-      make: 'shan'
-    },
-    {
-      ch: '水', cat: '自然', now: '水',
-      gloss: '中间一条弯曲的主流，两侧各有几点水花或支流。',
-      link: '今天的「水」还留着中间一竖、两边四点——三千年前的水花没干。',
-      make: 'shui'
-    },
-    {
-      ch: '木', cat: '自然', now: '木',
-      gloss: '上一横是枝，下一撇一捺是根，中间一竖是干。',
-      link: '它画的是一棵树的正面：上面伸枝，下面扎根。',
-      make: 'mu'
-    },
-    {
-      ch: '日', cat: '天体', now: '日',
-      gloss: '一个圆，中间点一点或画一短横——太阳不是空的。',
-      link: '后来圆写成方，中间那一点拉成一横，就成了今天的「日」。',
-      make: 'ri', fade: 0.30
-    },
-    {
-      ch: '目', cat: '人体', now: '目',
-      gloss: '一只横放的眼睛：外框是眼眶，中间一道或两道是眼珠。',
-      link: '甲骨文里的「目」常写作横置的眼睛，竖起来才是今天的字形。',
-      make: 'mue', fade: 0.62
-    },
-    {
-      ch: '鼎', cat: '器物', now: '鼎',
-      gloss: '上面是鼎身（容器），两侧两只耳，下面三条足。',
-      link: '它画的是一件能煮肉、能祭天的重器，不是随便一口锅。',
-      make: 'ding'
-    }
-  ];
+     gloss 是字形本身的说明；link 是把字形和实物连起来的那一句。 */
+  var PLATES = (App.glyphPlates && App.glyphPlates.items && App.glyphPlates.items.length)
+    ? App.glyphPlates.items
+    : [{
+        ch: '山', cat: '自然', now: '山',
+        gloss: '三座山峰并立，中间一峰高、两侧低，底下一条横线是地面。',
+        link: '把「山」横过来看，就是一道连绵的山脊线。',
+        make: 'shan'
+      }];
 
   var S = {
     st: null, root: null, container: null, ui: {},
     mode: 'idle',          // idle | focus | unveil | show | close
     plates: [],
+    pickBodies: [],         // 只给射线用的骨面列表（刻字不参与拾取）
     focus: null,
     plot: null,
     prop: null,
@@ -741,23 +715,26 @@
     var body = new T.Mesh(geo, [boneMat(T, seed, 0.13), boneSideMat(T, seed)]);
     body.castShadow = true;
     body.receiveShadow = true;
+    /* 拾取只算骨面：字的笔画是挤出的实体，一个字的三角面顶好几块骨，
+       而它永远贴在骨面上 —— 让它参与射线，等于七十三片骨每动一下鼠标
+       就要各自多算几千个三角。 */
+    body.userData.plate = grp;
     grp.add(body);
+    grp.userData.body = body;
 
     var glyphs = [];
     var fz = depth * 0.5 + depth * 0.42 + 0.006;
     if (App.worldGlyph && App.worldGlyph.hasGlyph(data.ch)) {
+      /* 一片骨只刻一面：环上的骨永远朝镜头（tick 里每帧转向相机），
+         背面那层字一次也看不见，白占一份几何。 */
       var gm = App.worldGlyph.glyphMesh(data.ch, size * 0.52, {
         color: 0x241a0e, emissive: 0xffb264, glow: 0.04
       });
       if (gm) {
         gm.position.z = fz;
+        gm.userData.plate = grp;
         grp.add(gm);
         glyphs.push(gm);
-        var gm2 = gm.clone();
-        gm2.position.z = -fz;
-        gm2.rotation.y = Math.PI;
-        grp.add(gm2);
-        glyphs.push(gm2);
       }
     }
     grp.userData.pickable = true;
@@ -1099,52 +1076,74 @@
     var altar = observatory(st);
     altarGlow(st, -1.98);
 
-    /* 六片骨绕观星台排成一圈：高度错开，前低后高，
-       每片都朝向圆心 —— 这样镜头在原地看着的是"围起来的场"，不是一排浮板。 */
-    var RING_R = 6.90;
-    /* 站到中间看，骨片就不能都在一个水平面上：
-       远、近、高、低错开，抬头是一层、平视是一层，才像"星"而不是"围栏"。 */
-    var RING = [
-      { a:  -96, y: 0.25, s: 1.05 },   // 左 · 低
-      { a:  -34, y: 2.35, s: 0.92 },   // 左前 · 高（要抬头）
-      { a:   26, y: 0.95, s: 0.98 },   // 右前 · 平视
-      { a:   88, y: 3.05, s: 0.86 },   // 右 · 更高
-      { a:  148, y: 0.45, s: 1.00 },   // 右后 · 低
-      { a:  208, y: 1.75, s: 0.90 }    // 左后 · 中高
+    /* 骨片绕观星台围成四层，一共 73 片。
+       为什么是四层而不是一圈：
+         一圈 73 片得排到二十米外，近处空、远处糊；
+         平视一层、微仰一层、远处一层、头顶一层 —— 抬头有骨、平视有骨、
+         眼角余光里也有骨，站在台心环视才是"浮在星海里"，
+         而不是被一圈骨板围在中间。 */
+    var RINGS = [
+      /* 内环：六片长得出东西的骨，落在平视偏上，抬一点头就看得见 */
+      { items: PLATES.slice(0, 6), r: 8.20, y0: 1.60, y1: 3.60,
+        size: 1.22, spin: 0.075, off: 0.00 },
+      /* 中环：微仰才看得见的一层 */
+      { items: [], r: 9.90, y0: 1.80, y1: 5.00,
+        size: 1.14, spin: 0.058, off: 0.34 },
+      /* 外环：最小最远，把视野边缘垫满 */
+      { items: [], r: 12.60, y0: 1.40, y1: 6.60,
+        size: 0.98, spin: 0.045, off: 0.61 },
+      /* 天顶环：斜上方的一层。没有它，一抬头就是空天 ——
+         而这一关最该发生的事，就是抬头。 */
+      { items: [], r: 8.60, y0: 4.80, y1: 7.40,
+        size: 0.92, spin: 0.050, off: 0.83 }
     ];
-    var LAYOUT = RING.map(function (r) {
-      var rad = r.a * Math.PI / 180;
-      var x = Math.cos(rad) * RING_R;
-      var z = Math.sin(rad) * RING_R * 0.92;
-      return {
-        x: x, y: r.y, z: z,
-        /* 骨片正面朝镜头：环是环，但字得看得见。
-           完全朝圆心会让左右两片变成"侧立的骨板"，只剩一条厚边。 */
-        ry: Math.atan2(-x, -z),   /* 初始朝向圆心（镜头就在圆心） */
-        s: r.s
-      };
-    });
+    /* 按 3:4:2 的节奏轮流分到中、外、天顶三环：
+       每一环都混着各类字，不会出现"中环全是动物、外环全是器物"
+       那种一眼看得出的人工排布。 */
+    var PATTERN = [1, 2, 3, 1, 2, 1, 2, 3, 2];
+    var rest = PLATES.slice(6);
+    for (var ri = 0; ri < rest.length; ri++) {
+      RINGS[PATTERN[ri % PATTERN.length]].items.push(rest[ri]);
+    }
 
     var plates = [];
-    for (var i = 0; i < PLATES.length; i++) {
-      var L = LAYOUT[i];
-      var grp = makePlate(T, PLATES[i], 1.52, 60 + i * 7);
-      grp.position.set(L.x, L.y, L.z);
-      grp.rotation.y = L.ry;
-      grp.rotation.z = (i % 2 ? 1 : -1) * 0.035;
-      grp.scale.setScalar(L.s);
-      grp.userData.base = {
-        x: L.x, y: L.y, z: L.z, ry: L.ry, s: L.s,
-        rz: grp.rotation.z, ph: i * 1.19,
-        r: Math.sqrt(L.x * L.x + L.z * L.z),        /* 到圆心的半径 */
-        a0: Math.atan2(L.z, L.x)                    /* 环上的起始角 */
-      };
-      grp.userData.ang = grp.userData.base.a0;
-      st.root.add(grp);
-      plates.push(grp);
-    }
+    RINGS.forEach(function (rg, rIdx) {
+      var n = rg.items.length;
+      for (var k = 0; k < n; k++) {
+        var d0 = rg.items[k];
+        /* 角度均分 + 每环错开：三层不会在同一方位上叠成一摞骨 */
+        var ang = (k / n) * Math.PI * 2 + rg.off * Math.PI * 2 + rIdx * 0.19;
+        /* 高度用黄金比铺开：密度不均匀才像"自然浮着的碎骨"，
+           按序号均分会在天上拉出一条斜线。 */
+        var hk = (k * 0.6180339887 + rg.off * 3.7) % 1;
+        var y = rg.y0 + hk * (rg.y1 - rg.y0);
+        var s0 = 0.90 + ((k * 53) % 13) / 13 * 0.20;      /* 0.90 ~ 1.10 */
+        var x = Math.cos(ang) * rg.r;
+        var z = Math.sin(ang) * rg.r;
+
+        var grp = makePlate(T, d0, rg.size, 60 + rIdx * 31 + k * 7);
+        grp.position.set(x, y, z);
+        /* 骨片正面朝镜头：环是环，但字得看得见。
+           完全朝圆心会让左右两片变成"侧立的骨板"，只剩一条厚边。 */
+        grp.rotation.y = Math.atan2(-x, -z);
+        grp.rotation.z = (k % 2 ? 1 : -1) * 0.035;
+        grp.scale.setScalar(s0);
+        grp.userData.base = {
+          x: x, y: y, z: z, ry: grp.rotation.y, s: s0,
+          rz: grp.rotation.z, ph: k * 1.19 + rIdx * 2.3,
+          r: rg.r,                     /* 到圆心的半径 */
+          a0: ang,                     /* 环上的起始角 */
+          spin: rg.spin,
+          bob: 0.10 + rIdx * 0.035     /* 越远的浮得越轻，近处太抖会晕 */
+        };
+        grp.userData.ang = ang;
+        st.root.add(grp);
+        plates.push(grp);
+      }
+    });
     S.plates = plates;
-    /* 初始：六片骨上都看不到字，必须点了才显 */
+    S.pickBodies = plates.map(function (p) { return p.userData.body; });
+    /* 初始：骨片上都看不到字，必须点了才显 */
     plates.forEach(function (p) { setGlyphAlpha(p, 0.03); });
 
     /* 暖主光从左上前，冷边光从右下后：两盏才夹得出骨片的厚度 */
@@ -1186,9 +1185,19 @@
       S.guibao = gb;
     }
 
-    /* 第一人称：人就站在观星台台面上，视线高度 1.25 */
+    /* 竖屏：横向只有三十几度，七十三片骨围一圈，一眼只看得见四五片。
+       垂直视角放开到 72°，横向能多带进几片；再大就把边角的骨拉变形了。 */
+    if (st.camera.aspect && st.camera.aspect < 0.95) {
+      st.camera.fov = 72;
+      st.camera.updateProjectionMatrix();
+    }
+
+    /* 第一人称：人就站在观星台台面上，视线高度 1.34。
+       开场把视线抬起来一点（pitch 0.12 ≈ 7°）：骨片是浮在天上的，
+       平视只能看见台沿和外环最低那几片；抬起来，画面就是"满天的骨"，
+       观星台沉在画面下缘之外 —— 这一关的第一眼应该是星空，不是石板。 */
     st.camera.position.set(0, 1.34, 0);
-    S.look = { yaw: 0.42, pitch: -0.04 };
+    S.look = { yaw: 0.42, pitch: 0.12 };
     S.lookLock = false;
     applyLook(st);
   }
@@ -1421,10 +1430,13 @@
   function hoverAt(ndc) {
     var st = S.st;
     if (!st || S.mode !== 'idle' || S.busy) { return; }
-    var hits = st.raycast(ndc) || [];
+    /* 只对骨面做射线：七十三片骨 × 每片一份刻字几何，
+       全场景递归一遍够把 hover 拖到十几毫秒。 */
+    var hits = st.raycast(ndc, S.pickBodies) || [];
     var target = null;
     for (var i = 0; i < hits.length; i++) {
       var o = hits[i].object || hits[i];
+      if (o && o.userData && o.userData.plate) { target = o.userData.plate; break; }
       while (o && !(o.userData && o.userData.plateData)) { o = o.parent; }
       if (o) { target = o; break; }
     }
@@ -1468,7 +1480,8 @@
     var d = grp.userData.plateData;
     card(false);
     crumb(d.now + ' · ' + d.cat);
-    say('<b>提示</b>：你点了「' + d.now + '」。看它长出什么来。', 5200);
+    say('<b>提示</b>：你点了「' + d.now + '」。' +
+        (d.make ? '看它长出什么来。' : '看这个字本来的样子。'), 5200);
 
     S.plates.forEach(function (p) {
       if (p === grp) { return; }
@@ -1519,6 +1532,7 @@
     setGlyphAlpha(grp, 1);
     ghostOn(grp, d);
     if (App.progress && d && d.ch) { App.progress.add('float', d.ch); }
+    updateFoot();
     setTimeout(function () {
       if (S.mode !== 'unveil' || S.focus !== grp) { return; }
       spawnProp(grp, d);
@@ -1569,12 +1583,13 @@
     if (!maker) {
       /* 没有 3D 实物（虚影模式下就是这样）：仍然要进 show 态 ——
          卡片、提示、收回按钮全靠这一步。之前直接 return，
-         状态卡在 unveil，6 秒后被守卫踢回 idle，收回按钮根本没出来。 */
+         状态卡在 unveil，6 秒后被守卫踢回 idle，收回按钮根本没出来。
+         纯骨片（六十七片里的大多数）也走这一支：字亮起来，卡片说出它画的是什么。 */
       S.mode = 'show';
       S.stateSince = 0;
       S.busy = false;
       card(true, d);
-      say('<b>提示</b>：这就是「' + d.now + '」画的东西。看完点「收回」。', 9000);
+      say('<b>「' + d.now + '」</b>收进典藏了。看完点「收回」，再认下一片。', 9000);
       return;
     }
     if (S.prop && S.prop.root) { S.plot.remove(S.prop.root); }
@@ -1844,7 +1859,10 @@
     hd.appendChild(App.el('div', 'tag', d.cat));
     c.appendChild(hd);
     c.appendChild(App.el('div', 'gl', d.gloss));
-    c.appendChild(App.el('div', 'lk', d.link));
+    /* 六片"会长出实物"的骨有自己的 link（把字形和实物连起来的一句）；
+       其余六十七片没有实物，就换成"收进典藏"这一句，不要留一行空 div。 */
+    c.appendChild(App.el('div', 'lk', d.link ||
+      '这个字已经收进典藏。收回骨片，再认下一片。'));
     var btn = App.el('button', '', '收　回');
     btn.onclick = function () { dismiss(); };
     c.appendChild(btn);
@@ -1870,11 +1888,35 @@
     root.appendChild(S.ui.hint);
 
     S.ui.foot = App.el('div', 'bsp-foot');
-    S.ui.foot.innerHTML = '共 <b>' + PLATES.length + '</b> 片骨 · 点一片看看它长出什么';
     root.appendChild(S.ui.foot);
+    updateFoot();
 
     document.body.appendChild(root);
     return root;
+  }
+
+  /* 页脚那行：总共几片、已经认了几片。
+     数字取自 App.progress（第一关认过的字也算认过 —— 同一个字不该认两遍）。 */
+  function collectedSet() {
+    var set = {};
+    if (App.progress && App.progress.summary) {
+      var pg = App.progress.summary();
+      (pg.float || []).forEach(function (c) { set[c] = 1; });
+      (pg.build || []).forEach(function (c) { set[c] = 1; });
+    }
+    return set;
+  }
+
+  function knownCount() {
+    var set = collectedSet(), n = 0;
+    for (var i = 0; i < PLATES.length; i++) { if (set[PLATES[i].ch]) { n++; } }
+    return n;
+  }
+
+  function updateFoot() {
+    if (!S.ui || !S.ui.foot) { return; }
+    S.ui.foot.innerHTML = '共 <b>' + PLATES.length + '</b> 片骨 · 已认 <b>' +
+      knownCount() + '</b> 片 · 点一片，看它是什么字';
   }
 
   /* ==========================================================================
@@ -1884,7 +1926,9 @@
     id: 'bone-float',
     name: '骨片浮空',
     tagline: '一片骨，一个长出来的世界',
-    desc: '六片刻着甲骨文的骨片悬在虚空里。点开一片，它飞到眼前放大，字亮起来，字所指的山川、日月、树木、眼睛、青铜器就从骨面上长出来 —— 收回时再缩回骨里。',
+    desc: '七十三片刻着甲骨文的骨片浮在星海里，围成三层。点开一片，它飞到眼前放大，' +
+          '字亮起来；山、水、木、日、目、鼎这六片还会从骨面上长出它们所指的东西 —— ' +
+          '收回时再缩回骨里。其余六十七片是纯骨片：认一个字，收一格典藏。',
     icon: '骨',
     accent: 'var(--gold, #c8a86a)',
     tags: ['3D', '探索', '字形'],
@@ -1904,9 +1948,14 @@
 
       App.stage3d.create(root, {
         camera: { pos: [0, 2.05, 11.6], look: [0, 1.28, 0] },
-        fov: 46,
+        /* 46° 是"六片骨围一圈"时的构图；骨片铺到三层之后，
+           46° 只能框住中间一小块，抬头看到的永远是空白。
+           放到 60°：视野更宽，七十三片骨才铺得满。 */
+        fov: 60,
         fog: { color: 0x130f18, density: 0.0225 },
-        shadow: true
+        shadow: true,
+        /* 点击只测骨面（见 S.pickBodies）：七十三个刻字几何不进射线 */
+        pickList: function () { return S.pickBodies; }
       }, function (err, st) {
         if (err) {
           var msg = App.el('div', '', '3D 场景没能启动：' + (err.message || err));
@@ -1947,13 +1996,14 @@
             var p = S.plates[i], b = p.userData.base;
             if (p === S.focus) { continue; }
             if (idle) {
-              /* 环绕观星台缓慢公转：0.075 rad/s，一圈约 84 秒 —— 看得出来在转，
-                 又不至于让人点不中。聚焦某一片时整环停住，收回后接着转。 */
-              var ang = p.userData.ang + dt * 0.075;
+              /* 环绕观星台缓慢公转。三层转速不同（内快外慢），
+                 近处的骨掠过去、远处的骨几乎不动 —— 视差就是这么来的。
+                 内环 0.075 rad/s 约 84 秒一圈：看得出来在转，又不至于点不中。 */
+              var ang = p.userData.ang + dt * (b.spin || 0.06);
               p.userData.ang = ang;
               p.position.x = Math.cos(ang) * b.r;
               p.position.z = Math.sin(ang) * b.r;
-              p.position.y = b.y + Math.sin(S.t * 0.52 + b.ph) * 0.10;
+              p.position.y = b.y + Math.sin(S.t * 0.52 + b.ph) * (b.bob || 0.1);
               /* 始终朝向"人"（镜头就在圆心），转过去也不会变成一条边 */
               p.rotation.y = Math.atan2(camPos.x - p.position.x, camPos.z - p.position.z);
               p.rotation.z = b.rz + Math.sin(S.t * 0.42 + b.ph * 1.7) * 0.022;
@@ -1967,7 +2017,8 @@
           }
         });
 
-        say('<b>提示</b>：这六片骨上都刻着字。点一片，看它长出什么来。', 11000);
+        say('<b>提示</b>：天上浮着 <b>' + PLATES.length + '</b> 片骨，每片刻着一个字。' +
+            '拉一下视角看全，点一片，字就亮起来。', 11000);
       });
     },
 
@@ -1980,6 +2031,7 @@
       S.busy = false;
       S.prop = null;
       S.plates = [];
+      S.pickBodies = [];
       S.guibao = null;
       S.cardRight = 0;
       S.hintHalf = 0;

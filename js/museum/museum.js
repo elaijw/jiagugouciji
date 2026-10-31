@@ -26,7 +26,7 @@
     { id: 'build',      name: '造字探索区', glyph: '木', note: '把两个构件搬上台面', href: '#/play/bone-build' },
     { id: 'excavate',   name: '浮空骨片区', glyph: '山', note: '六片骨，点开长出来', href: '#/play/bone-float' },
     { id: 'boss',       name: '守字之骨区', glyph: '戈', note: '拆构件 · 断笔画 · 补古句', href: '#/play/boss-3d' },
-    { id: 'collection', name: '我的典藏区', glyph: '贝', note: '观过的展、认过的字' }
+    { id: 'collection', name: '我的典藏区', glyph: '贝', note: '一面字墙：七十三格，认过的亮' }
   ];
 
   /* 会话状态。同一时刻只会有一个展馆实例。 */
@@ -497,6 +497,10 @@
     if (hit.type === 'plastron') { openPlastron(); return; }
     if (hit.type === 'case') { openExhibit('鼎', false); return; }
     if (hit.type === 'slot') { openExhibit(hit.char, false); return; }
+    /* 柜台那块"已收 N / 73"：点它开典藏清单。
+       3D 里进了典藏区只换屋子、不弹面板，清单原来只有 2D 降级才看得到；
+       给柜台挂上这个入口，墙上认字、柜上查清单，两条路都通。 */
+    if (hit.type === 'collection') { openCollection(); return; }
     if (hit.type === 'bossface') { pickBossFace(hit); return; }
     if (hit.type === 'bosspart') { pickBossPart(hit); return; }
     if (hit.type === 'bosscore') {
@@ -1221,6 +1225,11 @@
 
         var dl = App.el('dl', 'mu-p-dl');
         row(dl, '释义', (pool && pool.mean) || (obj && obj.meaning) || '');
+        /* 七十三片骨来自 glyph-plates 的同一份字表：
+           集外没有"通说释义"的字，至少给一句"它画的是什么形状" ——
+           留一行空的"释义："比不写还难看。 */
+        var gp = (App.glyphPlates && App.glyphPlates.byChar) ? App.glyphPlates.byChar[ch] : null;
+        if (gp && gp.gloss && !(pool && pool.mean)) { row(dl, '字形', gp.gloss); }
         if (pool && pool.src) { row(dl, '卜辞', pool.src); }
         if (pool && pool.lv) { row(dl, '释读', pool.lv); }
         if (obj) { row(dl, '所属类别', obj.zone); }
@@ -1750,16 +1759,42 @@
     });
   }
 
-  /* ---------- 我的典藏 ---------- */  function openCollection() {
+  /* ---------- 我的典藏 ---------- */
+  /* 典藏里有哪几个字，一直是两个来源：馆里点开过的展签（S.seen），
+     和三关收口的进度（App.progress）。字墙、面板、统计都用这一份合成表，
+     免得"墙上有、清单里没有"这种对不上的事出现。 */
+  function collectionSet() {
+    var got = {};
+    Object.keys(S.seen).forEach(function (k) { got[k] = 1; });
+    if (App.progress && App.progress.summary) {
+      var pg = App.progress.summary();
+      (pg.float || []).concat(pg.build || []).forEach(function (k) {
+        if (k) { got[k] = 1; }
+      });
+    }
+    return got;
+  }
+  function poolChars() {
+    return (App.glyphPlates && App.glyphPlates.items)
+      ? App.glyphPlates.items.map(function (it) { return it.ch; })
+      : Object.keys(S.seen);
+  }
+
+  function openCollection() {
     var st = (App.atlas && App.atlas.stats) ? App.atlas.stats() : null;
     openPanel(function (p) {
       panelHead(p, '贝', '我的典藏区 · 观展与进度');
       var body = App.el('div', 'mu-p-body');
 
+      var pool = poolChars();
+      var got = collectionSet();
+      var gotN = 0;
+      pool.forEach(function (ch) { if (got[ch]) { gotN++; } });
+
       var nums = App.el('div', 'mu-p-nums');
-      [['馆内观展', seenCount() + ' / 12'],
-       ['图鉴已识', st ? (st.learned + ' / ' + st.chars) : '—'],
-       ['掌握度', st ? (st.percent + '%') : '—']].forEach(function (kv) {
+      [['已收字', gotN + ' / ' + pool.length],
+       ['馆内观展', seenCount() + ' / 12'],
+       ['图鉴已识', st ? (st.learned + ' / ' + st.chars) : '—']].forEach(function (kv) {
         var c = App.el('div', 'mu-p-num');
         c.appendChild(App.el('b', null, kv[1]));
         c.appendChild(App.el('span', null, kv[0]));
@@ -1767,12 +1802,14 @@
       });
       body.appendChild(nums);
 
-      var keys = Object.keys(S.seen);
+      /* 已收的字：按字池顺序排，不按"什么时候收的"排 ——
+         同一面墙上的字，顺序要跟墙上一致，找起来才对得上。 */
+      var keys = pool.filter(function (ch) { return got[ch]; });
       if (!keys.length) {
         body.appendChild(App.el('p', 'mu-p-empty',
-          '典藏还空着。去甲骨文展厅点一件骨版，看过就收进来了。'));
+          '典藏还空着。去知识厅点一件骨版、或者去浮空骨片区认一片骨，看过就收进来了。'));
       } else {
-        body.appendChild(App.el('p', 'mu-p-k', '已收展品'));
+        body.appendChild(App.el('p', 'mu-p-k', '已收的字 · ' + keys.length));
         var box = App.el('div', 'mu-p-seen');
         keys.forEach(function (ch) {
           var b = App.el('button', 'mu-p-seenitem');
@@ -1807,7 +1844,9 @@
 
         if (pg.chars.length) {
           var chips = App.el('div', 'mu-p-seen');
-          pg.chars.slice(0, 24).forEach(function (ch) {
+          /* 不再截断到 24 个：第二关现在有七十三片骨，
+             截一半等于"我明明认了，典藏里却没有"。 */
+          pg.chars.forEach(function (ch) {
             var b2 = App.el('button', 'mu-p-seenitem');
             b2.type = 'button';
             var g2 = glyphNode(ch, 'mu-p-seen-g');

@@ -2912,63 +2912,56 @@
        —— 结果只看到一面墙，龛一个都看不见。 */
     cabBack.position.set(0, 3.35, -7.55);
     collG.add(cabBack);
-    /* 柜体框线：横托板 + 竖隔 */
-    [-1.42, 0.28, 1.98].forEach(function (yy) {
-      var shelf = new T.Mesh(new T.BoxGeometry(10.6, 0.12, 0.6), cabMtl);
-      shelf.position.set(0, 3.35 + yy - 0.86, -7.30);
-      collG.add(shelf);
-    });
-    [-3.4, -1.15, 1.15, 3.4].forEach(function (xx) {
-      var div = new T.Mesh(new T.BoxGeometry(0.12, 5.9, 0.6), cabMtl);
-      div.position.set(xx, 3.35, -7.30);
-      collG.add(div);
-    });
+    /* 柜体的横托板与竖隔不再用实体盒子：字墙改成一张贴图之后，
+       七行格子对不上原来的三条横板，木框直接画进贴图里。
+       实体再叠一层，只会从字前面横穿过去。 */
 
-    var collSlots = [];
-    var qMarkCv = App.museumTex.textCanvas('未观', {
-      w: 128, h: 48, size: 26, color: 'rgba(232,220,194,.52)',
-      font: '"Songti SC","Noto Serif SC",serif', weight: '400'
-    });
-    var qMarkTex = canvasTex(qMarkCv, { srgb: true });
+    /* ============================================================
+       ⑤ 我的典藏区：一面字墙
+       ------------------------------------------------------------
+       原来是一面十二龛的陈列柜，只装得下馆里十二件展品。第二关现在
+       有七十三片骨，收进来的字没处放 —— 于是改成一面"字墙"：
+       字池里每个字占一格，收进来的亮着，没收的只留一层浅刻。
+       墙上空着多少格，一眼就看得出还差多少。
 
-    var SLOT_POS = [];
-    for (var sr = 0; sr < 3; sr++) {
-      for (var sc2 = 0; sc2 < 4; sc2++) {
-        SLOT_POS.push({ x: -3.45 + sc2 * 2.3, y: 1.62 + (2 - sr) * 1.70 });
-      }
-    }
+       做法：整面墙烘焙成一张贴图，一个 mesh；每格另外挂一片
+       看不见的拾取面（共 73 片，2 个三角）。不用 73 个骨版 mesh ——
+       那要 73 张 384px 贴图、73 次绘制，进出典藏区会明显卡一下。
+       ============================================================ */
+    var POOL = (App.glyphs && App.glyphs.parts)
+      ? Object.keys(App.glyphs.parts)
+      : EXHIBITS.map(function (e) { return e.ch; });
+    var COLS = 11;
+    var ROWS = Math.ceil(POOL.length / COLS);
+    var WALL_W = 10.6, WALL_H = 5.9, WALL_Y = 3.35, WALL_Z = -7.36;
+    var CELW = WALL_W / COLS, CELH = WALL_H / ROWS;
+    var TEX_W = 2048, TEX_H = Math.round(TEX_W * WALL_H / WALL_W);
 
-    EXHIBITS.forEach(function (e, i) {
-      var p = SLOT_POS[i];
-      /* 龛：一块凹进去的暗面 */
-      var niche = new T.Mesh(
-        new T.BoxGeometry(2.02, 1.52, 0.28),
-        std({ color: 0x0a0705, roughness: 1, metalness: 0 })
-      );
-      niche.position.set(p.x, p.y, -7.35);
-      collG.add(niche);
+    var wallCv = App.museumTex.canvas(TEX_W, TEX_H);
+    var wallTex = canvasTex(wallCv, { srgb: true, aniso: 8 });
+    var wallMesh = new T.Mesh(
+      new T.PlaneGeometry(WALL_W, WALL_H),
+      std({ map: wallTex, roughness: 0.95, metalness: 0.0, envMapIntensity: 0.25 })
+    );
+    wallMesh.position.set(0, WALL_Y, WALL_Z);
+    collG.add(wallMesh);
 
-      var s = makeSlab(e.ch, { size: 0.66, texSize: 384 });
-      s.mesh.position.set(p.x, p.y, -6.98);
-      s.mesh.userData = { kind: 'slot', char: e.ch, slot: i };
-      collG.add(s.mesh);
-      pickables.push(s.mesh);
-
-      var tag = new T.Mesh(
-        new T.PlaneGeometry(0.72, 0.2),
-        new T.MeshBasicMaterial({ map: qMarkTex, transparent: true })
-      );
-      tag.position.set(p.x, p.y - 0.86, -6.90);
-      /* 空龛的"未观"牌也要能点：没看过的格子点开会说明它是什么、怎么去看。
-         骨版在未观时是 hidden，射线打不到，所以这里给牌子挂同一个 pick 语义。 */
-      tag.userData = { kind: 'slot', char: e.ch, slot: i };
-      collG.add(tag);
-      pickables.push(tag);
-
-      collSlots.push({ char: e.ch, slab: s, tag: tag, seen: false, y: p.y });
+    /* 拾取面：一格一片，透明不写色（colorWrite:false）。
+       骨版画在贴图里，射线要打在这层平面上，才知道点的是哪个字。 */
+    var slotPickGeo = new T.PlaneGeometry(CELW * 0.94, CELH * 0.94);
+    var slotPickMat = new T.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+    POOL.forEach(function (ch, i) {
+      var col = i % COLS, row = Math.floor(i / COLS);
+      var pm = new T.Mesh(slotPickGeo, slotPickMat);
+      pm.position.set(-WALL_W / 2 + (col + 0.5) * CELW,
+                      WALL_Y + WALL_H / 2 - (row + 0.5) * CELH,
+                      WALL_Z + 0.07);
+      pm.userData = { kind: 'slot', char: ch };
+      collG.add(pm);
+      pickables.push(pm);
     });
 
-    /* 柜台：写着"已观展 N / 12" */
+    /* 柜台：写着"已收 N / 73" */
     var collCountCv = App.museumTex.canvas(1024, 256);
     var collCountTex = canvasTex(collCountCv, { srgb: true, aniso: 8 });
     var collCounter = new T.Mesh(
@@ -2976,41 +2969,123 @@
       new T.MeshBasicMaterial({ map: collCountTex, transparent: true })
     );
     collCounter.position.set(0, 0.86, -5.4);
+    /* 柜台也能点：点它开典藏清单（墙上认字、柜上查数） */
+    collCounter.userData = { kind: 'collection' };
     collG.add(collCounter);
+    pickables.push(collCounter);
 
     var collPlinth = new T.Mesh(new T.BoxGeometry(4.0, 0.5, 0.42), cabMtl);
     collPlinth.position.set(0, 0.25, -5.4);
     collG.add(collPlinth);
 
-    function refreshCollection() {
-      var n = 0;
-      collSlots.forEach(function (sl) {
-        /* 这里外层必须有 !!(...)：写成 !!A && B && C 得到的是 undefined，
-           而 three 只认严格 false，undefined 等于「显示」—— 空龛就永远是满的。 */
-        var on = !!(App.museum && App.museum._seen && App.museum._seen[sl.char]);
-        sl.seen = on;
-        if (on) { n++; }
-        /* 没看过=空龛（只有一块"未观"牌），看过=骨版亮着。
-           这比"把骨版调暗"清楚得多：柜子是空的还是满的，一眼就分得开。 */
-        sl.slab.mesh.visible = on;
-        var m = sl.slab.mats[0];
-        m.color.setHex(0xdbcfb8);
-        m.emissive = new T.Color(on ? 0x322412 : 0x000000);
-        m.emissiveMap = on ? sl.slab.map : null;
-        m.emissiveIntensity = on ? 0.9 : 0;
-        m.needsUpdate = true;
-        sl.tag.visible = !on;
+    /* ---------- 画字墙 ---------- */
+    var gTmp = App.museumTex.canvas(160, 160);
+
+    function roundRect(c, x, y, w, h, r) {
+      c.beginPath();
+      c.moveTo(x + r, y);
+      c.lineTo(x + w - r, y); c.quadraticCurveTo(x + w, y, x + w, y + r);
+      c.lineTo(x + w, y + h - r); c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      c.lineTo(x + r, y + h); c.quadraticCurveTo(x, y + h, x, y + h - r);
+      c.lineTo(x, y + r); c.quadraticCurveTo(x, y, x + r, y);
+      c.closePath();
+    }
+
+    function paintWall(got) {
+      var c = wallCv.getContext('2d');
+      var sx = TEX_W / WALL_W, sy = TEX_H / WALL_H;
+      c.clearRect(0, 0, TEX_W, TEX_H);
+      c.fillStyle = '#0d0906';
+      c.fillRect(0, 0, TEX_W, TEX_H);
+
+      /* 柜内打光：上亮下暗的一道，字墙才不是一块黑板 */
+      var lg = c.createLinearGradient(0, 0, 0, TEX_H);
+      lg.addColorStop(0, 'rgba(150,118,70,0.14)');
+      lg.addColorStop(0.45, 'rgba(90,70,44,0.06)');
+      lg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = lg;
+      c.fillRect(0, 0, TEX_W, TEX_H);
+
+      POOL.forEach(function (ch, i) {
+        var col = i % COLS, row = Math.floor(i / COLS);
+        var x0 = col * CELW * sx, y0 = row * CELH * sy;
+        var cw = CELW * sx, chh = CELH * sy;
+        var on = !!got[ch];
+
+        /* 龛：一格一块暗面，细线勾边等于柜子的木框。
+           暗格的框不能太淡 —— 太淡就只剩亮着的几格浮在黑里，
+           看不出"总共七十三格、还空着多少"，那这面墙就白做了。 */
+        c.fillStyle = on ? 'rgba(48,34,22,0.96)' : 'rgba(26,19,13,0.96)';
+        c.fillRect(x0 + 2, y0 + 2, cw - 4, chh - 4);
+        c.strokeStyle = on ? 'rgba(196,158,96,0.55)' : 'rgba(148,122,84,0.26)';
+        c.lineWidth = 2;
+        c.strokeRect(x0 + 3, y0 + 3, cw - 6, chh - 6);
+
+        var bw = cw * 0.60, bh = chh * 0.70;
+        var bx = x0 + (cw - bw) / 2, by = y0 + (chh - bh) / 2 - chh * 0.06;
+
+        if (on) {
+          /* 收进来的：一块亮着的骨 */
+          var g2 = c.createLinearGradient(bx, by, bx + bw * 0.7, by + bh);
+          g2.addColorStop(0, '#f4ead0');
+          g2.addColorStop(0.45, '#e5d7b6');
+          g2.addColorStop(1, '#cbb891');
+          c.fillStyle = g2;
+          roundRect(c, bx, by, bw, bh, Math.min(bw, bh) * 0.13);
+          c.fill();
+          c.strokeStyle = 'rgba(126,95,55,0.65)';
+          c.lineWidth = 3;
+          c.stroke();
+        } else {
+          /* 没收回来的：只剩一道浅刻的轮廓 + 极淡的字 */
+          c.fillStyle = 'rgba(20,14,10,0.5)';
+          roundRect(c, bx, by, bw, bh, Math.min(bw, bh) * 0.13);
+          c.fill();
+          c.strokeStyle = 'rgba(196,176,146,0.22)';
+          c.lineWidth = 2;
+          c.stroke();
+        }
+
+        /* 字：收进来的刻深墨，没收的只留极淡的一层 */
+        var gctx = gTmp.getContext('2d');
+        gctx.setTransform(1, 0, 0, 1, 0, 0);
+        gctx.clearRect(0, 0, gTmp.width, gTmp.height);
+        App.museumTex.paintGlyph(gTmp, ch, {
+          color: on ? 'rgba(40,28,15,0.96)' : 'rgba(214,196,166,0.16)'
+        });
+        c.drawImage(gTmp, bx + bw * 0.12, by + bh * 0.08, bw * 0.76, bh * 0.80);
       });
+    }
+
+    function refreshCollection() {
+      /* 两个来源：馆里看过展签的字（App.museum._seen），
+         以及三关收口在 App.progress 里的字（第二关点开的骨片、第一关认过的字）。
+         合成一张表再画墙 —— 同一个人不该因为"从哪个门进来"而少几格。 */
+      var got = {};
+      var seen = (App.museum && App.museum._seen) || {};
+      Object.keys(seen).forEach(function (k) { got[k] = 1; });
+      if (App.progress && App.progress.summary) {
+        var pg = App.progress.summary();
+        (pg.float || []).concat(pg.build || []).forEach(function (k) {
+          if (k) { got[k] = 1; }
+        });
+      }
+      var n = 0;
+      POOL.forEach(function (ch) { if (got[ch]) { n++; } });
+
+      paintWall(got);
+      wallTex.needsUpdate = true;
+
       var c = collCountCv.getContext('2d');
       c.clearRect(0, 0, 1024, 256);
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.fillStyle = '#e8dcc2';
       c.font = '600 96px "Songti SC","Noto Serif SC",serif';
-      c.fillText('已观展 ' + n + ' / 12', 512, 96);
+      c.fillText('已收 ' + n + ' / ' + POOL.length, 512, 92);
       c.fillStyle = 'rgba(232,220,194,.42)';
-      c.font = '400 34px "Songti SC","Noto Serif SC",serif';
-      c.fillText(n ? '点任一件，可以重新读它的展签' : '去甲骨文展厅，看过就收进这里', 512, 186);
+      c.font = '400 32px "Songti SC","Noto Serif SC",serif';
+      c.fillText(n ? '点墙上的字，可以重读它的展签' : '去知识厅看展、去骨片空间认字，看过就收进这里', 512, 184);
       collCountTex.needsUpdate = true;
       return n;
     }
@@ -3246,6 +3321,8 @@
         send({ type: 'bosspart', r: bossTapPart(u.slot) });
       } else if (u.kind === 'slot') {
         send({ type: 'slot', char: u.char });
+      } else if (u.kind === 'collection') {
+        send({ type: 'collection' });
       } else if (u.kind === 'stele') {
         send({ type: 'stele' });
       } else if (u.kind === 'heat') {
@@ -3310,7 +3387,10 @@
       build:      { z: ANX_Z,              y: 1.8, dz: -2.5,  r: 7.6, phi: 1.36, minPhi: 0.90, maxPhi: 1.46, minR: 3.6, maxR: 13, fog: 0.020 },
       excavate:   { z: ANX_Z - ANX_GAP,    y: 1.0, dz: -4.2,  r: 8.2, phi: 0.98, minPhi: 0.55, maxPhi: 1.42, minR: 4.0, maxR: 14, fog: 0.022 },
       boss:       { z: ANX_Z - ANX_GAP * 2, y: 2.6, dz: -4.0, r: 10.0, phi: 1.34, minPhi: 0.90, maxPhi: 1.46, minR: 4.6, maxR: 16, fog: 0.018 },
-      collection: { z: ANX_Z - ANX_GAP * 4, y: 3.2, dz: -4.6, r: 7.6, phi: 1.35, minPhi: 0.94, maxPhi: 1.46, minR: 3.6, maxR: 13, fog: 0.022 }
+      /* 典藏区：机位从 r 7.6 退到 10.8。柜子还是那面十米六宽的字墙，
+         7.6 米外只看得见中间九米多 —— 两边各切掉一格。退开之后整面墙入画，
+         七十三格才"一眼看出空了多少"。 */
+      collection: { z: ANX_Z - ANX_GAP * 4, y: 3.3, dz: -4.6, r: 10.8, phi: 1.41, minPhi: 0.94, maxPhi: 1.46, minR: 4.2, maxR: 15, fog: 0.022 }
     };
 
     var GROUPS = {
@@ -3336,6 +3416,11 @@
            这里退到 8.6 但把镜头抬到 4.4 米、并把方位让开 15°（落在两块骨版中间），
            于是最近的两块都退到画面两侧，中间留给中庭那件大骨版。 */
         out.r = 8.6; out.y = 3.3; out.phi = 1.48; out.theta = 0.26;
+      } else if (areaId === 'collection' && narrow) {
+        /* 典藏区竖屏不要去收半径：字墙是横着排的十一格，
+           往里一靠就只剩中间四五格，还查什么典藏。 */
+        out.r = a.r * 1.02;
+        out.minR = a.minR;
       } else if (narrow) {
         /* 附区里的东西比展厅紧凑，竖屏往里收 30% 就够 */
         out.r = a.r * 0.70;

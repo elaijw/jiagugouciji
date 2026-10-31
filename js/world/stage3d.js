@@ -532,7 +532,11 @@
       /* 只有"按下-抬起几乎没移动"才算点击 —— 否则拖拽转视角会误触交互 */
       if (!wasDrag && pickFn && performance.now() - drag.t < 900) {
         var ndc = ndcOf(e.clientX, e.clientY);
-        var hits = raycast(ndc);
+        /* 可选：场景自己给一份"只算这些"的拾取列表（函数形式，每次都现取）。
+           骨片浮空那样的关卡有七十多片骨、每片还带一份挤出的刻字几何，
+           全场景递归一遍要五十毫秒 —— 点一下卡一下。给了列表就只测骨面。 */
+        var list = (typeof o.pickList === 'function' ? o.pickList() : o.pickList) || undefined;
+        var hits = raycast(ndc, list);
         /* 命中链上所有 pickable 都收齐（由近到远）再交出去。
            只给第一个的话，前面任何一件"点击区"（隐形球、透明底板）
            都能把后面真正该点的东西整个遮住，而玩法层根本不知道
