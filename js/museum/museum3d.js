@@ -842,20 +842,26 @@
       map: shadowTex, transparent: true, depthWrite: false, opacity: 0.9
     });
 
-    /* 展品：全部来自 levels.json 里王邑各分区的实物（每个都有真字形 + 释义） */
-    var EXHIBITS = [
-      { ch: '日', zone: '天象', meaning: '一轮圆日' },
-      { ch: '月', zone: '天象', meaning: '一弯弦月' },
-      { ch: '雨', zone: '天象', meaning: '云脚落下的雨丝' },
-      { ch: '山', zone: '山川', meaning: '并列的峰峦' },
-      { ch: '川', zone: '山川', meaning: '宽阔的主河道' },
-      { ch: '泉', zone: '山川', meaning: '石间涌出的水' },
-      { ch: '木', zone: '草木', meaning: '左侧的独立大树' },
-      { ch: '林', zone: '草木', meaning: '成片的树林' },
-      { ch: '牛', zone: '禽兽虫鱼', meaning: '双角横张的牛' },
-      { ch: '鱼', zone: '禽兽虫鱼', meaning: '水中的鱼' },
-      { ch: '门', zone: '人居器物', meaning: '城邑的城门' },
-      { ch: '鼎', zone: '人居器物', meaning: '三足两耳的鼎' }
+    /* 展品：甲骨文知识厅的十二件陈列 —— 内容写在 js/museum/oracle-hall.js。
+       原来这里摆的是十二个常用字（日 月 雨 山 川 泉 木 林 牛 鱼 门 鼎），
+       跟着王邑地图的五个景物分区走，展签只写"一轮圆日"这类释义。
+       那是一条识字的线：走完一圈认了十二个字，却不知道甲骨从哪来、怎么卜、
+       问什么、谁认出来的。现在换成四段陈列（卜材 · 卜辞 · 文字 · 发现）。
+       ⚠ 数据文件漏加载时退回旧的一套，宁可少讲，不要让整厅空成一个台座阵。 */
+    var HALL = App.oracleHall;
+    var EXHIBITS = (HALL && HALL.items && HALL.items.length) ? HALL.items : [
+      { ch: '日', sec: '卜材', tag: '天象', title: '日' },
+      { ch: '月', sec: '卜材', tag: '天象', title: '月' },
+      { ch: '雨', sec: '卜辞', tag: '天象', title: '雨' },
+      { ch: '山', sec: '卜辞', tag: '山川', title: '山' },
+      { ch: '川', sec: '卜辞', tag: '山川', title: '川' },
+      { ch: '泉', sec: '卜辞', tag: '山川', title: '泉' },
+      { ch: '木', sec: '文字', tag: '草木', title: '木' },
+      { ch: '林', sec: '文字', tag: '草木', title: '林' },
+      { ch: '牛', sec: '文字', tag: '禽兽', title: '牛' },
+      { ch: '鱼', sec: '发现', tag: '禽兽', title: '鱼' },
+      { ch: '门', sec: '发现', tag: '器物', title: '门' },
+      { ch: '鼎', sec: '发现', tag: '器物', title: '鼎' }
     ];
 
     /* 十二件展品沿一圈摆开（环厅）：
@@ -921,9 +927,11 @@
       sh.position.set(gx, 0.006, gz);
       gal.add(sh);
 
-      /* 名签：今字 + 分区，贴在台座正面（跟着台座一起转）。
+      /* 名签：今字 + 两字短题，贴在台座正面（跟着台座一起转）。
          原来是"深底骨字"的小黑牌（0.42×0.21）—— 贴在深色座上就是一块黑，
-         字也小到看不清。改成骨白纸 + 朱砂细边，尺寸放大到 0.56×0.28。 */
+         字也小到看不清。改成骨白纸 + 朱砂细边，尺寸放大到 0.56×0.28。
+         右侧原来是分区名（天象/禽兽虫鱼，最多四个字），现在换成两字短题
+         （卜骨 / 灼兆 / 甲骨 / 田猎…），一眼看得出这件讲的是什么，不必点开。 */
       var tagCv = App.museumTex.canvas(320, 160);
       var tctx = tagCv.getContext('2d');
       tctx.fillStyle = '#f3e9d5';
@@ -939,11 +947,16 @@
       tctx.fillStyle = 'rgba(204,82,59,.42)';   /* 中缝 */
       tctx.fillRect(172, 40, 2, 80);
       tctx.fillStyle = '#6b5a43';
-      tctx.font = '400 22px "Songti SC","Noto Serif SC",serif';
-      tctx.fillText(e.zone, 246, 82);
+      tctx.font = '400 30px "Songti SC","Noto Serif SC",serif';
+      tctx.fillText(e.tag || e.zone || '', 246, 84);
       var tag = new T.Mesh(
-        new T.PlaneGeometry(0.56, 0.28),
-        new T.MeshBasicMaterial({ map: canvasTex(tagCv, { srgb: true }), transparent: true })
+        new T.PlaneGeometry(0.62, 0.31),
+        new T.MeshBasicMaterial({
+          map: canvasTex(tagCv, { srgb: true }), transparent: true,
+          /* 名字这一层是"纸"，不是被照亮的石头：跟着色调映射一起压暗，
+             远看就只剩一块灰。关掉它，纸才是纸。 */
+          toneMapped: false
+        })
       );
       /* 方座半宽 0.32，签面往外推 0.34 —— 再远就离开座面浮在空中了 */
       tag.position.set(gx + Math.sin(face) * 0.34, 0.50, gz + Math.cos(face) * 0.34);
@@ -973,19 +986,21 @@
       });
     });
 
-    /* 分区名：十二件按五类连续排开，在每一类中间、
-       靠墙那一侧的墙面上刻一个淡色的区名。远看是"厅里分了区"，
-       走近才知道刻的是什么 —— 不做成招牌，做成一刀的刻痕。
+    /* 段名：十二件按四段连续排开（卜材 · 卜辞 · 文字 · 发现），
+       在每一段中间、靠墙那一侧的墙面上刻一个淡色的段名。
+       远看是"厅里分了段"，走近才知道刻的是什么 —— 不做成招牌，做成一刀的刻痕。
+       ⚠ 段的起止从展品数据里现算，不写死下标：以后换一件、加一段都不用改这里。
        ⚠ 角度取 floor(mid) + 0.5：整数位上正好是壁柱，牌子会刻在柱子上。 */
-    (function zoneNames() {
-      var SPANS = [
-        { name: '天象', from: 0, to: 2 },
-        { name: '山川', from: 3, to: 5 },
-        { name: '草木', from: 6, to: 7 },
-        { name: '禽兽虫鱼', from: 8, to: 9 },
-        { name: '人居器物', from: 10, to: 11 }
-      ];
+    (function sectionNames() {
+      var SPANS = [];
+      EXHIBITS.forEach(function (e, i) {
+        var nm = e.sec || '';
+        var last = SPANS[SPANS.length - 1];
+        if (!last || last.name !== nm) { SPANS.push({ name: nm, from: i, to: i }); }
+        else { last.to = i; }
+      });
       SPANS.forEach(function (sp) {
+        if (!sp.name) { return; }
         var idx = Math.floor((sp.from + sp.to) / 2) + 0.5;
         var a = -Math.PI / 2 + (idx / n) * Math.PI * 2;
         var cv = App.museumTex.textCanvas(sp.name, {
@@ -1021,10 +1036,13 @@
     ic.textBaseline = 'middle';
     ic.fillStyle = 'rgba(232,220,194,.86)';
     ic.font = '600 64px "Songti SC","Noto Serif SC",serif';
-    ic.fillText('甲 骨 文 展 厅', 512, 84);
-    ic.fillStyle = 'rgba(232,220,194,.42)';
+    ic.fillText('甲 骨 文 展 厅', 512, 78);
+    ic.fillStyle = 'rgba(232,220,194,.52)';
     ic.font = '400 30px "Songti SC","Noto Serif SC",serif';
-    ic.fillText('十二件骨版 · 字形取自甲骨字形数据集（CC BY 4.0）', 512, 156);
+    ic.fillText('四段陈列：卜材 · 卜辞 · 文字 · 发现', 512, 150);
+    ic.fillStyle = 'rgba(232,220,194,.28)';
+    ic.font = '400 21px "Songti SC","Noto Serif SC",serif';
+    ic.fillText('骨面字形取自甲骨字形数据集（CC BY 4.0）', 512, 208);
     var intro = new T.Mesh(
       new T.PlaneGeometry(7.2, 1.8),
       new T.MeshBasicMaterial({ map: canvasTex(introCv, { srgb: true }), transparent: true })
@@ -2332,14 +2350,18 @@
        一圈看下来原本只有"台座 + 骨版"重复十二次，外侧还只有三块知识
        石板、一块说明碑、一块回馆碑，而且都挤在一侧 —— 转到背光那半边
        就只剩十二块牌子，节奏是断的。
-       这里按 90° 一个，补四件**不是骨版**的东西：
+       这里补四件**不是骨版**的东西：
          龟甲（灼骨）· 青铜鼎 · 刻刀 · 卜辞拓片
        它们讲的不是"又一个字"，而是甲骨这条链上的四段：
        材料（甲）· 礼器（鼎）· 工具（刀）· 摹取（拓）。
+       半径比骨版那圈再往外 1.5，不站在骨版那一排里。
 
-       方位取 315 / 45 / 135 / 225（一个 X），半径比骨版那圈再往外 1.5：
-         · 不放在 0° 附近 —— 默认机位就站在 +z 这一侧，摆那儿等于摆到人背后；
-         · 四件互成 90°，两前两后，转到任何一边都有一件在视野里。 */
+       方位原本取 315 / 45 / 135 / 225（一个 X），只为"两前两后、转到哪边都有一件"。
+       换成四段陈列之后按段归位：每件落在自己那一段的中间，于是每一段都是
+       "两件骨版夹一件器物"，一段一个节奏：
+         285° 龟甲（卜材）· 45° 青铜鼎（卜辞）· 135° 刻刀（文字）· 225° 拓片（发现）
+       环上骨版的角位是 -90° + i×30°，卜材占 270/300、卜辞占 330~90、
+       文字占 120~180、发现占 210~240 —— 上面四个角正好各落在段心。 */
     var PROP_R = RING_R + 1.5;
     var propStoneMtl = std({ color: 0x463e34, roughness: 0.62, metalness: 0.16, envMapIntensity: 0.55 });
     /* 铜在这么暗的洗墙灯下会糊成一团黑，所以带一点自发光把体积托出来 */
@@ -2369,7 +2391,10 @@
 
     /* ---------- ① 龟甲（灼骨） ---------- */
     (function plastronProp() {
-      var sp = ringSpot(315, PROP_R);
+      /* 285°：夹在「牛」与「卜」两件之间，正是卜材段的段心。
+         原来在 315°，换成四段陈列之后它落到了卜材与卜辞的交界上，
+         看起来像"还没入段"的一件东西。 */
+      var sp = ringSpot(285, PROP_R);
       var top = propBase(sp.x, sp.z, 0.74, 0.40);
       propShadow(sp.x, sp.z, 1.2);
       var holder = new T.Group();
@@ -2627,8 +2652,11 @@
       c.lineWidth = 1;
       c.strokeRect(32, 32, W - 64, H - 64);
 
-      /* 四列竖行，右起（和骨版上一样：一列写完换左边一列） */
-      var RCOLS = ['日月雨', '山川泉', '木林牛', '鱼门鼎'];
+      /* 四列竖行，右起（和骨版上一样：一列写完换左边一列）
+         排的是厅里这十二件陈列的字 —— 讲清"行款"，不冒充某片出土拓片。
+         从 EXHIBITS 现拼，环上换了陈列这里自动跟着换。 */
+      var RCOLS = ['', '', '', ''];
+      EXHIBITS.forEach(function (e, i) { RCOLS[Math.floor(i / 3) % 4] += e.ch; });
       var cell = 132, top0 = 132, colGap = 152;
       var tmp = App.museumTex.canvas(cell, cell);
       RCOLS.forEach(function (col, ci) {

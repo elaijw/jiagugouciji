@@ -22,7 +22,7 @@
   var ZONES = [
     /* 文明序厅与甲骨文展厅合并：一个「甲骨文知识厅」。
        序厅的内容（甲骨是什么 / 灼骨 / 兆纹）改成厅里一块说明碑，点开就是原来那个面板。 */
-    { id: 'gallery',    name: '甲骨文知识厅', glyph: '日', note: '甲骨是什么 + 十二件骨版，可凑近看' },
+    { id: 'gallery',    name: '甲骨文知识厅', glyph: '日', note: '四段陈列：卜材 · 卜辞 · 文字 · 发现' },
     { id: 'build',      name: '造字探索区', glyph: '木', note: '把两个构件搬上台面', href: '#/play/bone-build' },
     { id: 'excavate',   name: '浮空骨片区', glyph: '山', note: '六片骨，点开长出来', href: '#/play/bone-float' },
     { id: 'boss',       name: '守字之骨区', glyph: '戈', note: '拆构件 · 断笔画 · 补古句', href: '#/play/boss-3d' },
@@ -1059,7 +1059,7 @@
   var LINES = {};
   var ZONE_LINE = {
     prologue: '先看这块碑。看完点一下那块骨 —— 灼一次，你就明白「兆」是什么了。',
-    gallery: '十二件骨版，字都刻在骨上。点一件，我陪你凑近看。',
+    gallery: '十二件骨版分四段：卜材、卜辞、文字、发现。点一件，我陪你凑近看。',
     build: '台上有四块构件，只有两块能凑成这个字。挑对了，骨上就多一道。',
     excavate: '九个探方，三片带字的骨埋在下面。一格一格挖，别急着整块掀。',
     boss: '名录墙上都是讨伐页里的形象。点一尊，把它的构件一件件拆下来。',
@@ -1117,7 +1117,9 @@
       S.hint.classList.remove('is-fade');
     }
   }
-  function panelHead(p, ch, sub) {
+  /* nowCh：抬头显示用的今字。甲骨字形按 ch 取（数据集里只有繁体键，如「車」「龍」），
+     而标题该写简体，所以两者分开传 —— 不传就还用 ch。 */
+  function panelHead(p, ch, sub, nowCh) {
     var head = App.el('div', 'mu-p-head');
     var gbox = App.el('div', 'mu-p-glyph');
     var g = glyphNode(ch, 'mu-p-obglyph');
@@ -1125,7 +1127,7 @@
     head.appendChild(gbox);
 
     var meta = App.el('div', 'mu-p-meta');
-    meta.appendChild(App.el('h2', 'mu-p-title', ch));
+    meta.appendChild(App.el('h2', 'mu-p-title', nowCh || ch));
     meta.appendChild(App.el('p', 'mu-p-sub', sub));
     head.appendChild(meta);
 
@@ -1145,70 +1147,127 @@
     dl.appendChild(d);
   }
 
-  /* ---------- 数字展签 ---------- */
+  /* ---------- 数字展签 ----------
+     一件骨版 = 一条甲骨学的知识，不是"又一个字"。
+     正文顺序固定：主题 → 导语 → 分条（中文序号）→ 卜辞原辞 → 小注。
+     「…」标卜辞例句、**…** 标强调，两个标记交给 inlineNodes()，
+     与知识石板的面板共用同一套排版（.mu-b-list / .mu-b-quote）。
+     没有对应条目的字（从图鉴直接点进来的）仍走原来的字卡。 */
   function openExhibit(ch, isHero) {
     var obj = zoneObject(ch);
     var pool = poolEntry(ch);
     var meta = glyphMeta(ch);
+    var item = (App.oracleHall && App.oracleHall.byChar && App.oracleHall.byChar[ch]) || null;
     var isSeen = markSeen(ch);
 
     openPanel(function (p) {
-      panelHead(p, ch, isHero ? '中央展品 · 卜兆之形'
-        : (obj ? obj.zone + ' · 甲骨实物' : '甲骨文展厅'));
+      panelHead(p, ch,
+        item ? (item.sec + ' · ' + item.tag)
+             : (isHero ? '中央展品 · 卜兆之形'
+                : (obj ? obj.zone + ' · 甲骨实物' : '甲骨文展厅')),
+        item ? item.now : null);
 
       var body = App.el('div', 'mu-p-body');
 
-      /* 大字：今字 + 真甲骨形，左右并置，方便对照 */
-      var pair = App.el('div', 'mu-p-pair');
-      var now = App.el('div', 'mu-p-now');
-      now.appendChild(App.el('span', 'mu-p-now-ch', ch));
-      now.appendChild(App.el('span', 'mu-p-now-k', '今字'));
-      pair.appendChild(now);
-      var ob = App.el('div', 'mu-p-ob');
-      var obsvg = glyphNode(ch, 'mu-p-ob-glyph');
-      if (obsvg) { ob.appendChild(obsvg); } else { ob.appendChild(App.el('span', 'mu-p-none', '无整字字形')); }
-      ob.appendChild(App.el('span', 'mu-p-now-k', '甲骨字形'));
-      pair.appendChild(ob);
-      body.appendChild(pair);
+      if (item) {
+        body.appendChild(App.el('h3', 'mu-p-board-t', item.title));
+        body.appendChild(App.el('p', 'mu-p-board-lead', item.lead));
 
-      var dl = App.el('dl', 'mu-p-dl');
-      row(dl, '释义', (pool && pool.mean) || (obj && obj.meaning) || '');
-      if (pool && pool.src) { row(dl, '卜辞', pool.src); }
-      if (pool && pool.lv) { row(dl, '释读', pool.lv); }
-      if (obj) { row(dl, '所属类别', obj.zone); }
-      if (meta) {
-        row(dl, '笔画', (meta.pieceCount || 0) + ' 笔');
-        row(dl, '数据编号', '#' + meta.glyphId);
-      }
-      if (obj && obj.note) { row(dl, '这一区', obj.note); }
-      body.appendChild(dl);
-
-      /* 构形信息：只用数据里有的，不做推测 */
-      var comps = [];
-      if (pool && pool.w) { comps = String(pool.w).split('+').filter(Boolean); }
-      if (comps.length) {
-        var cbox = App.el('div', 'mu-p-comps');
-        cbox.appendChild(App.el('span', 'mu-p-k', '构件'));
-        comps.forEach(function (c) {
-          var chip = App.el('span', 'mu-p-comp');
-          var cg = glyphNode(c, 'mu-p-comp-g');
-          if (cg) { chip.appendChild(cg); }
-          chip.appendChild(App.el('span', null, c));
-          cbox.appendChild(chip);
+        var list = App.el('ol', 'mu-b-list');
+        item.rows.forEach(function (kv, i) {
+          var li = App.el('li', 'mu-b-item');
+          li.appendChild(App.el('span', 'mu-b-num', CN_ORD[i] || String(i + 1)));
+          var main = App.el('div', 'mu-b-main');
+          main.appendChild(App.el('h4', 'mu-b-k', kv[0]));
+          var v = App.el('p', 'mu-b-v');
+          inlineNodes(kv[1]).forEach(function (nd) { v.appendChild(nd); });
+          main.appendChild(v);
+          li.appendChild(main);
+          list.appendChild(li);
         });
-        cbox.appendChild(App.el('span', 'mu-p-sim', '组合示意，非整字原形'));
-        body.appendChild(cbox);
+        body.appendChild(list);
+
+        /* 卜辞原辞单独成块：骨上的话和讲解之间要有一条界线，
+           否则读者分不清哪一句是三千年前刻上去的。 */
+        if (item.quote) {
+          var fig = App.el('figure', 'mu-b-quote');
+          fig.appendChild(App.el('p', 'mu-b-quote-tx', item.quote));
+          if (item.qnote) {
+            fig.appendChild(App.el('figcaption', 'mu-b-quote-note', item.qnote));
+          }
+          body.appendChild(fig);
+        }
+
+        if (item.note) { body.appendChild(App.el('p', 'mu-p-note', item.note)); }
+        if (meta && meta.glyphId) {
+          body.appendChild(App.el('p', 'mu-p-sim',
+            '骨面字形 ' + ch + '　数据编号 #' + meta.glyphId +
+            (meta.pieceCount ? '　' + meta.pieceCount + ' 笔' : '') +
+            '　取自甲骨字形数据集（CC BY 4.0）'));
+        }
+      } else {
+        /* 大字：今字 + 真甲骨形，左右并置，方便对照 */
+        var pair = App.el('div', 'mu-p-pair');
+        var now = App.el('div', 'mu-p-now');
+        now.appendChild(App.el('span', 'mu-p-now-ch', ch));
+        now.appendChild(App.el('span', 'mu-p-now-k', '今字'));
+        pair.appendChild(now);
+        var ob = App.el('div', 'mu-p-ob');
+        var obsvg = glyphNode(ch, 'mu-p-ob-glyph');
+        if (obsvg) { ob.appendChild(obsvg); } else { ob.appendChild(App.el('span', 'mu-p-none', '无整字字形')); }
+        ob.appendChild(App.el('span', 'mu-p-now-k', '甲骨字形'));
+        pair.appendChild(ob);
+        body.appendChild(pair);
+
+        var dl = App.el('dl', 'mu-p-dl');
+        row(dl, '释义', (pool && pool.mean) || (obj && obj.meaning) || '');
+        if (pool && pool.src) { row(dl, '卜辞', pool.src); }
+        if (pool && pool.lv) { row(dl, '释读', pool.lv); }
+        if (obj) { row(dl, '所属类别', obj.zone); }
+        if (meta) {
+          row(dl, '笔画', (meta.pieceCount || 0) + ' 笔');
+          row(dl, '数据编号', '#' + meta.glyphId);
+        }
+        if (obj && obj.note) { row(dl, '这一区', obj.note); }
+        body.appendChild(dl);
+
+        /* 构形信息：只用数据里有的，不做推测 */
+        var comps = [];
+        if (pool && pool.w) { comps = String(pool.w).split('+').filter(Boolean); }
+        if (comps.length) {
+          var cbox = App.el('div', 'mu-p-comps');
+          cbox.appendChild(App.el('span', 'mu-p-k', '构件'));
+          comps.forEach(function (c) {
+            var chip = App.el('span', 'mu-p-comp');
+            var cg = glyphNode(c, 'mu-p-comp-g');
+            if (cg) { chip.appendChild(cg); }
+            chip.appendChild(App.el('span', null, c));
+            cbox.appendChild(chip);
+          });
+          cbox.appendChild(App.el('span', 'mu-p-sim', '组合示意，非整字原形'));
+          body.appendChild(cbox);
+        }
       }
 
       /* 与既有玩法的连接：这两条都是真入口 */
       var acts = App.el('div', 'mu-p-acts');
-      var a1 = App.el('button', 'mu-btn mu-btn-primary', obj ? '去骨片空间找这个字' : '去造字任务');
-      a1.type = 'button';
-      a1.onclick = function () {
-        if (obj) { openPlay('bone-float', '浮空骨片区 · 骨片浮空'); }
-        else { openPlay('bone-build', '造字探索区'); }
-      };
-      acts.appendChild(a1);
+      if (item) {
+        var a1 = App.el('button', 'mu-btn mu-btn-primary', obj ? '去骨片空间找这个字' : '看展品导览');
+        a1.type = 'button';
+        a1.onclick = function () {
+          if (obj) { openPlay('bone-float', '浮空骨片区 · 骨片浮空'); }
+          else { openIndex(); }
+        };
+        acts.appendChild(a1);
+      } else {
+        var a0 = App.el('button', 'mu-btn mu-btn-primary', obj ? '去骨片空间找这个字' : '去造字任务');
+        a0.type = 'button';
+        a0.onclick = function () {
+          if (obj) { openPlay('bone-float', '浮空骨片区 · 骨片浮空'); }
+          else { openPlay('bone-build', '造字探索区'); }
+        };
+        acts.appendChild(a0);
+      }
       var a2 = App.el('a', 'mu-btn', '汉字图鉴');
       a2.href = '#/atlas';
       acts.appendChild(a2);
@@ -1220,7 +1279,9 @@
 
       p.appendChild(body);
       if (isSeen) {
-        setTimeout(function () { say('「' + ch + '」收进典藏了。' + ((pool && pool.mean) || (obj && obj.meaning) || '') + '　你从哪一笔看出来的？'); }, 120);
+        var tail = item ? item.title
+                        : (((pool && pool.mean) || (obj && obj.meaning) || '') + '　你从哪一笔看出来的？');
+        setTimeout(function () { say('「' + ch + '」收进典藏了。' + tail); }, 120);
       }
     });
   }
@@ -1228,11 +1289,16 @@
   /* ============================================================
      导览 + 实时统计
      ------------------------------------------------------------
-     一张清单：十二件骨版按分区列出来，点一项就飞过去并展开展签；
+     一张清单：十二件骨版按四段列出来，点一项就飞过去并展开展签；
      顶上一条统计：已观展 / 认过字 / 已拼成 / 守字之骨 —— 每次开面板都现算，
      所以点完一件回来，数字就是新的。
      ============================================================ */
-  var ZONE_ORDER = ['天象', '山川', '草木', '禽兽虫鱼', '人居器物'];
+  /* 导览的筛选键 = 陈列的四段（卜材 / 卜辞 / 文字 / 发现）。
+     原来写死的是王邑地图的五个景物分区（天象/山川/草木/禽兽虫鱼/人居器物），
+     环上换成四段陈列之后，那份分区表已经和厅里对不上了 —— 从这里改成读数据文件。 */
+  var ZONE_ORDER = ((App.oracleHall && App.oracleHall.sections) || []).map(function (s) {
+    return s.name;
+  });
 
   function liveStats() {
     var seen = seenCount();
@@ -1275,20 +1341,23 @@
 
       /* 清单 */
       var box = App.el('div', 'mu-index');
-      list.filter(function (o) { return !filterZone || o.zone === filterZone; })
+      list.filter(function (o) { return !filterZone || o.sec === filterZone; })
         .forEach(function (o) {
-          var row = App.el('button', 'mu-index-row');
-          row.type = 'button';
+          var row2 = App.el('button', 'mu-index-row');
+          row2.type = 'button';
           var g = glyphNode(o.ch, 'mu-index-g');
-          if (g) { row.appendChild(g); } else { row.appendChild(App.el('span', null, o.ch)); }
+          if (g) { row2.appendChild(g); } else { row2.appendChild(App.el('span', null, o.ch)); }
           var mid = App.el('div', 'mu-index-mid');
-          mid.appendChild(App.el('b', null, o.ch));
-          mid.appendChild(App.el('span', null, (o.zone || '') + (o.meaning ? '　·　' + o.meaning : '')));
-          row.appendChild(mid);
+          mid.appendChild(App.el('b', null, o.now || o.ch));
+          /* 第二行：段名 + 主题。原来写的是"短题·释义"，而主题本身就以短题开头，
+             读出来是"卜骨·牛肩胛骨：……"，重复一遍。 */
+          mid.appendChild(App.el('span', null,
+            (o.sec ? o.sec + '　·　' : '') + (o.title || o.meaning || '')));
+          row2.appendChild(mid);
           var st = App.el('span', 'mu-index-st' + (S.seen[o.ch] ? ' is-on' : ''),
             S.seen[o.ch] ? '已观' : '未观');
-          row.appendChild(st);
-          row.onclick = function () {
+          row2.appendChild(st);
+          row2.onclick = function () {
             closePanel();
             /* 先飞过去（有 3D 时），再展开展签 */
             setTimeout(function () {
@@ -1296,7 +1365,7 @@
               openExhibit(o.ch, false);
             }, 220);
           };
-          box.appendChild(row);
+          box.appendChild(row2);
         });
       body.appendChild(box);
 
@@ -1329,7 +1398,7 @@
       kicker: '甲骨文知识厅 · 怎么读一片卜辞',
       lead: '一片完整的卜辞，通常由四段组成。四段不一定都齐，越完整的越少见。',
       rows: [
-        ['叙辞', '记时间和占卜者，例如「癸卯卜，壳贞」：癸卯这天灼骨，名叫壳的人主问。'],
+        ['叙辞', '记时间和占卜者，例如「癸卯卜，殼贞」：癸卯这天灼骨，贞人殼主问。'],
         ['命辞', '要问的事，例如「今岁受年」：今年会有好收成吗。'],
         ['占辞', '商王看完兆纹的判断，例如「吉」「其雨」。'],
         ['验辞', '事后追记应验与否，例如「允雨」：果然下雨了。']
@@ -1826,18 +1895,23 @@
     hall.appendChild(grid);
     box.appendChild(hall);
 
-    /* 十二件展品仍然可以点开看展签 */
+    /* 十二件展品仍然可以点开看展签。
+       ⚠ 这里原来写死的是那十二个常用字（日 月 雨 山 川 泉 木 林 牛 鱼 门 鼎），
+       环上换成四段陈列之后，没有 WebGL 的用户会看到一排厅里已经不存在的字。
+       改成读同一份数据，两边的陈列永远一致。 */
     var rowWrap = App.el('div', 'mu-fb-row');
-    rowWrap.appendChild(App.el('h3', 'mu-fb-h', '甲骨文展厅 · 十二件骨版'));
+    rowWrap.appendChild(App.el('h3', 'mu-fb-h', '甲骨文展厅 · 四段十二件'));
     var list = App.el('div', 'mu-fb-list');
-    ['日', '月', '雨', '山', '川', '泉', '木', '林', '牛', '鱼', '门', '鼎'].forEach(function (ch) {
+    var fbItems = (App.oracleHall && App.oracleHall.items) || [];
+    fbItems.forEach(function (it) {
       var b = App.el('button', 'mu-fb-item');
       b.type = 'button';
-      var g = glyphNode(ch, 'mu-fb-item-g');
+      var g = glyphNode(it.ch, 'mu-fb-item-g');
       if (g) { b.appendChild(g); }
-      b.appendChild(App.el('span', null, ch));
-      if (S.seen[ch]) { b.classList.add('is-seen'); }
-      b.onclick = function () { openExhibit(ch, false); };
+      b.appendChild(App.el('span', null, it.now || it.ch));
+      b.appendChild(App.el('em', 'mu-fb-item-tag', it.tag || ''));
+      if (S.seen[it.ch]) { b.classList.add('is-seen'); }
+      b.onclick = function () { openExhibit(it.ch, false); };
       list.appendChild(b);
     });
     rowWrap.appendChild(list);
