@@ -729,7 +729,7 @@
 
     st.scene.add(g);
     return { root: g, body: body, glyphG: glyphG, shields: shields, flash: flash,
-             basePos: new T.Vector3(0, 3.4, -2.6) };
+             basePos: new T.Vector3(0, 3.45, -3.7) };
   }
 
   /* 把整字刻到 Boss 版心（阶段一用） */
@@ -737,6 +737,22 @@
     var T = S.st.T;
     var g = boss.glyphG;
     while (g.children.length) { g.remove(g.children[0]); }
+    /* 刻字时把字往前推一下：从版心后 0.30 处推出来，并放大一点再落定。
+       骨版已经退到 z=-3.7，正好留出这段推出来的空间。 */
+    var zEnd = g.position.z;
+    g.position.z = zEnd - 0.30;
+    g.scale.setScalar(0.86);
+    (function pushForward() {
+      var t0 = performance.now();
+      (function step() {
+        var k = Math.min(1, (performance.now() - t0) / 520);
+        var e = 1 - Math.pow(1 - k, 3);
+        g.position.z = (zEnd - 0.30) + 0.30 * e;
+        g.scale.setScalar(0.86 + 0.14 * e + Math.sin(e * Math.PI) * 0.05);
+        if (k < 1) { requestAnimationFrame(step); }
+        else { g.position.z = zEnd; g.scale.setScalar(1); }
+      })();
+    })();
     var gm = App.worldGlyph.glyphMesh(ch, size || 2.1, { color: 0x3a2c18, emissive: 0xffb264, glow: 0.22 });
     if (gm) {
       gm.name = 'boss-glyph';
@@ -906,6 +922,7 @@
 
   function setPhase(n) {
     S.phase = n;
+    if (App.battleMusic && App.battleMusic.setPhase) { App.battleMusic.setPhase(n); }
     if (typeof updateStep === 'function') { updateStep(); }
     for (var i = 0; i < S.uiStages.length; i++) {
       S.uiStages[i].className = 'bd3-st' + (i + 1 === n ? ' on' : (i + 1 < n ? ' done' : ''));
@@ -1235,6 +1252,10 @@
     var st = S.st;
     for (var i = 0; i < S.widgets.length; i++) {
       var w = S.widgets[i];
+      /* 法阵与守阵兽要活过整段关卡：阶段三里 showQuestion() 每问一句都会清场，
+         原来把法阵一起清了，兽体就永远停在 scale 0.02（羽毛鸟"没有"就是这个）
+         清理时跳过它，由 summonPhase 自己在换阶段时替换。 */
+      if (w.userData && w.userData.persist) { continue; }
       if (w.parent) { w.parent.remove(w); }
       if (w.userData && w.userData.dispose) { w.userData.dispose(); }
     }
@@ -1327,11 +1348,15 @@
   function summonPhase(n) {
     var st = S.st;
     if (!st) { return; }
+    /* 换阶段：先把上一座法阵拆掉 */
+    if (S.sigil && S.sigil.grp && S.sigil.grp.parent) {
+      S.sigil.grp.parent.remove(S.sigil.grp);
+    }
     var T = st.T;
     var grp = new T.Group();
     /* 原来在 3.35，正好落在四片构件骨（z=4.2）后面 —— 玩家点不到守阵兽。
        挪到构件骨之前，先看见、先打。 */
-    grp.position.set(0, 0.02, 5.15);
+    grp.position.set(0, 0.02, 5.55);
 
     var ringMat = new T.MeshBasicMaterial({
       color: 0xffd9a0, transparent: true, opacity: 0.0,
@@ -1396,6 +1421,7 @@
     /* 守阵兽参与判定：3 下打散，散了才允许动 Boss 的字 */
     var GUARD_NAME = { 1: '骨甲虫', 2: '骨蛇', 3: '羽骨鸟' };
     grp.userData.guard = true;
+    grp.userData.persist = true;   /* 清场时不拆（见 clearWidgets） */
     S.guard = {
       hp: 3, max: 3, dead: false, phase: n,
       name: GUARD_NAME[n] || '守阵骨兽',
@@ -1407,7 +1433,12 @@
 
   function tickSigil(dt) {
     var g = S.sigil;
-    if (!g || !g.grp.parent) { return; }
+    if (!g) { return; }
+    if (!g.grp.parent && S.st) {
+      /* 自愈：被别的清场逻辑顺手摘掉时就挂回去 */
+      S.st.scene.add(g.grp);
+      g.t = 0;
+    }
     g.t += dt;
     var k = Math.min(1, g.t / 1.1);
     var e = 1 - Math.pow(1 - k, 3);
@@ -1487,7 +1518,8 @@
       .filter(function (c) { return PHASE1_COMPS.indexOf(c) < 0 && App.worldGlyph.hasGlyph(c); });
     var R = rnd(913);
     var picks = [];
-    while (picks.length < 2 && pal.length) {
+    /* 候选从 4 片加到 6 片：只有四片时"排除法"太好用，一阶几乎不用看字 */
+    while (picks.length < 4 && pal.length) {
       var idx = Math.floor(R() * pal.length) % pal.length;
       var c = pal.splice(idx, 1)[0];
       if (picks.indexOf(c) < 0) { picks.push(c); }
@@ -1501,8 +1533,8 @@
 
     S.plateRefs = {};
     for (var k = 0; k < all.length; k++) {
-      var p = makePlate(st, all[k], 1.06, { seed: 300 + k * 11, tag: 'comp' });
-      p.position.set(-2.85 + k * 2.05, 2.35, 4.2);
+      var p = makePlate(st, all[k], 0.98, { seed: 300 + k * 11, tag: 'comp' });
+      p.position.set(-4.10 + k * 1.64, 2.35, 4.2);
       p.userData.baseY = p.position.y;
       p.userData.phase = 0;
       addWidget(p);
@@ -1689,7 +1721,7 @@
     var opts = [q.miss];
     var R = rnd(1000 + S.qIndex * 37);
     var guard = 0;
-    while (opts.length < 4 && guard++ < 200) {
+    while (opts.length < 6 && guard++ < 200) {
       var c = pool[Math.floor(R() * pool.length) % pool.length];
       if (opts.indexOf(c) >= 0) { continue; }
       if (q.text.indexOf(c) >= 0) { continue; }
@@ -1702,7 +1734,7 @@
 
     for (var m = 0; m < opts.length; m++) {
       var p = makePlate(st, opts[m], 1.04, { seed: 500 + m * 13, tag: 'opt', kai: true });
-      p.position.set(-2.15 + m * 1.95, 1.62, 4.6);
+      p.position.set(-3.55 + m * 1.42, 1.62, 4.6);
       p.userData.baseY = p.position.y;
       addWidget(p);
     }
@@ -1743,6 +1775,7 @@
   /* ================= 胜利 / 败退 ================= */
   function win() {
     clearWidgets();
+    if (App.battleMusic) { App.battleMusic.finish(); }
     if (App.progress) {
       App.progress.boss({
         cleared: true,
@@ -2231,6 +2264,8 @@
       S.t0 = performance.now();
       setHp(100);
       startPhase1();
+      /* 战斗音乐：和馆里「声音」开关联动 */
+      if (App.battleMusic) { App.battleMusic.start(1); }
       showFace();
       /* 第一次进来先讲清楚怎么打；点「开始」才关 */
       S.intro = true;
@@ -2248,6 +2283,7 @@
   }
 
   function unmount() {
+    if (App.battleMusic) { App.battleMusic.stop(0.5); }
     if (S._hoverRef) { S._hoverRef(); S._hoverRef = null; }
     if (S.halo) {
       if (S.halo.parent) { S.halo.parent.remove(S.halo); }
