@@ -710,10 +710,9 @@
       { ch: '鼎', zone: '人居器物', meaning: '三足两耳的鼎' }
     ];
 
-    /* 十二件展品排成一个弧形（半圆壁龛）：
-       直的排一排像货架，弧的排才像展厅 —— 中间的近、两端的退，
-       一眼就看得出"还有更多在两边"。 */
-    var ARC_R = 11.2, ARC_CZ = -5.8, ARC_SPAN = 0.76;
+    /* 十二件展品沿一圈摆开（环厅）：
+       人站在厅中央转头看，一件一件转过来；不再是一排挤在正前方。 */
+    var RING_R = 7.9, RING_CZ = -5.6;
     var pedMtl = std({ color: 0x453d33, roughness: 0.55, metalness: 0.22, envMapIntensity: 0.7 });
     var pedGeo = new T.CylinderGeometry(0.40, 0.46, 1.12, 18, 1);
     var capGeo2 = new T.CylinderGeometry(0.50, 0.52, 0.08, 18, 1);
@@ -721,10 +720,11 @@
     var n = EXHIBITS.length;
 
     EXHIBITS.forEach(function (e, i) {
-      var t = (i / (n - 1) - 0.5) * 2 * ARC_SPAN;
-      var gx = Math.sin(t) * ARC_R;
-      var gz = ARC_CZ - Math.cos(t) * ARC_R;
-      var face = -t;   /* 每件都转向弧心，正对观众 */
+      /* 均分一圈；第一件放在正前方（-z 方向），其余顺时针排开 */
+      var a = -Math.PI / 2 + (i / n) * Math.PI * 2;
+      var gx = Math.sin(a) * RING_R;
+      var gz = RING_CZ + Math.cos(a) * RING_R;
+      var face = a + Math.PI;   /* 每件都朝圆心 */
 
       var ped = new T.Mesh(pedGeo, pedMtl);
       ped.position.set(gx, 0.56, gz);
@@ -1818,7 +1818,7 @@
     }
 
     addBackPlaque(proG, { x: 3.5, y: 1.6, z: -3.0 });
-    addBackPlaque(gal, { x: 4.4, y: 1.6, z: -2.4 });
+    addBackPlaque(gal, { x: -8.37, y: 1.72, z: -8.64, ry: 1.22 });
     /* ---------- 知识陈设：三块石板 ---------- */
     function knowledgeBoard(opt) {
       var cv = App.museumTex.canvas(640, 420);
@@ -1859,23 +1859,34 @@
       return mesh;
     }
 
+    /* 三块石板插在环上（骨版之间），一起朝圆心 */
+    function ringSpot(deg, r) {
+      var a = deg * Math.PI / 180;
+      return {
+        x: Math.sin(a) * (r || RING_R), z: RING_CZ + Math.cos(a) * (r || RING_R),
+        ry: a + Math.PI
+      };
+    }
+    var b1 = ringSpot(-60, RING_R + 1.05);
     knowledgeBoard({
       topic: 'structure', title: '一片卜辞的结构',
       lines: ['叙辞：谁、在哪一天问', '命辞：要问的那件事',
               '占辞：商王看兆后的判断', '验辞：后来应验了没有'],
-      x: -3.55, y: 3.30, z: -7.3, w: 1.95
+      x: b1.x, y: 3.55, z: b1.z, w: 1.95, ry: b1.ry
     });
+    var b2 = ringSpot(60, RING_R + 1.05);
     knowledgeBoard({
       topic: 'periods', title: '甲骨文的五个时期',
       lines: ['一期 武丁', '二期 祖庚 · 祖甲', '三期 廪辛 · 康丁',
               '四期 武乙 · 文丁', '五期 帝乙 · 帝辛'],
-      x: 3.55, y: 3.30, z: -7.3, w: 1.95
+      x: b2.x, y: 3.55, z: b2.z, w: 1.95, ry: b2.ry
     });
+    var b3 = ringSpot(180, RING_R + 1.05);
     knowledgeBoard({
       topic: 'numbers', title: '数字说甲骨',
       lines: ['出土甲骨 约十五万片', '单字 约四千五百个',
               '已释读 约一千三百字', '常用字基本认得出'],
-      x: 5.7, y: 2.75, z: -2.2, w: 1.95, ry: -Math.PI / 2 + 0.3
+      x: b3.x, y: 3.55, z: b3.z, w: 1.95, ry: b3.ry
     });
 
     /* 序厅并进来之后，它的内容改成厅里这块说明碑：点开就是原来的序厅面板 */
@@ -1899,8 +1910,8 @@
         new T.PlaneGeometry(1.85, 0.72),
         new T.MeshBasicMaterial({ map: canvasTex(cv, { srgb: true }), transparent: true })
       );
-      mesh.position.set(-4.3, 1.62, -2.4);
-      mesh.rotation.y = 0.55;
+      mesh.position.set(8.37, 1.78, -8.64);
+      mesh.rotation.y = 5.06;
       mesh.userData = { kind: 'prologue', zone: 'prologue' };
       gal.add(mesh);
       pickables.push(mesh);
@@ -2310,7 +2321,8 @@
 
     var AREAS = {
       hall:       { z: 0,                  y: 3.05, dz: 0,    r: 19.0, phi: 1.43, minPhi: 0.62, maxPhi: 1.47, minR: 7.5, maxR: 27, fog: 0.020 },
-      gallery:    { z: GAL_Z,              y: 3.0, dz: -15.0, r: 16.4, phi: 1.46, minPhi: 1.10, maxPhi: 1.46, minR: 5.5, maxR: 17, fog: 0.032 },
+      /* 知识厅：镜头在厅中央，绕着环看；可以拉远看全厅 */
+      gallery:    { z: GAL_Z - 5.6,        y: 3.6, dz: 0,     r: 9.4, phi: 1.18, minPhi: 0.66, maxPhi: 1.50, minR: 2.6, maxR: 18, fog: 0.022 },
       prologue:   { z: ANX_Z - ANX_GAP * 3, y: 2.4, dz: -2.8, r: 6.9, phi: 1.30, minPhi: 0.92, maxPhi: 1.46, minR: 3.4, maxR: 12, fog: 0.026 },
       build:      { z: ANX_Z,              y: 1.8, dz: -2.5,  r: 7.6, phi: 1.36, minPhi: 0.90, maxPhi: 1.46, minR: 3.6, maxR: 13, fog: 0.020 },
       excavate:   { z: ANX_Z - ANX_GAP,    y: 1.0, dz: -4.2,  r: 8.2, phi: 0.98, minPhi: 0.55, maxPhi: 1.42, minR: 4.0, maxR: 14, fog: 0.022 },
