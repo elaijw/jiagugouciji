@@ -193,6 +193,13 @@
     };
     right.appendChild(btnSpot);
 
+    /* 导览：一张清单 + 实时统计，点一项就飞过去 */
+    var btnIndex = App.el('button', 'mu-btn mu-btn-index', '导览');
+    btnIndex.type = 'button';
+    btnIndex.title = '展品清单与实时统计';
+    btnIndex.onclick = function () { openIndex(''); };
+    right.appendChild(btnIndex);
+
     /* 声音：默认关。展厅不需要"一进来就有音乐"，但可以自己打开。 */
     var btnAudio = App.el('button', 'mu-btn mu-btn-audio', '声音');
     btnAudio.type = 'button';
@@ -1086,6 +1093,97 @@
       if (isSeen) {
         setTimeout(function () { say('「' + ch + '」收进典藏了。' + ((pool && pool.mean) || (obj && obj.meaning) || '') + '　你从哪一笔看出来的？'); }, 120);
       }
+    });
+  }
+
+  /* ============================================================
+     导览 + 实时统计
+     ------------------------------------------------------------
+     一张清单：十二件骨版按分区列出来，点一项就飞过去并展开展签；
+     顶上一条统计：已观展 / 认过字 / 已拼成 / 守字之骨 —— 每次开面板都现算，
+     所以点完一件回来，数字就是新的。
+     ============================================================ */
+  var ZONE_ORDER = ['天象', '山川', '草木', '禽兽虫鱼', '人居器物'];
+
+  function liveStats() {
+    var seen = seenCount();
+    var pg = (App.progress && App.progress.summary) ? App.progress.summary() : { total: 0, floatN: 0, boss: null };
+    return [
+      ['已观展', seen + ' / 12'],
+      ['认过字', (pg.total || 0) + ''],
+      ['骨片点开', (pg.floatN || 0) + ''],
+      ['守字之骨', (pg.boss && pg.boss.cleared) ? '已通过' : '未通过']
+    ];
+  }
+
+  function openIndex(filterZone) {
+    /* 展品清单直接用 3D 那边的 EXHIBITS（ch / zone / meaning） */
+    var list = (S.api && S.api.exhibits && S.api.exhibits.length)
+      ? S.api.exhibits.slice() : [];
+    openPanel(function (p) {
+      panelHead(p, '索', '展品导览 · 点一项就过去');
+      var body = App.el('div', 'mu-p-body');
+
+      /* 实时统计 */
+      var nums = App.el('div', 'mu-p-nums');
+      liveStats().forEach(function (kv) {
+        var c = App.el('div', 'mu-p-num');
+        c.appendChild(App.el('b', null, kv[1]));
+        c.appendChild(App.el('span', null, kv[0]));
+        nums.appendChild(c);
+      });
+      body.appendChild(nums);
+
+      /* 分区筛选 */
+      var chips = App.el('div', 'mu-p-filter');
+      [''].concat(ZONE_ORDER).forEach(function (z) {
+        var b = App.el('button', 'mu-btn mu-btn-sm' + ((filterZone || '') === z ? ' on' : ''), z || '全部');
+        b.type = 'button';
+        b.onclick = function () { openIndex(z); };
+        chips.appendChild(b);
+      });
+      body.appendChild(chips);
+
+      /* 清单 */
+      var box = App.el('div', 'mu-index');
+      list.filter(function (o) { return !filterZone || o.zone === filterZone; })
+        .forEach(function (o) {
+          var row = App.el('button', 'mu-index-row');
+          row.type = 'button';
+          var g = glyphNode(o.ch, 'mu-index-g');
+          if (g) { row.appendChild(g); } else { row.appendChild(App.el('span', null, o.ch)); }
+          var mid = App.el('div', 'mu-index-mid');
+          mid.appendChild(App.el('b', null, o.ch));
+          mid.appendChild(App.el('span', null, (o.zone || '') + (o.meaning ? '　·　' + o.meaning : '')));
+          row.appendChild(mid);
+          var st = App.el('span', 'mu-index-st' + (S.seen[o.ch] ? ' is-on' : ''),
+            S.seen[o.ch] ? '已观' : '未观');
+          row.appendChild(st);
+          row.onclick = function () {
+            closePanel();
+            /* 先飞过去（有 3D 时），再展开展签 */
+            setTimeout(function () {
+              if (S.api && S.api.focusExhibit) { S.api.focusExhibit(o.ch); }
+              openExhibit(o.ch, false);
+            }, 220);
+          };
+          box.appendChild(row);
+        });
+      body.appendChild(box);
+
+      /* 三块知识石板也放进导览 */
+      body.appendChild(App.el('p', 'mu-p-k', '知识陈设'));
+      var bd = App.el('div', 'mu-p-acts');
+      [['structure', '一片卜辞的结构'], ['periods', '甲骨文的五个时期'], ['numbers', '数字说甲骨']]
+        .forEach(function (kv) {
+          var b2 = App.el('button', 'mu-btn', kv[1]);
+          b2.type = 'button';
+          b2.onclick = function () { openBoard(kv[0]); };
+          bd.appendChild(b2);
+        });
+      body.appendChild(bd);
+
+      p.appendChild(body);
     });
   }
 
