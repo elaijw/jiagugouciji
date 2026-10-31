@@ -795,3 +795,8 @@ body.mu-play-lock .mu-vignette { visibility: hidden; }
 /* 玩法层里的声音开关：挨着「回馆」，往左让 84px */
 .mu-play-exit.mu-play-snd { right: 120px; letter-spacing: .04em; }
 .mu-play-snd[aria-pressed="true"] { border-color: #ffce8c; color: #ffe6bd; }
+
+/* 知识陈设面板 */
+.mu-p-board-t { margin: 2px 0 8px; font-family: var(--font-title, "Kaiti SC", serif);
+  font-size: 19px; letter-spacing: .08em; color: #ffe6bd; }
+.mu-p-board-lead { margin: 0 0 14px; font-size: 13px; line-height: 1.9; color: #c8b899; }

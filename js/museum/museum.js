@@ -440,6 +440,7 @@
     if (hit.type === 'tablet') { openTablet(); return; }
     if (hit.type === 'stele') { openPrologue(); return; }
     if (hit.type === 'prologue') { openPrologue(); return; }
+    if (hit.type === 'board') { openBoard(hit.topic); return; }
     if (hit.type === 'plastron') { openPlastron(); return; }
     if (hit.type === 'case') { openExhibit('鼎', false); return; }
     if (hit.type === 'slot') { openExhibit(hit.char, false); return; }
@@ -1085,6 +1086,63 @@
       if (isSeen) {
         setTimeout(function () { say('「' + ch + '」收进典藏了。' + ((pool && pool.mean) || (obj && obj.meaning) || '') + '　你从哪一笔看出来的？'); }, 120);
       }
+    });
+  }
+
+  /* ---------- 知识陈设：三块石板的面板 ---------- */
+  var BOARDS = {
+    structure: {
+      title: '一片卜辞的结构',
+      kicker: '甲骨文知识厅 · 怎么读一片卜辞',
+      lead: '一片完整的卜辞，通常由四段组成。四段不一定都齐，越完整的越少见。',
+      rows: [
+        ['叙辞', '记时间和占卜者，例如「癸卯卜，壳贞」：癸卯这天灼骨，名叫壳的人主问。'],
+        ['命辞', '要问的事，例如「今岁受年」：今年会有好收成吗。'],
+        ['占辞', '商王看完兆纹的判断，例如「吉」「其雨」。'],
+        ['验辞', '事后追记应验与否，例如「允雨」：果然下雨了。']
+      ],
+      note: '这四段的命名来自后世研究者的整理（常用术语见陈梦家《殷虚卜辞综述》一类著作），并非甲骨上写着的标题。'
+    },
+    periods: {
+      title: '甲骨文的五个时期',
+      kicker: '甲骨文知识厅 · 分期',
+      lead: '董作宾依据字体、世系、称谓等，把殷墟甲骨分成五期。后世虽有修正，五期仍是入门的通用框架。',
+      rows: [
+        ['一期', '武丁。字大而雄，气象开阔。'],
+        ['二期', '祖庚、祖甲。字渐工整，行款趋谨。'],
+        ['三期', '廪辛、康丁。字多草率，笔势轻。'],
+        ['四期', '武乙、文丁。字复趋劲峭。'],
+        ['五期', '帝乙、帝辛。字小而密，最像后世金文。']
+      ],
+      note: '分期是研究工具，不是甲骨上刻的年份。同一时期的不同刻手，风格也会差很多。'
+    },
+    numbers: {
+      title: '数字说甲骨',
+      kicker: '甲骨文知识厅 · 数一数',
+      lead: '下面这些数字是学界常用的约数，不同统计口径会略有出入。',
+      rows: [
+        ['约十五万片', '已出土的有字甲骨总量（含流散海外的），是"片"不是"件"。'],
+        ['约四千五百个', '甲骨文里出现的单字总数，按不同字表统计略有差别。'],
+        ['约一千三百字', '已被可靠释读的单字，多为常用字；剩下的大多是人名、地名、祭名。'],
+        ['一条断代线', '殷墟甲骨主要属于商代晚期，约公元前十四世纪到前十一世纪。']
+      ],
+      note: '数字随新发现与新研究变动，这里只给量级，不作为精确统计引用。'
+    }
+  };
+
+  function openBoard(topic) {
+    var b = BOARDS[topic];
+    if (!b) { say('这块石板还没写完。'); return; }
+    openPanel(function (p) {
+      panelHead(p, '文', b.kicker);
+      var body = App.el('div', 'mu-p-body');
+      body.appendChild(App.el('h3', 'mu-p-board-t', b.title));
+      body.appendChild(App.el('p', 'mu-p-board-lead', b.lead));
+      var dl = App.el('dl', 'mu-p-dl');
+      b.rows.forEach(function (kv) { row(dl, kv[0], kv[1]); });
+      body.appendChild(dl);
+      body.appendChild(App.el('p', 'mu-p-note', b.note));
+      p.appendChild(body);
     });
   }
 

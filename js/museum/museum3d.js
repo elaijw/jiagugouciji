@@ -1819,6 +1819,65 @@
 
     addBackPlaque(proG, { x: 3.5, y: 1.6, z: -3.0 });
     addBackPlaque(gal, { x: 4.4, y: 1.6, z: -2.4 });
+    /* ---------- 知识陈设：三块石板 ---------- */
+    function knowledgeBoard(opt) {
+      var cv = App.museumTex.canvas(640, 420);
+      var c = cv.getContext('2d');
+      var g = c.createLinearGradient(0, 0, 0, 420);
+      g.addColorStop(0, 'rgba(52,42,32,.98)');
+      g.addColorStop(1, 'rgba(28,22,17,.98)');
+      c.fillStyle = g;
+      c.fillRect(0, 0, 640, 420);
+      c.strokeStyle = 'rgba(214,186,126,.42)';
+      c.lineWidth = 4;
+      c.strokeRect(10, 10, 620, 400);
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillStyle = 'rgba(242,228,200,.95)';
+      c.font = '600 46px "Songti SC","Noto Serif SC",serif';
+      c.fillText(opt.title, 320, 66);
+      c.fillStyle = 'rgba(232,220,194,.06)';
+      c.fillRect(56, 100, 528, 2);
+      c.fillStyle = 'rgba(232,220,194,.72)';
+      c.font = '400 26px "Songti SC","Noto Serif SC",serif';
+      (opt.lines || []).forEach(function (line, i) {
+        c.fillText(line, 320, 152 + i * 46);
+      });
+      c.fillStyle = 'rgba(232,220,194,.42)';
+      c.font = '400 20px "Songti SC","Noto Serif SC",serif';
+      c.fillText('点开细看', 320, 386);
+
+      var mesh = new T.Mesh(
+        new T.PlaneGeometry(opt.w || 2.5, (opt.w || 2.5) * 0.66),
+        new T.MeshBasicMaterial({ map: canvasTex(cv, { srgb: true }), transparent: true })
+      );
+      mesh.position.set(opt.x, opt.y || 2.5, opt.z);
+      mesh.rotation.y = opt.ry || 0;
+      mesh.userData = { kind: 'board', topic: opt.topic, zone: 'board' };
+      gal.add(mesh);
+      pickables.push(mesh);
+      return mesh;
+    }
+
+    knowledgeBoard({
+      topic: 'structure', title: '一片卜辞的结构',
+      lines: ['叙辞：谁、在哪一天问', '命辞：要问的那件事',
+              '占辞：商王看兆后的判断', '验辞：后来应验了没有'],
+      x: -3.55, y: 3.30, z: -7.3, w: 1.95
+    });
+    knowledgeBoard({
+      topic: 'periods', title: '甲骨文的五个时期',
+      lines: ['一期 武丁', '二期 祖庚 · 祖甲', '三期 廪辛 · 康丁',
+              '四期 武乙 · 文丁', '五期 帝乙 · 帝辛'],
+      x: 3.55, y: 3.30, z: -7.3, w: 1.95
+    });
+    knowledgeBoard({
+      topic: 'numbers', title: '数字说甲骨',
+      lines: ['出土甲骨 约十五万片', '单字 约四千五百个',
+              '已释读 约一千三百字', '常用字基本认得出'],
+      x: 5.7, y: 2.75, z: -2.2, w: 1.95, ry: -Math.PI / 2 + 0.3
+    });
+
     /* 序厅并进来之后，它的内容改成厅里这块说明碑：点开就是原来的序厅面板 */
     (function prologueTablet() {
       var cv = App.museumTex.canvas(512, 200);
@@ -2209,6 +2268,8 @@
         send({ type: 'back' });
       } else if (u.kind === 'prologue') {
         send({ type: 'prologue' });
+      } else if (u.kind === 'board') {
+        send({ type: 'board', topic: u.topic });
       }
     }
 
