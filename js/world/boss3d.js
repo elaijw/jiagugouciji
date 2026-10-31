@@ -365,17 +365,73 @@
       return App.stage3d.tex(vc);
     }
 
-    var vortexTex = vortexTexture();
-    var mouth = new T.Mesh(
-      new T.PlaneGeometry(15.4, 14.8),
-      new T.MeshBasicMaterial({
-        map: vortexTex, transparent: true, opacity: 1.0,
-        depthWrite: false, fog: false, blending: T.NormalBlending, toneMapped: false
-      })
-    );
+    /* 漩涡：着色器版。极坐标里把半径和角度搅在一起，就是螺旋；
+       再加一层"向内抽"的相位，整片会缓慢往里流。 */
+    var vortexMat = null;
+    try {
+      vortexMat = new T.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        fog: false,
+        uniforms: {
+          uTime: { value: 0 },
+          uPower: { value: 1.0 }
+        },
+        vertexShader: [
+          'varying vec2 vUv;',
+          'void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }'
+        ].join('\n'),
+        fragmentShader: [
+          'varying vec2 vUv;',
+          'uniform float uTime;',
+          'uniform float uPower;',
+          'float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }',
+          'void main(){',
+          '  vec2 p = vUv - 0.5;',
+          '  float r = length(p) * 2.0;',
+          '  float a = atan(p.y, p.x);',
+          /* 螺旋：角度 + 半径 * 系数 + 时间流动 */
+          '  float swirl = a + r * 3.1 - uTime * (0.55 + uPower * 0.9);',
+          '  float arms = 0.5 + 0.5 * cos(swirl * 5.0);',
+          '  float arms2 = 0.5 + 0.5 * cos(swirl * 11.0 + 1.7);',
+          /* 越靠中心越暗、越往外越淡 */
+          '  float core = smoothstep(0.30, 0.02, r);',
+          '  float edge = smoothstep(1.0, 0.55, r);',
+          '  float glow = (arms * 0.55 + arms2 * 0.22) * smoothstep(0.06, 0.75, r);',
+          '  vec3 deep = vec3(0.045, 0.020, 0.075);',
+          '  vec3 armc = vec3(0.42, 0.24, 0.62);',
+          '  vec3 warm = vec3(0.55, 0.36, 0.16);',
+          '  vec3 col = mix(deep, armc, glow);',
+          '  col += warm * pow(glow, 3.0) * 0.35;',
+          '  col *= mix(0.35, 1.0, smoothstep(0.02, 0.28, r));',
+          '  col *= (1.0 - core * 0.92);',
+          '  float alpha = edge * (0.55 + glow * 0.45);',
+          '  gl_FragColor = vec4(col, alpha * 0.98);',
+          '}'
+        ].join('\n')
+      });
+    } catch (e0) {
+      vortexMat = null;
+    }
+
+    var mouth;
+    if (vortexMat) {
+      mouth = new T.Mesh(new T.PlaneGeometry(15.4, 14.8), vortexMat);
+    } else {
+      /* 着色器不可用就退回贴图版，不让门洞变成白板 */
+      var vortexTex = vortexTexture();
+      mouth = new T.Mesh(
+        new T.PlaneGeometry(15.4, 14.8),
+        new T.MeshBasicMaterial({
+          map: vortexTex, transparent: true, opacity: 1.0,
+          depthWrite: false, fog: false, toneMapped: false
+        })
+      );
+    }
     mouth.position.set(0, 5.6, -15.4);
     st.scene.add(mouth);
     S.vortex = mouth;
+    S.vortexShader = !!vortexMat;
 
     /* ---------- 地面的火：贴地光斑 + 点光 ---------- */
     var cv = App.stage3d.canvas(256, 256), c = cv.getContext('2d');
@@ -1605,22 +1661,46 @@
     S.finalElapsed = (performance.now() - S.t0) / 1000;
     var st = S.st;
 
-    /* 骨版崩解：下沉 + 旋转 + 缩小 */
+    /* 骨版被吸回漩涡：先浮起来，再往洞口方向飞、越转越快、越缩越小、最后淡掉 */
+    S.suck = 2.4;                       /* 漩涡加速 */
     var t0 = 0;
-    S.bursts = S.bursts || [];
-    S.bursts.push(function (dt) {
-      t0 += dt;
-      var e = Math.min(1, t0 / 1.6);
-      boss.root.position.y = boss.basePos.y - e * 4.2;
-      boss.root.rotation.z = e * 0.55;
-      boss.root.rotation.y = e * 1.1;
-      boss.root.scale.setScalar(1 - e * 0.65);
+    var from = boss.root.position.clone();
+    var to = new T.Vector3(0, 5.2, -12.4);
+    var mats = [];
+    boss.root.traverse(function (m) {
+      if (m.material && !Array.isArray(m.material)) {
+        if (!m.material._suctioned) {
+          m.material = m.material.clone();
+          m.material._suctioned = true;
+        }
+        m.material.transparent = true;
+        mats.push(m.material);
+      }
+    });
+    /* 这段不用 tick 的 bursts 队列：那条队列在通关后不一定还在跑。
+       自带一条 rAF，稳。 */
+    var tPrev = performance.now();
+    (function suckStep() {
+      var now = performance.now();
+      var dt2 = Math.min(0.05, (now - tPrev) / 1000);
+      tPrev = now;
+      t0 += dt2;
+      var e = Math.min(1, t0 / 2.1);
+      var k = e * e;                    /* 加速：越靠近洞口越快 */
+      boss.root.position.lerpVectors(from, to, k);
+      boss.root.rotation.y += dt2 * (1.2 + k * 9);
+      boss.root.rotation.z = Math.sin(t0 * 5) * 0.25 * (1 - k);
+      boss.root.scale.setScalar(1 - k * 0.94);
+      for (var mi = 0; mi < mats.length; mi++) {
+        mats[mi].opacity = 1 - Math.pow(e, 1.6);
+      }
       if (e >= 1) {
         boss.root.visible = false;
-        return false;
+        S.suck = 1.0;
+        return;
       }
-      return true;
-    });
+      requestAnimationFrame(suckStep);
+    })();
     S.bursts.push(debris(S.st, new T.Vector3(0, 3.4, -2.4), 120, 0xe8d2a8));
     flash('hit');
     S.ui.q.innerHTML = '';
@@ -1668,7 +1748,7 @@
 
     later(function () {
       showWin();
-    }, 1500);
+    }, 2600);
   }
 
   function showWin() {
@@ -1755,12 +1835,21 @@
     positionTag();
     updateHalo(dt, t);
 
-    /* 门里的黑色漩涡：缓慢自转 + 极轻的呼吸 */
+    /* 门里的黑色漩涡 */
     if (S.vortex) {
-      S.vortex.rotation.z -= dt * 0.10;
-      var pk = 1 + Math.sin(t * 0.7) * 0.012;
-      S.vortex.scale.set(pk, pk, 1);
-      S.vortex.material.opacity = 0.90 + Math.sin(t * 1.3) * 0.05;
+      if (S.vortexShader && S.vortex.material.uniforms) {
+        S.suckP = (S.suckP || 1.0) + (((S.suck || 1.0) - (S.suckP || 1.0)) * Math.min(1, dt * 2.2));
+        S.vortex.material.uniforms.uTime.value += dt;
+        S.vortex.material.uniforms.uPower.value = S.suckP;
+        var pk0 = 1 + Math.sin(t * 0.7) * 0.012 + (S.suckP - 1) * 0.05;
+        S.vortex.scale.set(pk0, pk0, 1);
+        S.vortex.rotation.z -= dt * 0.10 * S.suckP;
+      } else {
+        S.vortex.rotation.z -= dt * 0.10;
+        var pk = 1 + Math.sin(t * 0.7) * 0.012;
+        S.vortex.scale.set(pk, pk, 1);
+        S.vortex.material.opacity = 0.90 + Math.sin(t * 1.3) * 0.05;
+      }
     }
     /* 深处的巨影：极慢摆动 */
     if (S.ghostFigure) {
