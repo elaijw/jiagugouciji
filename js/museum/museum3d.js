@@ -34,19 +34,14 @@
        正好对称地落进默认视野，第三扇（03）紧贴右边缘、再往右拖一点就进来；
        两个展厅挪到镜头身后的另一段弧上，不跟关卡抢中间那块地。
        详见 docs/交接 与 HANDOFF：默认机位是 theta = 0.10。 */
-    { id: 'gallery',    name: '甲骨文知识厅', tag: '陈列', lv: '', glyph: '日', accent: 0xcc523b, angle: 292 },
+    { id: 'gallery',    name: '甲骨文知识厅', tag: '陈列', lv: '', glyph: '日', accent: 0xcc523b, angle: 292, shot: 'assets/preview/room-gallery.jpg' },
     { id: 'build',      name: '造字探索区', tag: '第 01 关', lv: '甲骨构字', glyph: '木', accent: 0x337663, angle: 228, shot: 'assets/preview/level-01.jpg' },
     { id: 'excavate',   name: '考古任务区', tag: '第 02 关', lv: '骨片浮生', glyph: '山', accent: 0xa58147, angle: 156, shot: 'assets/preview/level-02.jpg' },
     { id: 'boss',       name: 'BOSS 挑战区', tag: '第 03 关', lv: '文字讨伐', glyph: '戈', accent: 0x8c3a2a, angle: 100, shot: 'assets/preview/level-03.jpg' },
-    { id: 'collection', name: '我的典藏区', tag: '典藏', lv: '', glyph: '贝', accent: 0x527d91, angle: 338 }
+    { id: 'collection', name: '我的典藏区', tag: '典藏', lv: '', glyph: '贝', accent: 0x527d91, angle: 338, shot: 'assets/preview/room-collection.jpg' }
   ];
 
   var SLAB_RATIO = 1.58;  /* 骨版高宽比：甲骨多为竖长 */
-  /* 门额横匾上那个大字的方块尺寸与中心（512×256 贴图坐标）。
-     提成常量是因为还有一层"显影"要按同一组数画，差一个像素字就会跳。 */
-  /* 门额上那个甲骨大字的位置。上方留给关卡名（y 170 起），
-     所以大字收到 118、中心抬到 88 —— 之前 150/101 会跟名字叠在一起。 */
-  var BOARD_G = 96, BOARD_GY = 24;
   var HALL_R = 15.6;      /* 展区环半径 */
   /* 门洞尺寸。原本只写在大厅那段循环里，但 portalScreen 要拿门宽去算
      "这扇门在屏幕上有多少像素"，所以提到模块级，两处共用一套数。 */
@@ -62,6 +57,13 @@
     var t = new T.CanvasTexture(cv);
     if (o.srgb) { t.encoding = T.sRGBEncoding; }
     t.anisotropy = o.aniso == null ? 4 : o.aniso;
+    /* 非 2 的幂的贴图（640×420、620×380 这种）：WebGL1 下不能有 mipmap，
+       也不接受 RepeatWrapping，否则采样结果是空白或整块纯色。 */
+    if (o.clamp) {
+      t.generateMipmaps = false;
+      t.minFilter = T.LinearFilter;
+      t.wrapS = t.wrapT = T.ClampToEdgeWrapping;
+    }
     if (o.repeat) {
       t.wrapS = t.wrapT = T.RepeatWrapping;
       t.repeat.set(o.repeat[0], o.repeat[1]);
@@ -232,7 +234,23 @@
      所以四件事一起做：起线（外深内浅两圈）、石面（竖向纹理 + 两端压暗）、
      铜边（用该分区的强调色）、匾脚（在外面用几何做，见 portal 循环）。
      字用拓片层：同一个字在这儿和在骨片上是同一批刀口。 */
-  function portalBoardTex(ch, lv, no, accent) {
+  /* 门额排版：名字占满匾心，关号在底下一行。
+     字号按字数反算 —— 「甲骨文知识厅」六个字和「文字讨伐」四个字
+     要看起来一样大，"每块匾各自撑满"才对得齐。
+
+     ⚠ 位置只在这里算一次，静态贴图与悬停显影层共用。
+     两处各写一遍的后果是：悬停时字会往上跳 2px、字号差一级，
+     像整块匾在抖。 */
+  function boardFit(title) {
+    var n = Math.max(1, String(title || '').length);
+    var avail = 512 - 56;
+    /* tracking 是"字宽 × 倍数"，中文字宽 ≈ 字号，所以一行宽 ≈ n·fs·1.08 */
+    var fs = Math.min(104, Math.floor(avail / (n * 1.08)));
+    var h = Math.round(fs * 1.34);
+    return { fs: fs, w: avail, h: h, x: 28, y: Math.round(104 - h / 2) };
+  }
+
+  function portalBoardTex(title, no, accent) {
     var W = 512, H = 256;
     var cv = App.museumTex.canvas(W, H);
     var c = cv.getContext('2d');
@@ -295,40 +313,27 @@
     c.stroke();
     c.globalAlpha = 1;
 
-    /* 甲骨大字：匾心的主角。
-       单独开一张方形画布画好再贴进来 —— paintGlyph 是按画布铺满画的，
-       直接画在这张横长的匾上会被拉宽。
-
-       ⚠ 这里的位置是算出来的，不是拍的：匾内可用区是 [起线内沿, 款行上沿]。
-       起线内沿 25，款行 186~216，中间 161px 全给大字；
-       取 BOARD_G 居中在 BOARD_GY（上下各留呼吸）。
-       早先写成 `size = min(W*0.50, H*0.92)` 再对到 `H*0.40`，
-       算出来 235px、中心 102 → **顶端 -15，直接顶出画布**，
-       匾上只剩半个字，而且款行又压在字的下半截上。 */
-    var gcv = App.museumTex.canvas(BOARD_G, BOARD_G);
-    App.museumTex.paintGlyph(gcv, ch, { color: '#f2e3c4' });
-    c.drawImage(gcv, 24, BOARD_GY);
-
-    /* 关卡名：匾上真正要读的一行。
-       原来是 24px 的款字（"第 01 关 · 甲骨构字"），贴在 1.1 米高的匾上，
-       三十米外只有几个像素 —— 等于没写。现在把编号挪到底下一行，
-       名字给到 46px、骨白、字距拉开，匾上第一眼读到的就是"这扇门叫什么"。 */
-    if (lv) {
-      /* 名字占右侧整块：匾一共 512 宽，左边 96 给了甲骨字，
-         剩下 360 平分给几个字 —— 4 个字的关卡名能吃满 88px。 */
-      /* tracking 是"字距 = 字号 × 这个倍数"，不是百分比 ——
-         写 2.4 的结果是 4 个字要 850px，而匾右边只有 348，末字被裁掉。 */
-      var fs = Math.min(84, Math.floor(340 / (Math.max(1, lv.length) * 1.10)));
-      var lcv = App.museumTex.textCanvas(lv, {
-        w: 348, h: 112, size: fs, color: '#fbf1dc', tracking: 1.10
+    /* 匾上只写名字，不放大字甲骨文。
+       原方案是"左边一个甲骨字做引首、右边关卡名"，实测在厅里读到的顺序是
+       「一块看不清的符号 + 一行名字」—— 甲骨字占掉三分之一，名字被迫缩小，
+       而那个字本来就在门内那圈显影光和骨版上到处都有，不必再占门额。
+       现在整块匾就是一行名字，字号能吃满 104px。 */
+    var fit = boardFit(title);
+    if (title) {
+      var lcv = App.museumTex.textCanvas(title, {
+        w: fit.w, h: fit.h, size: fit.fs, color: '#fbf1dc', tracking: 1.08
       });
-      c.drawImage(lcv, 124, 22);
+      /* 一点点投影：匾是石面，刻字得有个凹进去的暗边才不像贴上去的 */
+      c.save();
+      c.filter = 'drop-shadow(0 2px 3px rgba(0,0,0,.92))';
+      c.drawImage(lcv, fit.x, fit.y);
+      c.restore();
     }
     if (no) {
       var ncv = App.museumTex.textCanvas(no, {
-        w: 348, h: 34, size: 26, color: '#cfa877', tracking: 2.0, weight: '500'
+        w: 512 - 80, h: 34, size: 26, color: '#cfa877', tracking: 1.9, weight: '500'
       });
-      c.drawImage(ncv, 124, 160);
+      c.drawImage(ncv, 40, 169);
     }
 
     return canvasTex(cv, { srgb: true });
@@ -517,16 +522,19 @@
     return canvasTex(cv, { srgb: true, aniso: 8 });
   }
 
-  /* 门额上那一个字的"显影层"：同一位置、同一字号，画在透明底上。
-     悬停时把它叠在匾上、透明度从 0 抬到 1 —— 字是"亮起来"的，
-     不是换一张贴图（换贴图会闪，而且五道门就是五张 512×256 的额外显存）。 */
-  function plaqueGlyphTex(ch, color) {
+  /* 门额名字的"显影层"：与静态层同一位置、同一字号，画在透明底上。
+     悬停时把它叠在匾上、透明度从 0 抬到 1 —— 名字是"亮起来"的，
+     不是换一张贴图（换贴图会闪，而且五道门就是五张 512×256 的额外显存）。
+     位置一定要走 boardFit()，别在这里另算一遍。 */
+  function plaqueNameTex(title, color) {
     var W = 512, H = 256;
     var cv = App.museumTex.canvas(W, H);
     var c = cv.getContext('2d');
-    var gcv = App.museumTex.canvas(BOARD_G, BOARD_G);
-    App.museumTex.paintGlyph(gcv, ch, { color: color });
-    c.drawImage(gcv, 24, BOARD_GY);
+    var fit = boardFit(title);
+    var tcv = App.museumTex.textCanvas(title, {
+      w: fit.w, h: fit.h, size: fit.fs, color: color, tracking: 1.08
+    });
+    c.drawImage(tcv, fit.x, fit.y);
     return canvasTex(cv, { srgb: true, aniso: 8 });
   }
 
@@ -1886,7 +1894,9 @@
     /* 中央这件被顶光直射，骨色压深一档才留得住字口的细节 */
     heroSlab.mats[0].color.setHex(0xb9aa8c);
     heroSlab.mats[0].roughness = 0.84;
-    heroSlab.mats[0].emissiveIntensity = 0.22;
+    /* 骨版改成跟着镜头转之后，顶光不再总是正面照着它 —— 转到背光面
+       会暗成一块黑。抬一点自发光，任何角度都还看得出是骨、读得出字。 */
+    heroSlab.mats[0].emissiveIntensity = 0.36;
     hero.add(heroSlab.mesh);
     heroSlab.mesh.userData.kind = 'hero';
     heroSlab.mesh.userData.zone = 'gallery';
@@ -2136,15 +2146,17 @@
       g.add(plaque);
       pickables.push(plaque);
 
-      /* 门额：一块横匾，匾上刻字 --------------------------------
-         原来门楣上只贴了一个 1.05 米见方的字，孤零零悬在墙上，
-         像贴了张纸，说明不了"这道门通向哪儿"。
+      /* 门额：一块横匾，匾上刻名字 ------------------------------
+         中式门面的做法是"额"：一块横匾、一圈边、一行字写去处。
 
-         中式门面的做法是"额"：一块横匾、一圈边、中间一个字，
-         匾下一行小字写去处。所以这里把徽记换成一整块匾：
-         左三分之二是甲骨大字（拓片字形，不是现画的线条），
-         右三分之一竖排今字——看甲骨的人看字，看字的人看名。 */
-      var boardTex = portalBoardTex(z.glyph, z.lv || '', z.lv ? z.tag : z.tag, z.accent);
+         曾经试过"左边甲骨字做引首、右边写关卡名"，两头都不落好：
+         引首字占掉三分之一宽，名字被迫缩到 70px，而那个字在门内显影光、
+         骨版、拓片墙上到处都有 —— 门额上唯一必须说清的只有"这道门通向哪儿"。
+         现在整块匾就是一行名字，字号吃满 104px。
+
+         关卡门写关卡名（甲骨构字 / 骨片浮生 / 文字讨伐），
+         展厅门写厅名（甲骨文知识厅 / 我的典藏区），底下一行是关号或"陈列"。 */
+      var boardTex = portalBoardTex(z.lv || z.name, z.tag, z.accent);
       var board = new T.Mesh(
         /* 2.20 : 1.10 = 2:1，与 512×256 贴图同比例（见 portalBoardTex 注释） */
         new T.PlaneGeometry(2.60, 1.30),
@@ -2173,13 +2185,14 @@
         g.add(leg);
       });
 
-      /* 匾上那个字的显影层：同一位置、同一字号，平时透明。
-         悬停抬到 1，字就"从石面里浮出来"——不是换贴图（换贴图会闪，
-         而且五道门就是五张多余的 512×256）。 */
+      /* 匾上名字的显影层：同一位置、同一字号，平时透明。
+         悬停抬起来，名字就"从石面里浮出来"——不是换贴图（换贴图会闪，
+         而且五道门就是五张多余的 512×256）。
+         位置走 boardFit()，和静态层是同一个排版，所以只会变亮、不会移位。 */
       var glow = new T.Mesh(
         new T.PlaneGeometry(2.60, 1.30),
         new T.MeshBasicMaterial({
-          map: plaqueGlyphTex(z.glyph, '#fff4d8'),
+          map: plaqueNameTex(z.lv || z.name, '#ffe9c2'),
           transparent: true, opacity: 0, depthWrite: false,
           blending: T.AdditiveBlending, toneMapped: false
         })
@@ -3931,10 +3944,14 @@
       var nx = Math.sin(ry), nz = Math.cos(ry);
 
       /* 石背板：原来只有一张没有厚度的平面，挂在半空里像一块发光的屏。
-         加一块略大的深色背板之后，它才有"板"这个身份。 */
+         加一块略大的深色背板之后，它才有"板"这个身份。
+         ⚠ 2026-11-01：这块背板在展厅里被照成了一块浅褐色的空板 ——
+         比它前面的石板面还显眼，玩家看到的就是"知识厅里挂了三块空白板"。
+         石背板本来就该沉在暗里，只当一道厚边：颜色压到 0x120d08，
+         环境反射降到 0.18，不再抢前面那块有字的石面。 */
       var frame = new T.Mesh(
         new T.BoxGeometry(bw + 0.15, bh + 0.15, 0.07),
-        std({ color: 0x2b221a, roughness: 0.74, metalness: 0.14, envMapIntensity: 0.5 })
+        std({ color: 0x120d08, roughness: 0.92, metalness: 0.05, envMapIntensity: 0.18 })
       );
       frame.position.set(opt.x - nx * 0.055, by, opt.z - nz * 0.055);
       frame.rotation.y = ry;
@@ -3961,7 +3978,16 @@
 
       var mesh = new T.Mesh(
         new T.PlaneGeometry(bw, bh),
-        new T.MeshBasicMaterial({ map: canvasTex(cv, { srgb: true }), transparent: true })
+        /* ⚠ 2026-11-01：原来写的是 transparent: true —— 贴图的 alpha 是 252（近乎不透明），
+           玻璃一样的透明抠图本来就不需要，而这个开关让这块石板在展厅里
+           整块消失（露出来的正是身后的石背板，于是看着像"一块空白板"）。
+           石面是不透明的石头，transparent 关掉。
+           另外贴图是 640×420（不是 2 的幂）：NPOT 纹理在 WebGL1 下必须
+           关 mipmap、用 ClampToEdge，否则采样可能给不出内容。 */
+        new T.MeshBasicMaterial({
+          map: canvasTex(cv, { srgb: true, clamp: true }),
+          transparent: false
+        })
       );
       mesh.position.set(opt.x, by, opt.z);
       mesh.rotation.y = ry;
@@ -4434,7 +4460,13 @@
     var wallTex = canvasTex(wallCv, { srgb: true, aniso: 8 });
     var wallMesh = new T.Mesh(
       new T.PlaneGeometry(WALL_W, WALL_H),
-      std({ map: wallTex, roughness: 0.95, metalness: 0.0, envMapIntensity: 0.25 })
+      /* 这面墙是典藏区唯一的陈设，而典藏区的灯本来就压得很低（它要暗，
+         亮堂的收藏室没有"典藏"的味道）。但只吃灯的结果是：一进门看到的
+         是一整面黑，七十三格连轮廓都读不出来 —— 看起来像"什么都没收"。
+         给一层极弱的自发光垫底，未亮的格子留得住那道浅刻，整面墙
+         也仍然是暗的（emissiveIntensity 只有 0.5，亮的是格子线，不是墙面）。 */
+      std({ map: wallTex, roughness: 0.95, metalness: 0.0, envMapIntensity: 0.25,
+        emissive: new T.Color(0x6a5a44), emissiveMap: wallTex, emissiveIntensity: 0.5 })
     );
     wallMesh.position.set(0, WALL_Y, WALL_Z);
     collG.add(wallMesh);
@@ -5166,6 +5198,13 @@
       /* 中央那件换字：停一会儿换一个，换的时候旧字化开、新字凝住。
          只在序厅跑 —— 别的屋子看不见它，白烧 CPU。 */
       if (area === 'hall' && heroSlab) {
+        /* 中央骨版始终正对镜头。
+           它是一块薄片：朝向固定在 +z 时，绕着厅走半圈看到的就只剩一条竖着的
+           白边 —— 像厅中央插了一片刀。展厅里那十二件都朝圆心，只有这一件
+           没有"圆心可朝"，所以按镜头取方位。
+           直接给角，不做插值：它就在画面正中，拖视角时"跟着转"读起来就是
+           始终正面；插值反而会在快速拖动时露出一小段侧边。 */
+        heroSlab.mesh.rotation.y = Math.atan2(camera.position.x, camera.position.z);
         if (heroFading >= 0) {
           heroFading += dt;
           var hk = Math.min(1, heroFading / HERO_XFADE);
@@ -5500,6 +5539,28 @@
 
       /* 自查用：拿到场景根（探针要把某个 mesh 的世界包围盒量出来） */
       scene: function () { return scene; },
+
+      /* 自查用：屏幕坐标 → 场景里最近的那个东西。
+         用来回答"画面里这一块到底是什么" —— 光看截图猜 mesh 太费劲。 */
+      pick: function (sx, sy) {
+        var r = el.getBoundingClientRect();
+        ray.setFromCamera(new T.Vector2(
+          (sx / r.width) * 2 - 1, -(sy / r.height) * 2 + 1), camera);
+        var hits = ray.intersectObject(scene, true);
+        return hits.slice(0, 3).map(function (h) {
+          var o = h.object, m = Array.isArray(o.material) ? o.material[0] : o.material;
+          var p = o.geometry && o.geometry.parameters ? o.geometry.parameters : {};
+          return {
+            uuid: o.uuid,
+            dist: +h.distance.toFixed(2),
+            mat: m && m.type, color: m && m.color ? m.color.getHexString() : null,
+            map: m && m.map ? (m.map.image ? m.map.image.width + 'x' + m.map.image.height : '?') : null,
+            wh: p.width ? [+(p.width).toFixed(2), +(p.height || 0).toFixed(2)] : null,
+            kind: o.userData && o.userData.kind || null,
+            pos: [+o.position.x.toFixed(2), +o.position.y.toFixed(2), +o.position.z.toFixed(1)]
+          };
+        });
+      },
 
       /* 门：界面层确认要进这间屋子时推开它（不开就是悬停那条细缝） */
       openDoor: openDoor,
