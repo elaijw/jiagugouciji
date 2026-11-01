@@ -46,7 +46,7 @@
      提成常量是因为还有一层"显影"要按同一组数画，差一个像素字就会跳。 */
   /* 门额上那个甲骨大字的位置。上方留给关卡名（y 170 起），
      所以大字收到 118、中心抬到 88 —— 之前 150/101 会跟名字叠在一起。 */
-  var BOARD_G = 118, BOARD_GY = 88;
+  var BOARD_G = 96, BOARD_GY = 24;
   var HALL_R = 15.6;      /* 展区环半径 */
   /* 门洞尺寸。原本只写在大厅那段循环里，但 portalScreen 要拿门宽去算
      "这扇门在屏幕上有多少像素"，所以提到模块级，两处共用一套数。 */
@@ -307,24 +307,28 @@
        匾上只剩半个字，而且款行又压在字的下半截上。 */
     var gcv = App.museumTex.canvas(BOARD_G, BOARD_G);
     App.museumTex.paintGlyph(gcv, ch, { color: '#f2e3c4' });
-    c.drawImage(gcv, (W - BOARD_G) / 2, BOARD_GY - BOARD_G / 2);
+    c.drawImage(gcv, 24, BOARD_GY);
 
     /* 关卡名：匾上真正要读的一行。
        原来是 24px 的款字（"第 01 关 · 甲骨构字"），贴在 1.1 米高的匾上，
        三十米外只有几个像素 —— 等于没写。现在把编号挪到底下一行，
        名字给到 46px、骨白、字距拉开，匾上第一眼读到的就是"这扇门叫什么"。 */
     if (lv) {
-      var fs = Math.min(52, Math.floor((W - 70) / Math.max(1, lv.length)));
+      /* 名字占右侧整块：匾一共 512 宽，左边 96 给了甲骨字，
+         剩下 360 平分给几个字 —— 4 个字的关卡名能吃满 88px。 */
+      /* tracking 是"字距 = 字号 × 这个倍数"，不是百分比 ——
+         写 2.4 的结果是 4 个字要 850px，而匾右边只有 348，末字被裁掉。 */
+      var fs = Math.min(84, Math.floor(340 / (Math.max(1, lv.length) * 1.10)));
       var lcv = App.museumTex.textCanvas(lv, {
-        w: W - 56, h: 62, size: fs, color: '#f7ead0', tracking: 1.9
+        w: 348, h: 112, size: fs, color: '#fbf1dc', tracking: 1.10
       });
-      c.drawImage(lcv, 28, 170);
+      c.drawImage(lcv, 124, 22);
     }
     if (no) {
       var ncv = App.museumTex.textCanvas(no, {
-        w: W - 80, h: 26, size: 20, color: '#c39c6a', tracking: 1.6, weight: '500'
+        w: 348, h: 34, size: 26, color: '#cfa877', tracking: 2.0, weight: '500'
       });
-      c.drawImage(ncv, 40, 212);
+      c.drawImage(ncv, 124, 160);
     }
 
     return canvasTex(cv, { srgb: true });
@@ -522,7 +526,7 @@
     var c = cv.getContext('2d');
     var gcv = App.museumTex.canvas(BOARD_G, BOARD_G);
     App.museumTex.paintGlyph(gcv, ch, { color: color });
-    c.drawImage(gcv, (W - BOARD_G) / 2, BOARD_GY - BOARD_G / 2);
+    c.drawImage(gcv, 24, BOARD_GY);
     return canvasTex(cv, { srgb: true, aniso: 8 });
   }
 
