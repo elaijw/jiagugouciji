@@ -719,6 +719,45 @@
     });
   }
 
+  /* ---------- 骨面上的刻字贴图 ----------
+     每字一张透明底 canvas，画的是拓片轮廓（App.rubbings）：
+     笔画有粗细、有崩口，跟博物馆那边用的是同一批字。
+     一张 256² 约 30KB 显存，73 张也就 2MB，所以常驻不拆。 */
+  var _glyphTexCache = {};
+  function glyphPlateMesh(ch, size, z) {
+    var st = S.st;
+    var T = st.T;
+    var tex = _glyphTexCache[ch];
+    if (!tex) {
+      if (!(App.rubbings && App.rubbings.has(ch))) { return null; }
+      var N = 256;
+      var cv = App.stage3d.canvas(N, N);
+      var c = cv.getContext('2d');
+      c.clearRect(0, 0, N, N);
+      /* 贴图画白色，颜色交给材质的 color 去乘。
+         这样同一张图能当深褐刻字（没浮出照片的骨）用，
+         也能当浅骨色高光字（浮出照片之后）用 —— 一张贴图两种用法。 */
+      var ok = App.rubbings.paint(c, ch, {
+        x: N / 2, y: N / 2, size: N * 0.92, color: '#ffffff', index: 0
+      });
+      if (!ok) { return null; }
+      tex = App.stage3d.tex(cv);
+      tex.needsUpdate = true;
+      _glyphTexCache[ch] = tex;
+    }
+    var m = new T.Mesh(
+      new T.PlaneGeometry(size, size),
+      new T.MeshBasicMaterial({
+        map: tex, color: 0x2a1c10, transparent: true, depthWrite: false,
+        opacity: 0.03, toneMapped: false, fog: false
+      })
+    );
+    m.position.z = z;
+    m.renderOrder = 3;
+    m.userData.isGlyph = true;
+    return m;
+  }
+
   function makePlate(T, data, size, seed) {
     var grp = new T.Group();
     var depth = size * 0.20;
@@ -737,12 +776,18 @@
     var fz = depth * 0.5 + depth * 0.42 + 0.006;
     if (App.worldGlyph && App.worldGlyph.hasGlyph(data.ch)) {
       /* 一片骨只刻一面：环上的骨永远朝镜头（tick 里每帧转向相机），
-         背面那层字一次也看不见，白占一份几何。 */
-      var gm = App.worldGlyph.glyphMesh(data.ch, size * 0.52, {
-        color: 0x241a0e, emissive: 0xffb264, glow: 0.04
-      });
+         背面那层字一次也看不见，白占一份几何。
+
+         字的做法改过一次：
+         原来是 glyphMesh —— 拿骨架折线两侧各偏移半个笔宽，挤出成实体笔画。
+         73 个字形挤出 6.1 万三角面，跑起来还行，但视觉上是一根根等宽的
+         圆头管子，摆在骨面上像霓虹灯管，不像刀刻的字。
+
+         现在走拓片贴图：一张透明底的 canvas，字是真拓片的轮廓（笔画有粗细、
+         有崩口），贴在骨面正上方。骨片本来就是"一片骨 + 一个刻字"，
+         这样反而更接近实物 —— 刻痕在真骨上也是平的。 */
+      var gm = glyphPlateMesh(data.ch, size * 0.50, fz);
       if (gm) {
-        gm.position.z = fz;
         gm.userData.plate = grp;
         /* 标记"我是字"：setOpacity() 整组调透明度时必须区别对待 ——
            字有自己的底子透明度（认过 0.03、认开 1），不能跟着骨片一起被设成
@@ -1350,13 +1395,13 @@
     return tex;
   }
 
-  /* 有虚影时，字要"让路"：
-     原来字是深褐实心（0x241a0e），压在鼎/眼上就是一块黑。
-     这里把字改成浅骨色 + 38% 不透明 + 不写深度，变成"淡描"，
-     物的轮廓就能透过来 —— 读完字再看物，两层都在。 */
+  /* 有虚影时，字的处理：
+     原来走的是"加一层金光"—— 字改成金色 0xffc27a、自发光 0.55、加色混合、
+     36% 不透明，压在骨面的照片上。这套做法让字变成一根根发亮的金线，
+     远看是招牌，不像刻痕。
+     现在反过来了：字提到虚影**前面**，实心深褐、正常混合 —— 照片是骨面上的
+     影像，字是刻在影像上的字。谁在前谁在后，跟真骨上的层次一致。 */
   function setGlyphGhostMode(grp, on) {
-    /* 叠在实物上的字：加色混合、低不透明度 —— 只"加一层金光"，
-       不会把鼎/眼睛糊住；离场时逐项还原。 */
     var T = S.st && S.st.T;
     var gs = grp.userData.glyphs || [];
     for (var k = 0; k < gs.length; k++) {
@@ -1372,19 +1417,26 @@
               opacity: mat.opacity,
               transparent: mat.transparent,
               depthWrite: mat.depthWrite,
-              blending: mat.blending
+              blending: mat.blending,
+              layerZ: m.position.z
             };
             m.material = mat.clone();
             mat = m.material;
           }
-          if (mat.color) { mat.color.setHex(0xffc27a); }
-          if (mat.emissive) { mat.emissive.setHex(0xff8a34); }
-          if (mat.emissiveIntensity != null) { mat.emissiveIntensity = 0.55; }
+          /* 骨面上浮出照片之后，字要反过来：照片是中间调的，深褐字压上去
+             会糊成一团黑；换成骨色的浅字，像刻痕的高光，反而读得清。
+             没有照片的那六十多片骨走另一个分支（深褐字贴在浅骨面上）。 */
+          if (mat.color) { mat.color.setHex(0xf0e2c6); }
+          if (mat.emissive) { mat.emissive.setHex(0x000000); }
+          if (mat.emissiveIntensity != null) { mat.emissiveIntensity = 0; }
           mat.transparent = true;
-          mat.opacity = 0.36;
+          mat.opacity = 0.86;
           mat.depthWrite = false;
-          if (T) { mat.blending = T.AdditiveBlending; }
-          m.renderOrder = 6;   /* 画在实物之后，才能在"上面"加光 */
+          if (T) { mat.blending = T.NormalBlending; }
+          /* 站到虚影前面去：虚影在 faceZ+0.06，字要再往前一点点 */
+          var gz = (grp.userData.ghost && grp.userData.ghost.position.z) || 0;
+          if (gz) { m.position.z = gz + 0.014; }
+          m.renderOrder = 8;
         } else if (m.userData._origMat) {
           var o = m.userData._origMat;
           if (o.color && mat.color) { mat.color.copy(o.color); }
@@ -1394,6 +1446,7 @@
           mat.opacity = o.opacity;
           mat.depthWrite = o.depthWrite;
           if (o.blending != null) { mat.blending = o.blending; }
+          m.position.z = o.layerZ;
           m.renderOrder = 0;
           m.userData._origMat = null;
         }
@@ -1494,14 +1547,14 @@
       var prev = S.hovered;
       var ps = prev.userData.base.s;
       tw(prev, { sx: ps, sy: ps, sz: ps }, 0.22, easeOut);
-      setGlyphGlow(prev, 0.10);
+      setGlyphGlow(prev, 0);
       setGlyphAlpha(prev, 0.03);
     }
     S.hovered = target;
     if (target) {
       var s = target.userData.base.s;
       tw(target, { sx: s * 1.07, sy: s * 1.07, sz: s * 1.07 }, 0.22, easeBack);
-      setGlyphGlow(target, 0.45);
+      setGlyphGlow(target, 0.05);
       setGlyphAlpha(target, 0.34);
       st.el.style.cursor = 'pointer';
     } else {
@@ -1737,7 +1790,7 @@
            再 ghostOff，还原动作会把它盖回 1 —— 结果就是收回之后字还亮着，
            认过的骨片在环上一直显形。必须 ghostOff 在前、压 alpha 在后。 */
         ghostOff(grp);
-        setGlyphGlow(grp, 0.10);
+        setGlyphGlow(grp, 0);
         setGlyphAlpha(grp, 0.03);
         backToIdle();
       });
@@ -1768,7 +1821,7 @@
       p.rotation.set(0, b.ry, b.rz);
       p.scale.setScalar(b.s);
       setOpacity(p, 1);
-      setGlyphGlow(p, 0.10);
+      setGlyphGlow(p, 0);
       setGlyphAlpha(p, 0.03);
       if (p.userData.ghost && p.userData.ghost.parent) {
         p.userData.ghost.parent.remove(p.userData.ghost);

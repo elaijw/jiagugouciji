@@ -110,15 +110,23 @@
       L.push([p[0] + nx * hw, p[1] + ny * hw]);
       R.push([p[0] - nx * hw, p[1] - ny * hw]);
     }
-    /* 端点：切线方向 ≤······≥ 半圆 */
-    function cap(endP, unit, from, to, out_) {
-      for (var k = 1; k < 5; k++) {
-        var th = (k / 5) * Math.PI;
-        var ca = Math.cos(th), sa = Math.sin(th);
-        var nx = -unit[1], ny = unit[0];
-        out_.push([endP[0] + nx * hw * ca + unit[0] * hw * sa,
-                   endP[1] + ny * hw * ca + unit[1] * hw * sa]);
-      }
+    /* 端点：真骨上的起收笔是刀凿出来的尖口，不是两根圆头管子。
+       两侧收到 0.56 倍宽、只前伸 0.34，中间再探出 0.72 —— 成一个钝尖：
+       远看是笔锋，近看是凿痕。原来是半圆帽，每一笔的头都鼓一个圆，
+       放大之后满眼是"霓虹灯管"。
+       flip：收尾那一端是从 R 侧回到 L 侧，方向相反，点序要倒过来。 */
+    function cap(endP, unit, out_, flip) {
+      var nx = -unit[1], ny = unit[0];
+      var q = [
+        [endP[0] + nx * hw * 0.56 + unit[0] * hw * 0.34,
+         endP[1] + ny * hw * 0.56 + unit[1] * hw * 0.34],
+        [endP[0] + unit[0] * hw * 0.72,
+         endP[1] + unit[1] * hw * 0.72],
+        [endP[0] - nx * hw * 0.56 + unit[0] * hw * 0.34,
+         endP[1] - ny * hw * 0.56 + unit[1] * hw * 0.34]
+      ];
+      if (flip) { q = [q[2], q[1], q[0]]; }
+      for (var i = 0; i < 3; i++) { out_.push(q[i]); }
       return out_;
     }
     var te = [pts[n - 1][0] - pts[n - 2][0], pts[n - 1][1] - pts[n - 2][1]];
@@ -126,9 +134,9 @@
     var ts = [pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]];
     var sl = Math.hypot(ts[0], ts[1]) || 1; ts = [ts[0] / sl, ts[1] / sl];
     var out = L.slice();
-    cap(pts[n - 1], te, 0, 0, out);
+    cap(pts[n - 1], te, out, false);
     for (i = n - 1; i >= 0; i--) { out.push(R[i]); }
-    cap(pts[0], ts, 0, 0, out);
+    cap(pts[0], ts, out, true);
     return out;
   }
 
@@ -151,7 +159,12 @@
         if (x < minx) { minx = x; } if (x > maxx) { maxx = x; }
         if (y < miny) { miny = y; } if (y > maxy) { maxy = y; }
       }
-      pts = simplify(pts, Math.max(0.5, hwRaw * 0.45));
+      /* 抽稀精度按原始单位走：0.5 是把整字高度当 100 时 0.5%，
+         直线段确实该抽（原始数据一条直线采样三十来点），但圆弧也被一起折成了
+         八九段的多边形，「日」「目」「囗」的圈就有点方。收到 0.16 之后
+         直线段照样只剩两个端点，圆弧却能保住十来个点 —— 花费的顶点不多，
+         换回来的是真圆。 */
+      pts = simplify(pts, Math.max(0.16, hwRaw * 0.18));
       if (pts.length >= 2) { pieces.push(pts); }
     }
     if (!pieces.length) { return null; }
@@ -165,10 +178,12 @@
         pieces[i][j][1] = (pieces[i][j][1] - cy) * k;
       }
     }
-    /* 笔画宽度不能直接照搬矢量的线宽：矢量数据里的线宽是按"屏幕上看得见"定的，
-       归一化之后只有 ~1%，落到 40 厘米的实物上就是 4 毫米的细线 —— 凑近才看得见。
-       给它一个下限：至少占字高的 3%，刻痕才真正是"凿出来的沟"。 */
-    var out = { pieces: pieces, hw: Math.max(hwRaw * k + 0.006, 0.032), count: pieces.length };
+    /* 笔画宽度：数据里的 strokeWidth 归一化后约 0.9%，落到实物上是 4 毫米细线，
+       凑近才看得见，所以要给下限。但下限不能给大 —— 原来取 0.032（全宽 6.4%），
+       比博物馆那边 canvas 描的字粗一倍半，粗到每笔都像一个等宽的管子，
+       "刻的字"就成了"美术字"。真骨上的刻痕大约占字高 3~4%，取 0.019 正好：
+       远看是字，近看是沟。 */
+    var out = { pieces: pieces, hw: Math.max(hwRaw * k + 0.004, 0.019), count: pieces.length };
     pathCache[ch] = out;
     return out;
   }
@@ -729,7 +744,12 @@
   }
 
   /* 只要字、不要载体 —— 门阙上的封锁牌、柱子上的标记这类小件用它。
-     同样是实体挤出，不是贴图。 */
+     同样是实体挤出，不是贴图。
+
+     挤出参数按"刻"来定，不按"雕"来定：depth 0.030（原来 0.085）、倒角收到
+     半笔宽以下。原来那套厚挤出 + 宽倒角 + 金色自发光，做出来的是一根根发亮的
+     圆管，摆在暗骨面上就成了霓虹招牌。浅刻 + 哑光骨色，靠侧光在沟沿上留一道
+     亮边，才像刀在骨头上走出来的。发光留给"这个字被认出来了"那一刻，不常亮。 */
   function glyphMesh(ch, size, opt) {
     TH();
     var o = opt || {};
@@ -739,16 +759,16 @@
     var gs = [];
     polys.forEach(function (poly) {
       gs.push({ g: new T.ExtrudeGeometry(shapeOfPoly(poly), {
-        depth: 0.085, bevelEnabled: true,
-        bevelThickness: 0.020,
-        bevelSize: Math.min(st.hw * 0.45, 0.016), bevelSegments: 1, steps: 1
+        depth: 0.030, bevelEnabled: true,
+        bevelThickness: 0.006,
+        bevelSize: Math.min(st.hw * 0.30, 0.006), bevelSegments: 1, steps: 1
       }) });
     });
     var geo = mergeGeos(gs);
     if (!geo) { return null; }
     geo.scale(size, size, size);
     return new T.Mesh(geo, new T.MeshStandardMaterial({
-      color: o.color || 0x2f2618, roughness: 0.62, metalness: 0.08,
+      color: o.color || 0x2f2618, roughness: 0.88, metalness: 0.02,
       emissive: new T.Color(o.emissive || 0xffbe72), emissiveIntensity: o.glow || 0
     }));
   }

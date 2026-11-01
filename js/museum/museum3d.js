@@ -193,6 +193,89 @@
     return canvasTex(cv, { srgb: true });
   }
 
+  /* ---------- 门额横匾 ----------
+     一块 2.68×1.34 米的匾，贴图 512×256（同比例，不拉扁）。
+     匾上除了字什么都没有的话，它就是一块贴着字的板；
+     所以四件事一起做：起线（外深内浅两圈）、石面（竖向纹理 + 两端压暗）、
+     铜边（用该分区的强调色）、匾脚（在外面用几何做，见 portal 循环）。
+     字用拓片层：同一个字在这儿和在骨片上是同一批刀口。 */
+  function portalBoardTex(ch, name, accent) {
+    var W = 512, H = 256;
+    var cv = App.museumTex.canvas(W, H);
+    var c = cv.getContext('2d');
+    var ac = '#' + ('000000' + (accent >>> 0).toString(16)).slice(-6);
+
+    function rr(x, y, w, h, r) {
+      c.beginPath();
+      c.moveTo(x + r, y);
+      c.arcTo(x + w, y, x + w, y + h, r);
+      c.arcTo(x + w, y + h, x, y + h, r);
+      c.arcTo(x, y + h, x, y, r);
+      c.arcTo(x, y, x + w, y, r);
+      c.closePath();
+    }
+
+    /* 匾体：深褐石，上浅下深（顶光打下来的样子） */
+    var g = c.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#3a2a1a');
+    g.addColorStop(0.42, '#241a10');
+    g.addColorStop(1, '#140d07');
+    c.fillStyle = g;
+    rr(4, 4, W - 8, H - 8, 12);
+    c.fill();
+
+    /* 竖向石纹：匾是木/石做的东西，不能是一块纯色 */
+    c.save();
+    rr(4, 4, W - 8, H - 8, 12);
+    c.clip();
+    for (var i = 0; i < 26; i++) {
+      var x = (i / 26) * W + (i % 3) * 1.7;
+      c.beginPath();
+      c.moveTo(x, 0);
+      c.lineTo(x + 2.4, H);
+      c.strokeStyle = 'rgba(0,0,0,' + (0.05 + (i % 5) * 0.012).toFixed(3) + ')';
+      c.lineWidth = 1 + (i % 3);
+      c.stroke();
+    }
+    /* 两端压暗：匾挂在门洞上，两侧本来就在暗处 */
+    var vg = c.createLinearGradient(0, 0, W, 0);
+    vg.addColorStop(0, 'rgba(0,0,0,.45)');
+    vg.addColorStop(0.22, 'rgba(0,0,0,0)');
+    vg.addColorStop(0.78, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,.45)');
+    c.fillStyle = vg;
+    c.fillRect(0, 0, W, H);
+    c.restore();
+
+    /* 起线：外一圈粗（深），内一圈细（铜），中间留一道亮口 */
+    c.strokeStyle = 'rgba(0,0,0,.55)';
+    c.lineWidth = 7;
+    rr(9, 9, W - 18, H - 18, 9);
+    c.stroke();
+    c.strokeStyle = ac;
+    c.globalAlpha = 0.72;
+    c.lineWidth = 2.2;
+    rr(14, 14, W - 28, H - 28, 7);
+    c.stroke();
+    c.globalAlpha = 1;
+
+    /* 甲骨大字：匾心的主角。
+       单独开一张方形画布画好再贴进来 —— paintGlyph 是按画布铺满画的，
+       直接画在这张横长的匾上会被拉宽。 */
+    var size = Math.min(W * 0.50, H * 0.92);
+    var gcv = App.museumTex.canvas(size, size);
+    App.museumTex.paintGlyph(gcv, ch, { color: '#f2e3c4' });
+    c.drawImage(gcv, (W - size) / 2, H * 0.40 - size / 2);
+
+    /* 今字：匾下一行，字距拉开，像额上的款 */
+    var tcv = App.museumTex.textCanvas(name, {
+      w: W - 60, h: 46, size: 26, color: '#c9b48c', tracking: 1.55
+    });
+    c.drawImage(tcv, 30, H * 0.615);
+
+    return canvasTex(cv, { srgb: true });
+  }
+
   /* ---------- 骨版形状 ----------
      一块不规则的圆角四边形：真骨没有直角。
      seed 决定边缘起伏，同一个字永远得到同一块骨。
@@ -473,27 +556,58 @@
     well.position.y = HALL_H - 0.02;
     hall.add(well);
 
-    /* 立柱：12 根，撑起"有进深"的第一印象。
-       8 段圆柱在这个尺寸下看不出多边形，省一半三角面。 */
-    var colMtl = std({ color: 0x3b2a1c, roughness: 0.52, metalness: 0.32, envMapIntensity: 0.9 });
-    var colGeo = new T.CylinderGeometry(0.42, 0.48, HALL_H - 1.6, 10, 1);
-    var capGeo = new T.BoxGeometry(1.24, 0.34, 1.24);
-    var baseGeo = new T.BoxGeometry(1.42, 0.5, 1.42);
-    var COL_N = 12;
-    for (var ci = 0; ci < COL_N; ci++) {
-      var ca = (ci / COL_N) * Math.PI * 2 + Math.PI / COL_N;
-      var cx = Math.sin(ca) * 20.2, cz = Math.cos(ca) * 20.2;
-      var shaft = new T.Mesh(colGeo, colMtl);
-      shaft.position.set(cx, (HALL_H - 1.6) / 2 + 0.5, cz);
-      shaft.castShadow = !low;
-      hall.add(shaft);
-      var cap = new T.Mesh(capGeo, colMtl);
-      cap.position.set(cx, HALL_H - 1.5, cz);
-      hall.add(cap);
-      var bs = new T.Mesh(baseGeo, colMtl);
-      bs.position.set(cx, 0.25, cz);
-      hall.add(bs);
-    }
+    /* 立柱：原来这里立着 12 根柱子（半径 20.2 一圈，柱础 + 柱身 + 柱头）。
+       用户要求去掉 —— 柱子把圆厅切成了"外面一圈"和"里面一圈"，
+       中央展台跟六道门之间隔着一排垂直的遮挡，视线走不过去。
+       拆掉之后穹顶的井字藻井直接落到地面上，空间是一整块，
+       六道门、中央展台、墙上的壁柱三层关系才连得起来。
+       壁柱（十二件展品的位置）保留：那是陈设的节拍，不是结构的柱。 */
+
+    /* ---------- 悬挂的甲骨片 ----------
+       拆掉十二根立柱之后，圆厅中间空出一整圈什么都没有的空当：
+       穹顶到地面之间缺了"中间高度"的一层，视线平着看过去，空间是扁的。
+
+       挂一圈甲骨片。不是装饰球 —— 是同一批字、同一套刀口的小骨片，
+       从穹顶垂下来慢速自转。顶光打下来，骨片下缘一道亮边、上缘沉在暗里，
+       层高就被重新读出来了。挑的字都在这 73 个里，每一片刻的都认得出来。 */
+    var hangGroup = new T.Group();
+    hall.add(hangGroup);
+    var hangers = [];
+    (function buildHangers() {
+      var HC = ['日', '月', '雨', '山', '水', '木', '火', '田', '鼎', '龜', '馬', '龍',
+        '牛', '羊', '魚', '鳥'];
+      var R2 = App.museumTex.rng(0x7a31);
+      var n = low ? 5 : 8;
+      for (var i = 0; i < n; i++) {
+        var ch = HC[i % HC.length];
+        var ang = (i / n) * Math.PI * 2 + R2() * 0.30;
+        /* 半径压在 6~11：再大就挂到门上去了，门额会被骨片挡掉一半 */
+        var rad = 6.2 + R2() * 4.6;
+        var sz = 0.62 + R2() * 0.42;
+        var y = 3.6 + R2() * 5.4;
+        var slab = makeSlab(ch, {
+          size: 1, texSize: 256, ratio: SLAB_RATIO, cracks: i % 3 === 0
+        });
+        var holder = new T.Group();
+        holder.position.set(Math.cos(ang) * rad, y, Math.sin(ang) * rad);
+        /* 让骨版正面（+Z）朝圆心：目标方向是 (-cos, -sin)，
+           +Z 转到这个方向的角就是 atan2(dx, dz)。 */
+        holder.rotation.y = Math.atan2(-Math.cos(ang), -Math.sin(ang));
+        slab.mesh.scale.setScalar(sz);
+        slab.mesh.userData = {};       /* 不参与拾取：这些只是氛围件 */
+        holder.add(slab.mesh);
+        /* 吊绳：极细的一根，近看是丝，远看就是"悬着" */
+        var wireLen = Math.max(0.5, HALL_H - y);
+        var wire = new T.Mesh(
+          new T.CylinderGeometry(0.0055, 0.0055, wireLen, 4),
+          new T.MeshBasicMaterial({ color: 0x7a6547, transparent: true, opacity: 0.30 })
+        );
+        wire.position.y = sz * SLAB_RATIO * 0.5 + wireLen / 2;
+        holder.add(wire);
+        hangGroup.add(holder);
+        hangers.push({ g: holder, base: y, ph: R2() * 6.28, sp: 0.10 + R2() * 0.13 });
+      }
+    })();
 
     /* ---------- 中央展台 ---------- */
     var hero = new T.Group();
@@ -551,7 +665,9 @@
     var HERO_TW = 1024;
     var HERO_TH = Math.round(HERO_TW * SLAB_RATIO);
     var heroBase = App.museumTex.slabBase({
-      w: HERO_TW, h: HERO_TH, seed: 0x5117, cracks: true
+      w: HERO_TW, h: HERO_TH, seed: 0x5117, cracks: true,
+      /* 五处钻凿：甲骨片的身份证明。排右缘竖列，避开中间刻字的位置。 */
+      drills: { n: 5 }
     });
 
     var HERO_SIZE = 2.2;
@@ -726,9 +842,11 @@
       strip.position.set(0, PH + 0.62, -0.5);
       g.add(strip);
 
+      var frame = [];      /* 程序化门框：GLB 到位后整体隐去，留作兜底 */
       var pierGeo = new T.BoxGeometry(0.46, PH, PD);
       [-1, 1].forEach(function (s) {
         var pier = new T.Mesh(pierGeo, portalFrameMtl);
+        frame.push(pier);
         pier.position.set(s * (PW / 2 - 0.23), PH / 2, 0);
         pier.castShadow = !low;
         pier.receiveShadow = true;
@@ -742,12 +860,14 @@
       lintel.userData = { kind: 'portal', zone: z.id };
       g.add(lintel);
       pickables.push(lintel);
+      frame.push(lintel);
 
       var sill = new T.Mesh(new T.BoxGeometry(PW, 0.16, PD + 0.5), portalFrameMtl);
       sill.position.set(0, 0.08, 0.18);
       sill.userData = { kind: 'portal', zone: z.id };
       g.add(sill);
       pickables.push(sill);
+      frame.push(sill);
 
       /* 门内的"气"：既是视觉上的开口，也是拾取面 */
       var veil = new T.Mesh(
@@ -806,17 +926,38 @@
       g.add(plaque);
       pickables.push(plaque);
 
-      /* 门楣上的字形徽记：贴在隔墙上，像刻上去的一块字 */
-      var badge = new T.Mesh(
-        new T.PlaneGeometry(1.05, 1.05),
+      /* 门额：一块横匾，匾上刻字 --------------------------------
+         原来门楣上只贴了一个 1.05 米见方的字，孤零零悬在墙上，
+         像贴了张纸，说明不了"这道门通向哪儿"。
+
+         中式门面的做法是"额"：一块横匾、一圈边、中间一个字，
+         匾下一行小字写去处。所以这里把徽记换成一整块匾：
+         左三分之二是甲骨大字（拓片字形，不是现画的线条），
+         右三分之一竖排今字——看甲骨的人看字，看字的人看名。 */
+      var boardTex = portalBoardTex(z.glyph, z.name, z.accent);
+      var board = new T.Mesh(
+        new T.PlaneGeometry(2.46, 1.10),
         new T.MeshBasicMaterial({
-          map: glyphBadgeTex(z.glyph, '#f4e7cc'), transparent: true, depthWrite: false
+          map: boardTex, transparent: true, depthWrite: false, toneMapped: false
         })
       );
-      badge.position.set(0, PH + 1.24, -0.52);
-      g.add(badge);
+      /* 匾坐在挑檐之上（檐顶 y≈PH+0.74，匾底 PH+0.72）：
+         再往下就压到檐口，再往上就顶到隔墙的顶（7.4 米）。 */
+      board.position.set(0, PH + 1.27, -0.54);
+      board.userData = { kind: 'portal', zone: z.id };
+      g.add(board);
+      pickables.push(board);
 
-      portals.push({ def: z, group: g, veil: veil, plaque: plaque });
+      /* 匾脚：两根短牛腿，把横匾从墙上"托"出来 —— 平贴的匾是贴纸，
+         有了脚才是挂在门上的构件。 */
+      [-1, 1].forEach(function (s) {
+        var leg = new T.Mesh(new T.BoxGeometry(0.10, 0.30, 0.26), portalFrameMtl);
+        leg.position.set(s * 1.12, PH + 0.80, -0.62);
+        leg.rotation.x = -0.24;
+        g.add(leg);
+      });
+
+      portals.push({ def: z, group: g, veil: veil, plaque: plaque, frame: frame });
     });
 
     /* ============================================================
@@ -1204,7 +1345,8 @@
       plastron: 'assets/models/turtle-plastron.glb',
       pedestal: 'assets/models/pedestal.glb',
       case: 'assets/models/display-case.glb',
-      arch: 'assets/models/entrance-arch.glb'
+      arch: 'assets/models/entrance-arch.glb',
+      portal: 'assets/models/portal.glb'
     };
     var modelCache = {};
     /* 0 未试 1 成功 2 失败 */
@@ -1222,38 +1364,73 @@
       });
     }
 
-    /* 中央那件：换成 Blender 的骨版，正面仍然贴我们的刻辞 */
-    var heroHolder = null;
-    getModel('bone', function (err, g) {
-      if (err || !g || !heroSlab) { return; }
-      var holder = new T.Group();
-      var inst = g.clone(true);
-      inst.traverse(function (o) {
-        if (!o.isMesh) { return; }
-        var nm = (o.material && o.material.name) || '';
-        if (/side/i.test(nm)) {
-          o.material = std({
-            color: 0xa8977a, roughness: 0.86, metalness: 0.02, envMapIntensity: 0.35
-          });
-        } else {
-          o.material = heroSlab.mats[0];
-        }
-        o.userData = { kind: 'hero' };
-        pickables.push(o);
+    /* 六道门：套上 Blender 做的门套 --------------------------------
+       程序化那套是三块 Box（两根门垛 + 一门楣 + 一门槛），立在墙上像"洞口"。
+       Blender 这套把门的形制补齐了：三层退台门套、收分门柱、
+       柱头一个斗、门楣下沿一道月梁、楣上一道挑檐、门枕石、门槛。
+       全场只有两道铜箍（门楣下沿、柱头），其余都是石 —— 金属一多就俗。
+
+       旧的程序化门框只 hidden、不从 pickables 里摘掉：
+       点击范围还是原来那一圈，GLB 的细线脚点不中时也点得到门。 */
+    getModel('portal', function (err, g) {
+      if (err || !g) { return; }
+      portals.forEach(function (p) {
+        var inst = g.clone(true);
+        inst.traverse(function (o) {
+          if (!o.isMesh) { return; }
+          o.castShadow = false;
+          o.receiveShadow = true;
+          o.userData = { kind: 'portal', zone: p.def.id };
+        });
+        p.group.add(inst);
+        p.frame.forEach(function (m) { m.visible = false; });
       });
-      holder.add(inst);
-      holder.rotation.x = 0.06;
-      holder.scale.setScalar(2.2);
-      /* 落座：拿模型自己的包围盒把底面对到台面上（0.95）。
-         模型换了、尺寸改了都不用再手调这个数，也不会浮在半空。 */
-      holder.updateMatrixWorld(true);
-      var hbox = new T.Box3().setFromObject(inst);
-      holder.position.set(0, 0.95 - hbox.min.y, 0);
-      hero.add(holder);
-      heroHolder = holder;
-      /* 程序化那版收起来（不销毁：GLB 万一被换掉还能显回来） */
-      heroSlab.mesh.visible = false;
     });
+
+    /* 中央那件：改用程序化骨版（boneGeometry），不套 GLB。
+       ------------------------------------------------------------
+       GLB 那件（assets/models/oracle-bone.glb）是为"规整展品"做的：
+       圆角矩形、边缘干净、厚度均匀 —— 立在射灯下像一块打磨过的骨牌，
+       上面刻什么字都像印刷上去的。
+       程序化这版不一样：p-范数 7 的方角、成块的崩口、上宽下窄的收腰，
+       是"从骨料上切下来的一片"，字刻上去才像字刻在骨头上。
+       用户要的是"甲骨片"，不是"骨牌"。
+
+       要换回 GLB：把 HERO_USE_GLB_BONE 改成 true。 */
+    var HERO_USE_GLB_BONE = false;
+    var heroHolder = null;
+    if (HERO_USE_GLB_BONE) {
+      getModel('bone', function (err, g) {
+        if (err || !g || !heroSlab) { return; }
+        var holder = new T.Group();
+        var inst = g.clone(true);
+        inst.traverse(function (o) {
+          if (!o.isMesh) { return; }
+          var nm = (o.material && o.material.name) || '';
+          if (/side/i.test(nm)) {
+            o.material = std({
+              color: 0xa8977a, roughness: 0.86, metalness: 0.02, envMapIntensity: 0.35
+            });
+          } else {
+            o.material = heroSlab.mats[0];
+          }
+          o.userData = { kind: 'hero' };
+          pickables.push(o);
+        });
+        holder.add(inst);
+        holder.rotation.x = 0.06;
+        holder.scale.setScalar(2.2);
+        /* 落座：拿模型自己的包围盒把底面对到台面上（0.95）。
+           模型换了、尺寸改了都不用再手调这个数，也不会浮在半空。 */
+        holder.updateMatrixWorld(true);
+        var hbox = new T.Box3().setFromObject(inst);
+        holder.position.set(0, 0.95 - hbox.min.y, 0);
+        hero.add(holder);
+        heroHolder = holder;
+        /* 程序化那版收起来（不销毁：GLB 万一被换掉还能显回来） */
+        heroSlab.mesh.visible = false;
+      });
+    }
 
     /* 展厅的台座：换成 Blender 的三段收分圆台 */
     getModel('pedestal', function (err, g) {
@@ -3588,6 +3765,12 @@
         var sway = Math.sin(clock.elapsedTime * 0.18) * 0.42;
         if (heroHolder) { heroHolder.rotation.y = sway; }
         else if (heroSlab) { heroSlab.mesh.rotation.y = sway; }
+        /* 吊着的骨片：自转慢到几乎不觉，靠起伏读出"悬着"而不是"贴着" */
+        for (var hi = 0; hi < hangers.length; hi++) {
+          var hg = hangers[hi];
+          hg.g.rotation.y += dt * hg.sp;
+          hg.g.position.y = hg.base + Math.sin(clock.elapsedTime * 0.42 + hg.ph) * 0.10;
+        }
       }
 
       /* 中央那件换字：停一会儿换一个，换的时候旧字化开、新字凝住。

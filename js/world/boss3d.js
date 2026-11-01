@@ -772,7 +772,7 @@
         else { g.position.z = zEnd; g.scale.setScalar(1); }
       })();
     })();
-    var gm = App.worldGlyph.glyphMesh(ch, size || 2.1, { color: 0x3a2c18, emissive: 0xffb264, glow: 0.22 });
+    var gm = App.worldGlyph.glyphMesh(ch, size || 2.1, { color: 0x3a2c18, emissive: 0xffce93, glow: 0.06 });
     if (gm) {
       gm.name = 'boss-glyph';
       g.add(gm);
@@ -850,7 +850,7 @@
       if (km) { g.add(km); }
     } else {
       var gm = App.worldGlyph.glyphMesh(ch, size * 0.58,
-        { color: 0x322616, emissive: o.emissive || 0xffb264, glow: o.glyphGlow == null ? 0.16 : o.glyphGlow });
+        { color: 0x322616, emissive: o.emissive || 0xffce93, glow: o.glyphGlow == null ? 0.10 : o.glyphGlow });
       if (gm) { gm.position.z = fz; g.add(gm); }
       else { var km2 = kaiFace(T, ch, size, fz); if (km2) { g.add(km2); } }
     }

@@ -94,15 +94,40 @@
     return true;
   }
 
-  /* 把字形画进一张 size×size 的画布（居中，100 画布铺满） */
+  /* 把字形画进一张 size×size 的画布（居中，铺满）
+     ------------------------------------------------------------
+     这里原来走 strokeGlyph：拿 JGW 骨架的折线，统一线宽描一遍。
+     描出来的字每一笔都等宽、端头是圆的，摆在骨面上像用马克笔写的。
+
+     现在优先走拓片层（App.rubbings）：从原拓自动描摹出来的闭合轮廓，
+     笔画有粗有细、有崩口、有刀锋，同一个字还能换不同甲骨上的写法。
+     骨架描边留作兜底 —— 拓片层没收录的字（比如站外进来的新字）仍能画。 */
   function paintGlyph(cv, ch, o) {
     var ctx = cv.getContext('2d');
+    var opt = o || {};
+    if (App.rubbings && App.rubbings.has(ch)) {
+      /* 按画布宽度铺满 —— 与原 strokeGlyph 的口径一致（它用 cv.width/100 做 scale），
+         这样竖长的骨面贴图、方形的字墙格子，字占比都跟改之前一样，
+         不会因为换渲染层把版式挤乱。 */
+      var long = cv.width;
+      var ok = App.rubbings.paint(ctx, ch, {
+        x: cv.width / 2, y: cv.height / 2,
+        size: long * (opt.scale || 0.84),
+        color: opt.color || '#241d14',
+        index: opt.index || 0,
+        alpha: opt.alpha,
+        /* 传了 weight 就是"要更厚重"：拓片轮廓加一圈描边，
+           比整字放大更能保住刀口。weight 原来是线宽倍数，这里折算成像素。 */
+        weight: opt.weight ? (opt.weight - 1) * long * 0.012 : 0
+      });
+      if (ok) { return true; }
+    }
     var S = cv.width / 100;
     ctx.save();
     ctx.scale(S, S);
-    var ok = strokeGlyph(ctx, ch, o);
+    var ok2 = strokeGlyph(ctx, ch, opt);
     ctx.restore();
-    return ok;
+    return ok2;
   }
 
   /* ---------- 骨面底 ----------
@@ -226,10 +251,33 @@
      mode: 'map'  骨面刻痕（三遍：暗槽 / 字身 / 受光口沿）
            'bump' 高度图（只要一遍暗） */
   function carveAt(ctx, ch, cx, cy, size, mode, o) {
+    var opt = o || {};
+    /* 拓片优先：三条（槽底暗 / 刻痕本体 / 槽口受光）一层不少，
+       只是笔画的形状换成原拓的轮廓 —— 有粗细、有崩口、有刀锋。
+       骨架描边留作兜底（拓片层没收录的字）。 */
+    if (App.rubbings && App.rubbings.has(ch)) {
+      var base = { x: cx, y: cy, size: size, index: opt.index || 0 };
+      function layer(color, w) {
+        var p = { x: base.x, y: base.y, size: base.size, index: base.index, color: color, weight: w };
+        App.rubbings.paint(ctx, ch, p);
+      }
+      if (mode === 'bump') {
+        layer('rgba(0,0,0,.88)', size * 0.026);
+        return true;
+      }
+      /* ① 槽底：比字本身更宽的一圈暗 —— 刻进去的那道沟的侧壁 */
+      layer('rgba(46,34,20,.70)', size * 0.020);
+      /* ② 刻痕本体 */
+      layer('rgba(28,21,13,.98)', size * 0.006);
+      /* ③ 槽口受光：光从左上来，口沿偏左上，用加色只提一道极细的边 */
+      ctx.globalCompositeOperation = 'lighter';
+      layer('rgba(255,249,236,.26)', size * 0.005);
+      ctx.globalCompositeOperation = 'source-over';
+      return true;
+    }
     var g = glyphRec(ch);
     if (!g || !g.pieces || !g.pieces.length) { return false; }
     var k = size / 100;
-    var opt = o || {};
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(k, k);
@@ -325,6 +373,95 @@
        不该把骨面（十四块色斑 + 几万个噪声点 + 裂纹）重画一遍 ——
        1024 上重画一次要几十毫秒，切换时一眼就能看出来卡了一下。
      画一次、存着，之后每次换字只是 copy + 刻字。 */
+  /* ---------- 钻凿与灼痕 ----------
+     甲骨之所以叫"甲骨"，是因为先钻凿、再灼烧、看裂纹断吉凶。
+     一块骨面上只有字、没有钻凿，那就是"写了字的骨头"，不是卜骨。
+
+     真品的正面长这样：一排枣核形的凹窝（背面钻的圆窝在正面只剩一个浅坑），
+     坑的一侧被灼过，从坑沿炸出一道细裂 —— "卜"字本身就是那道裂的象形。
+
+     画四层：凹坑的暗底 → 坑沿的翻边高光 → 灼烧的深色晕 → 放射的细裂。 */
+  function paintDrills(ctx, w, h, seed, opt) {
+    var R = rng(seed ^ 0x4d21);
+    var o = opt || {};
+    var n = o.n || 5;
+    var vertical = h >= w;      /* 竖长骨版：钻凿沿右缘竖列；横版沿下缘横列 */
+
+    for (var i = 0; i < n; i++) {
+      var t = (i + 0.65) / (n + 0.3);
+      var cx = vertical
+        ? w * (0.815 + (R() - 0.5) * 0.05)
+        : w * (0.14 + t * 0.66);
+      var cy = vertical
+        ? h * (0.13 + t * 0.64)
+        : h * (0.825 + (R() - 0.5) * 0.04);
+      var rx = w * (0.024 + R() * 0.007);
+      var ry = rx * (1.45 + R() * 0.45);
+      var rot = (R() - 0.5) * 0.35;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+
+      /* 1) 灼烧的晕：坑的右侧被火烤过，色深、边缘糊 */
+      var burn = ctx.createRadialGradient(rx * 0.9, 0, rx * 0.2,
+        rx * 0.9, 0, rx * 2.6);
+      burn.addColorStop(0, 'rgba(38,24,12,.34)');
+      burn.addColorStop(1, 'rgba(38,24,12,0)');
+      ctx.fillStyle = burn;
+      ctx.beginPath();
+      ctx.ellipse(rx * 0.9, 0, rx * 2.6, ry * 1.9, 0, 0, 6.2832);
+      ctx.fill();
+
+      /* 2) 凹坑本体：中心最暗，向外微微回升（坑壁受光） */
+      var well = ctx.createRadialGradient(-rx * 0.2, -ry * 0.25, rx * 0.1,
+        0, 0, rx * 1.35);
+      well.addColorStop(0, 'rgba(24,15,7,.72)');
+      well.addColorStop(0.55, 'rgba(52,36,19,.50)');
+      well.addColorStop(1, 'rgba(120,96,64,.10)');
+      ctx.fillStyle = well;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, ry, 0, 0, 6.2832);
+      ctx.fill();
+
+      /* 3) 坑沿翻边：只在左上留一道窄高光 —— 骨料被钻头顶起的那圈 */
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, ry, 0, Math.PI * 0.95, Math.PI * 1.85);
+      ctx.strokeStyle = 'rgba(255,246,226,.42)';
+      ctx.lineWidth = Math.max(1, w * 0.0035);
+      ctx.stroke();
+      /* 右下压一道暗，坑才有深浅 */
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx * 1.03, ry * 1.03, 0, Math.PI * -0.12, Math.PI * 0.80);
+      ctx.strokeStyle = 'rgba(52,34,16,.32)';
+      ctx.lineWidth = Math.max(1, w * 0.0045);
+      ctx.stroke();
+      ctx.restore();
+
+      /* 4) 灼裂：从坑沿往一侧炸开的细纹，长短不一 */
+      var arms = 2 + Math.floor(R() * 3);
+      for (var a = 0; a < arms; a++) {
+        var dir = -Math.PI / 2 + (R() - 0.5) * 2.4 + (a === 0 ? 0 : Math.PI);
+        var len = ry * (0.9 + R() * 1.9);
+        var px = cx + Math.cos(dir) * rx * 0.7;
+        var py = cy + Math.sin(dir) * ry * 0.7;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        var steps = 4, ang = dir;
+        for (var s2 = 0; s2 < steps; s2++) {
+          ang += (R() - 0.5) * 0.5;
+          px += Math.cos(ang) * len / steps;
+          py += Math.sin(ang) * len / steps;
+          ctx.lineTo(px, py);
+        }
+        ctx.strokeStyle = 'rgba(44,28,12,' + (0.28 + R() * 0.22).toFixed(2) + ')';
+        ctx.lineWidth = Math.max(0.8, w * (0.0016 + R() * 0.0014));
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+    }
+  }
+
   function slabBase(opt) {
     var o = opt || {};
     var W = o.w || 512;
@@ -334,6 +471,9 @@
     var cv = canvas(W, H);
     var ctx = cv.getContext('2d');
     paintBone(ctx, W, H, seed, { cracks: !!o.cracks });
+    /* 钻凿画在骨面之后、刻字之前：字是刻在骨面上的，
+       该压在钻凿留下的凹陷与灼痕之上，不能被它们盖住。 */
+    if (o.drills) { paintDrills(ctx, W, H, seed, o.drills); }
 
     /* bump 的骨面：中性灰 + 极淡的起伏；字待会儿单独刻进去 */
     var bv = canvas(Math.max(64, W >> 1), Math.max(64, H >> 1));
@@ -385,9 +525,12 @@
        否则正方形的字画在 1:1.58 的骨版上会被拉长一倍半 —— 字就变形了。 */
     var marks = o.columns ? colLayout(o.columns, W, H, { boost: o.boost }) : [];
     var has = !!glyphRec(ch);
-    /* 主字放大 1.18：字形数据四周留了白，不放大占不住这块骨。
-       放的是同一套笔画，不是另一个字。 */
-    var mainSize = Math.min(W, H) * 1.18;
+    /* 主字占骨面宽度的 72%。
+       原来给的是 1.18 —— 这套系数是配骨架描边调的（骨架四周留白多，
+       放到 1.18 实际笔画才占七成）。拓片是按包围盒归一化的，
+       1.18 会直接把字撑出画布，只看得见半个字。
+       真甲骨上的字也就占骨面宽度的六七成，四周留出骨边与钻凿。 */
+    var mainSize = Math.min(W, H) * 0.72;
 
     marks.forEach(function (m) {
       carveAt(ctx, m.ch, m.x, m.y, m.size, 'map', { rot: m.rot });
@@ -495,6 +638,7 @@
     canvas: canvas,
     glyphRec: glyphRec,
     paintGlyph: paintGlyph,
+    paintDrills: paintDrills,
     paintBone: paintBone,
     carveAt: carveAt,
     colLayout: colLayout,
