@@ -35,16 +35,18 @@
        两个展厅挪到镜头身后的另一段弧上，不跟关卡抢中间那块地。
        详见 docs/交接 与 HANDOFF：默认机位是 theta = 0.10。 */
     { id: 'gallery',    name: '甲骨文知识厅', tag: '陈列', lv: '', glyph: '日', accent: 0xcc523b, angle: 292 },
-    { id: 'build',      name: '造字探索区', tag: '第 01 关', lv: '甲骨构字', glyph: '木', accent: 0x337663, angle: 228 },
-    { id: 'excavate',   name: '考古任务区', tag: '第 02 关', lv: '骨片浮生', glyph: '山', accent: 0xa58147, angle: 156 },
-    { id: 'boss',       name: 'BOSS 挑战区', tag: '第 03 关', lv: '文字讨伐', glyph: '戈', accent: 0x8c3a2a, angle: 100 },
+    { id: 'build',      name: '造字探索区', tag: '第 01 关', lv: '甲骨构字', glyph: '木', accent: 0x337663, angle: 228, shot: 'assets/preview/level-01.jpg' },
+    { id: 'excavate',   name: '考古任务区', tag: '第 02 关', lv: '骨片浮生', glyph: '山', accent: 0xa58147, angle: 156, shot: 'assets/preview/level-02.jpg' },
+    { id: 'boss',       name: 'BOSS 挑战区', tag: '第 03 关', lv: '文字讨伐', glyph: '戈', accent: 0x8c3a2a, angle: 100, shot: 'assets/preview/level-03.jpg' },
     { id: 'collection', name: '我的典藏区', tag: '典藏', lv: '', glyph: '贝', accent: 0x527d91, angle: 338 }
   ];
 
   var SLAB_RATIO = 1.58;  /* 骨版高宽比：甲骨多为竖长 */
   /* 门额横匾上那个大字的方块尺寸与中心（512×256 贴图坐标）。
      提成常量是因为还有一层"显影"要按同一组数画，差一个像素字就会跳。 */
-  var BOARD_G = 150, BOARD_GY = 101;
+  /* 门额上那个甲骨大字的位置。上方留给关卡名（y 170 起），
+     所以大字收到 118、中心抬到 88 —— 之前 150/101 会跟名字叠在一起。 */
+  var BOARD_G = 118, BOARD_GY = 88;
   var HALL_R = 15.6;      /* 展区环半径 */
   /* 门洞尺寸。原本只写在大厅那段循环里，但 portalScreen 要拿门宽去算
      "这扇门在屏幕上有多少像素"，所以提到模块级，两处共用一套数。 */
@@ -230,7 +232,7 @@
      所以四件事一起做：起线（外深内浅两圈）、石面（竖向纹理 + 两端压暗）、
      铜边（用该分区的强调色）、匾脚（在外面用几何做，见 portal 循环）。
      字用拓片层：同一个字在这儿和在骨片上是同一批刀口。 */
-  function portalBoardTex(ch, name, accent) {
+  function portalBoardTex(ch, lv, no, accent) {
     var W = 512, H = 256;
     var cv = App.museumTex.canvas(W, H);
     var c = cv.getContext('2d');
@@ -299,7 +301,7 @@
 
        ⚠ 这里的位置是算出来的，不是拍的：匾内可用区是 [起线内沿, 款行上沿]。
        起线内沿 25，款行 186~216，中间 161px 全给大字；
-       取 BOARD_G=150 居中在 BOARD_GY=101（上下各留呼吸）。
+       取 BOARD_G 居中在 BOARD_GY（上下各留呼吸）。
        早先写成 `size = min(W*0.50, H*0.92)` 再对到 `H*0.40`，
        算出来 235px、中心 102 → **顶端 -15，直接顶出画布**，
        匾上只剩半个字，而且款行又压在字的下半截上。 */
@@ -307,12 +309,23 @@
     App.museumTex.paintGlyph(gcv, ch, { color: '#f2e3c4' });
     c.drawImage(gcv, (W - BOARD_G) / 2, BOARD_GY - BOARD_G / 2);
 
-    /* 今字：匾下一行，字距拉开，像额上的款。
-       这一行落在匾最暗的那一段，所以颜色要比大字更暖、更亮一点才读得出来。 */
-    var tcv = App.museumTex.textCanvas(name, {
-      w: W - 60, h: 32, size: 24, color: '#e6cfa4', tracking: 1.55
-    });
-    c.drawImage(tcv, 30, 183);
+    /* 关卡名：匾上真正要读的一行。
+       原来是 24px 的款字（"第 01 关 · 甲骨构字"），贴在 1.1 米高的匾上，
+       三十米外只有几个像素 —— 等于没写。现在把编号挪到底下一行，
+       名字给到 46px、骨白、字距拉开，匾上第一眼读到的就是"这扇门叫什么"。 */
+    if (lv) {
+      var fs = Math.min(52, Math.floor((W - 70) / Math.max(1, lv.length)));
+      var lcv = App.museumTex.textCanvas(lv, {
+        w: W - 56, h: 62, size: fs, color: '#f7ead0', tracking: 1.9
+      });
+      c.drawImage(lcv, 28, 170);
+    }
+    if (no) {
+      var ncv = App.museumTex.textCanvas(no, {
+        w: W - 80, h: 26, size: 20, color: '#c39c6a', tracking: 1.6, weight: '500'
+      });
+      c.drawImage(ncv, 40, 212);
+    }
 
     return canvasTex(cv, { srgb: true });
   }
@@ -328,12 +341,14 @@
 
      `motif` 决定雷纹的画法：0 回字 1 云雷 2 直线 3 三角 4 圆点。
      不引入额外素材，四种画法都在 canvas 上算。 */
-  function doorLeafTex(accent, motif) {
+  function doorLeafTex(accent, motif, img, reuse) {
     var W = 256, H = 640;
-    var cv = App.museumTex.canvas(W, H);
+    var cv = reuse || App.museumTex.canvas(W, H);
     var c = cv.getContext('2d');
     var ac = '#' + ('000000' + (accent >>> 0).toString(16)).slice(-6);
     var R = App.museumTex.rng(97 + motif * 31);
+    /* 重绘（预览图加载完再画一遍）时先清干净，否则木纹会越叠越厚 */
+    c.clearRect(0, 0, W, H);
 
     /* 板面：上略浅下略深（顶光），纵向分板。
        ⚠ 底色不能压太低：门扇是 MeshStandardMaterial，门前又没有专门的灯，
@@ -368,6 +383,41 @@
         c.lineTo(x0 + Math.sin(y * 0.011 + t) * (1.5 + R() * 2.5), y + 64);
       }
       c.stroke();
+    }
+
+    /* 关卡预览：门扇就是这扇门的"窗"。
+       木门和"里面是什么"原来只能靠门额上那行小字，三十米外等于没有。
+       把该关的真实场景图压进板面：远看仍是一扇木门（暗调、木纹、铺首都在），
+       走近了才看清门上映着的是里面那间屋子。
+       图是等比裁切（cover），不拉伸 —— 失真的预览比没有更糟。 */
+    if (img) {
+      var sc = Math.max(W / img.width, H / img.height);
+      var dw = img.width * sc, dh = img.height * sc;
+      c.save();
+      c.globalAlpha = 1.0;
+      c.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      c.restore();
+      c.fillStyle = 'rgba(26,16,8,.20)';
+      c.fillRect(0, 0, W, H);
+      c.fillStyle = 'rgba(122,74,28,.10)';
+      c.fillRect(0, 0, W, H);
+      /* 板缝重画一遍：图是平的，缝是立体的，缝在图上才还看得出是门 */
+      for (var pi = 1; pi < 4; pi++) {
+        var ppx = (pi / 4) * W;
+        c.strokeStyle = 'rgba(0,0,0,.46)';
+        c.lineWidth = 3;
+        c.beginPath(); c.moveTo(ppx, 0); c.lineTo(ppx, H); c.stroke();
+        c.strokeStyle = 'rgba(214,178,130,.09)';
+        c.lineWidth = 1.5;
+        c.beginPath(); c.moveTo(ppx + 2.5, 0); c.lineTo(ppx + 2.5, H); c.stroke();
+      }
+      /* 图的中段压一层暗，铺首与雷纹才压得住 */
+      var mx = c.createLinearGradient(0, H * 0.30, 0, H * 0.72);
+      mx.addColorStop(0, 'rgba(12,7,3,0)');
+      mx.addColorStop(0.5, 'rgba(12,7,3,.14)');
+      mx.addColorStop(1, 'rgba(12,7,3,0)');
+      c.fillStyle = mx;
+      c.fillRect(0, H * 0.30, W, H * 0.42);
     }
 
     /* 上下横枨 */
@@ -551,6 +601,97 @@
     return geo;
   }
 
+  /* 龟腹甲：中央那件要的是"一片真的甲骨"，不是一块磨过的骨牌。
+     轮廓照腹甲来 —— 首端（上）宽而平，尾端（下）收成 V，
+     左右各四道甲桥凹口。这四道齿是龟甲最认得出的一眼特征，
+     方板、圆角板、乃至打磨过的骨牌都没有。 */
+  function plastronGeometry(seed, w, h, depth) {
+    var R = App.museumTex.rng(seed);
+    var N = 200;
+    var notchY = [0.62, 0.21, -0.21, -0.62];
+    var pts = [];
+    for (var i = 0; i < N; i++) {
+      var a = (i / N) * Math.PI * 2;
+      var ca = Math.cos(a), sa = Math.sin(a);
+      var x = ca * w * 0.5;
+      var y = sa * h * 0.5;
+      var yN = y / h;
+      /* 尾端收窄：越往下越窄，到底收成一个小 V */
+      var tN = Math.max(0, -yN);
+      x *= 1 - 0.42 * tN * tN;
+      /* 首端略平：把顶上的尖削掉 */
+      if (yN > 0.72) { y = h * (0.72 + (yN - 0.72) * 0.45); }
+      /* 甲桥凹口：左右各四道，越靠边越深 */
+      var cut = 0;
+      for (var k = 0; k < notchY.length; k++) {
+        var d = Math.abs(yN - notchY[k]);
+        if (d < 0.075) { cut = Math.max(cut, (1 - d / 0.075) * 0.13); }
+      }
+      x *= 1 - cut * (0.55 + 0.45 * Math.abs(ca));
+      /* 锯口与崩边：真骨片没有一条顺滑的外轮廓 */
+      x *= 1 + (R() - 0.5) * 0.012;
+      y *= 1 + (R() - 0.5) * 0.009;
+      pts.push(new T.Vector2(x, y));
+    }
+
+    var shape = new T.Shape();
+    shape.moveTo(pts[0].x, pts[0].y);
+    for (var j = 1; j < pts.length; j++) { shape.lineTo(pts[j].x, pts[j].y); }
+    shape.closePath();
+
+    var geo = new T.ExtrudeGeometry(shape, {
+      depth: depth || 0.07, bevelEnabled: true,
+      bevelThickness: 0.018, bevelSize: 0.012, bevelSegments: 1, curveSegments: 4
+    });
+    geo.center();
+
+    var pos = geo.attributes.position;
+    var uv = geo.attributes.uv;
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (var v = 0; v < pos.count; v++) {
+      var px = pos.getX(v), py = pos.getY(v);
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+    }
+    var sx = maxX - minX || 1, sy = maxY - minY || 1;
+    for (var u = 0; u < pos.count; u++) {
+      uv.setXY(u, (pos.getX(u) - minX) / sx, (pos.getY(u) - minY) / sy);
+    }
+    uv.needsUpdate = true;
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+
+  /* 关卡预览贴图：一次成型，之后不再改 canvas。
+     three 上传 canvas 纹理时会把内容转成位图缓存，之后重绘画布不会反映到屏幕上，
+     所以这里"画完就用"，绝不二次修改同一张画布。 */
+  function loadShot(url, mtl, w, h) {
+    var im = new Image();
+    im.onload = function () {
+      try {
+        var cv = App.museumTex.canvas(w, h);
+        var c = cv.getContext('2d');
+        var sc = Math.max(w / im.width, h / im.height);
+        c.drawImage(im, (w - im.width * sc) / 2, (h - im.height * sc) / 2,
+          im.width * sc, im.height * sc);
+        /* 暖调 + 压暗：门面上的画面要跟厅里的光是一个色温 */
+        c.fillStyle = 'rgba(28,16,8,.26)';
+        c.fillRect(0, 0, w, h);
+        c.fillStyle = 'rgba(126,76,26,.12)';
+        c.fillRect(0, 0, w, h);
+        var tex = canvasTex(cv, { srgb: true });
+        mtl.map = tex;
+        mtl.opacity = 1;
+        mtl.needsUpdate = true;
+      } catch (e) { /* 图画坏了也不该把大厅带崩 */ }
+    };
+    im.onerror = function () { /* 没有预览图就保持木门 */ };
+    im.src = url;
+  }
+
   /* 一块骨版 + 它的材质。回传对象以便图鉴里统一登记、统一释放。
      o.columns 有值时骨面刻的是成篇的竖行（此时 ch 可留空）。 */
   function makeSlab(ch, opt) {
@@ -581,7 +722,8 @@
       color: 0xa8977a, roughness: 0.86, metalness: 0.02, envMapIntensity: 0.35
     });
 
-    var geo = boneGeometry(App.museumTex.hashStr(ch || (o.columns || []).join('') || 'b') || 11,
+    var geo = (o.shape === 'plastron' ? plastronGeometry : boneGeometry)(
+      App.museumTex.hashStr(ch || (o.columns || []).join('') || 'b') || 11,
       1.0, ratio, 0.075);
     var mesh = new T.Mesh(geo, [mtl, sideMtl]);
     mesh.scale.setScalar(size);
@@ -628,7 +770,7 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, low ? 1 : 1.75));
     renderer.outputEncoding = T.sRGBEncoding;
     renderer.toneMapping = T.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.04;
+    renderer.toneMappingExposure = 1.22;
     renderer.shadowMap.enabled = !low;
     renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.domElement.className = 'mu-canvas';
@@ -650,10 +792,10 @@
     pmrem.dispose();
 
     /* ---------- 灯光 ---------- */
-    var hemi = new T.HemisphereLight(0x5d4732, 0x0a0705, 0.74);
+    var hemi = new T.HemisphereLight(0x7a5f42, 0x0e0906, 1.32);
     scene.add(hemi);
 
-    var keySpot = new T.SpotLight(0xffe6c4, 2.15, 46, 0.62, 0.92, 0.9);
+    var keySpot = new T.SpotLight(0xffe6c4, 1.62, 46, 0.62, 0.92, 0.9);
     keySpot.position.set(0, 14.2, 1.5);
     keySpot.target.position.set(0, 0, 0);
     if (!low) {
@@ -725,8 +867,53 @@
     glow.position.y = 0.02;
     hall.add(glow);
 
-    /* 外墙：一圈筒壁。内表面受光，靠雾把远端吃掉，产生纵深。 */
-    var wallMtl = std({ color: 0x1b130c, roughness: 0.94, metalness: 0.04, side: T.BackSide });
+    /* 外墙：一圈筒壁。内表面受光，靠雾把远端吃掉，产生纵深。
+       墙要是纯靠灯打，十几米外就全黑了 —— 全场只剩中央一块亮骨版，
+       空间读不出进深。给墙一点自发光当"环境底"，墙的质感才在。 */
+    function wallStoneTex() {
+      var W = 1024, H = 512;
+      var cv = App.museumTex.canvas(W, H);
+      var c = cv.getContext('2d');
+      var R = App.museumTex.rng(0x77c1);
+      c.fillStyle = '#2a1d13';
+      c.fillRect(0, 0, W, H);
+      /* 石砌：一层层错缝的块，缝是暗的、块面有深浅 */
+      var rows = 9, rh = H / rows;
+      for (var r = 0; r < rows; r++) {
+        var off = (r % 2) * 0.5;
+        var cols = 5;
+        for (var q = -1; q <= cols; q++) {
+          var x = (q + off) * (W / cols);
+          var w = W / cols;
+          var shade = 0.5 + R() * 0.5;
+          c.fillStyle = 'rgba(' + Math.round(58 * shade + 12) + ',' +
+            Math.round(42 * shade + 9) + ',' + Math.round(29 * shade + 6) + ',.55)';
+          c.fillRect(x + 3, r * rh + 3, w - 6, rh - 6);
+          /* 块面上缘受光 */
+          c.fillStyle = 'rgba(150,118,80,.06)';
+          c.fillRect(x + 3, r * rh + 3, w - 6, 2);
+        }
+        /* 横缝 */
+        c.fillStyle = 'rgba(6,4,2,.62)';
+        c.fillRect(0, r * rh, W, 3);
+      }
+      /* 竖缝 */
+      for (var r2 = 0; r2 < rows; r2++) {
+        var off2 = (r2 % 2) * 0.5;
+        for (var q2 = -1; q2 <= 5; q2++) {
+          var x2 = (q2 + off2) * (W / 5);
+          c.fillStyle = 'rgba(6,4,2,.5)';
+          c.fillRect(x2 - 1.5, r2 * rh, 3, rh);
+        }
+      }
+      return cv;
+    }
+    var wallMap = canvasTex(wallStoneTex(), { srgb: true, repeat: [9, 1.6] });
+    wallMap.wrapS = wallMap.wrapT = T.RepeatWrapping;
+    var wallMtl = std({
+      map: wallMap, color: 0x8f7a5f, roughness: 0.94, metalness: 0.04, side: T.BackSide,
+      emissive: new T.Color(0x150e08), emissiveIntensity: 0.85
+    });
     var wall = new T.Mesh(new T.CylinderGeometry(WALL_R, WALL_R, HALL_H, 72, 1, true), wallMtl);
     wall.position.y = HALL_H / 2;
     hall.add(wall);
@@ -763,17 +950,830 @@
        六道门、中央展台、墙上的壁柱三层关系才连得起来。
        壁柱（十二件展品的位置）保留：那是陈设的节拍，不是结构的柱。 */
 
-    /* ---------- 悬挂的甲骨片 ----------
-       拆掉十二根立柱之后，圆厅中间空出一整圈什么都没有的空当：
-       穹顶到地面之间缺了"中间高度"的一层，视线平着看过去，空间是扁的。
+    /* ============================================================
+       殿堂：地面纹样 · 柱列 · 梁架 · 墙板拓片 · 青铜陈设 · 灯台
+       ------------------------------------------------------------
+       这一段解决的是"圆厅太空"：原来只有五扇门 + 中央一个台，
+       墙是光的一圈筒壁，地是光的一圈石面，中间十几米什么都没有。
+       补法按建筑的层次来，不按"这儿空就塞个东西"：
+         地面（引导线 + 中心纹样）→ 柱列 → 梁架 → 墙板与拓片
+         → 门两侧的灯台 → 柱间的青铜器
+       装饰只落在**门与门之间的中点**（MID_A），门的正前方一律留空：
+       门在半径 15.6 上占 ±8.2°，所以任何陈设离门心都至少 12°。
+       ============================================================ */
+    var GATE_A = ZONE_DEF.map(function (z) { return z.angle * Math.PI / 180; })
+      .sort(function (a, b) { return a - b; });
+    /* 相邻两扇门之间的中点角度（装饰的合法落点） */
+    var MID_A = GATE_A.map(function (a, i) {
+      var b = GATE_A[(i + 1) % GATE_A.length];
+      var d = b - a;
+      if (d <= 0) { d += Math.PI * 2; }
+      return a + d / 2;
+    });
+    function polar(a, r) { return { x: Math.sin(a) * r, z: Math.cos(a) * r }; }
 
-       挂一圈甲骨片。不是装饰球 —— 是同一批字、同一套刀口的小骨片，
-       从穹顶垂下来慢速自转。顶光打下来，骨片下缘一道亮边、上缘沉在暗里，
-       层高就被重新读出来了。挑的字都在这 73 个里，每一片刻的都认得出来。 */
+    /* ---------- 地面：石板缝 + 中心云雷纹 + 通往门的引导线 ----------
+       原来是 stoneTex 平铺，整个地面除了两道铜环什么都没有。
+       现在整张画：一圈同心石板缝给出"这是个圆厅"的尺度，
+       中心 6.4 米画云雷纹，再从中心向每扇门放两条铜线 ——
+       站进来第一眼就知道"该往哪边走"。 */
+    function floorArtTex() {
+      var S = 2048;
+      var C = S / 2;
+      var M = C / (WALL_R + 2);        /* 每米像素：贴图覆盖半径 26 米 */
+      var cv = App.museumTex.canvas(S, S);
+      var c = cv.getContext('2d');
+      var R = App.museumTex.rng(0x2f19);
+
+      c.fillStyle = '#191109';
+      c.fillRect(0, 0, S, S);
+      c.globalAlpha = 0.62;
+      c.drawImage(stoneTex(), 0, 0, S, S);
+      c.globalAlpha = 1;
+
+      function P(a, rr) { return [C + Math.sin(a) * rr * M, C + Math.cos(a) * rr * M]; }
+
+      /* 同心石板缝：每 2.2 米一道，越外越暗 */
+      for (var rr = 2.2; rr < WALL_R; rr += 2.2) {
+        c.beginPath();
+        c.arc(C, C, rr * M, 0, Math.PI * 2);
+        c.strokeStyle = 'rgba(6,4,2,.55)';
+        c.lineWidth = 3.2;
+        c.stroke();
+        c.beginPath();
+        c.arc(C, C, rr * M + 2, 0, Math.PI * 2);
+        c.strokeStyle = 'rgba(120,96,64,.10)';
+        c.lineWidth = 1.4;
+        c.stroke();
+      }
+      /* 放射缝：从 6.6 米到墙脚，每 7.5° 一道 */
+      for (var k = 0; k < 48; k++) {
+        var a = k * Math.PI / 24;
+        var p0 = P(a, 6.6), p1 = P(a, WALL_R);
+        c.beginPath();
+        c.moveTo(p0[0], p0[1]);
+        c.lineTo(p1[0], p1[1]);
+        c.strokeStyle = 'rgba(6,4,2,.42)';
+        c.lineWidth = 2.4;
+        c.stroke();
+      }
+
+      /* 中心：一圈云雷纹。商代青铜与甲骨上最常见的"回"字单元，
+         沿圆周等距排 28 个，每个再按半径方向拉长。 */
+      c.save();
+      c.translate(C, C);
+      var N = 28, R0 = 4.55, R1 = 5.95;
+      for (var i = 0; i < N; i++) {
+        c.save();
+        c.rotate(i / N * Math.PI * 2);
+        var gapA = (R1 - R0) * 0.16;
+        c.strokeStyle = 'rgba(150,120,74,.34)';
+        c.lineWidth = 2.6;
+        var x0 = R0 * M + 6, x1 = R1 * M - 6;
+        var y0 = -gapA * M, y1 = gapA * M;
+        /* 回字：三条向内折的线 */
+        c.beginPath();
+        c.moveTo(x0, y0);
+        c.lineTo(x1, y0);
+        c.lineTo(x1, y1);
+        c.lineTo(x0 + (x1 - x0) * 0.35, y1);
+        c.stroke();
+        c.beginPath();
+        c.moveTo(x0, y1 * 0.45);
+        c.lineTo(x1 - (x1 - x0) * 0.3, y1 * 0.45);
+        c.stroke();
+        c.restore();
+      }
+      c.restore();
+
+      /* 中心承台环：三重同心，最内一圈压得更亮 */
+      [[3.15, 'rgba(163,126,72,.38)', 5],
+       [6.35, 'rgba(163,126,72,.30)', 4],
+       [6.75, 'rgba(163,126,72,.14)', 2]].forEach(function (t) {
+        c.beginPath();
+        c.arc(C, C, t[0] * M, 0, Math.PI * 2);
+        c.strokeStyle = t[1];
+        c.lineWidth = t[2];
+        c.stroke();
+      });
+
+      /* 引导线：从中心环外沿到每扇门前，双线（像甬道的地栿） */
+      GATE_A.forEach(function (a) {
+        var q = Math.PI * 0.5;
+        [-q, q].forEach(function (side) {
+          var dx = Math.cos(a) * 0.95 * side;
+          var dz = -Math.sin(a) * 0.95 * side;
+          var p0 = P(a, 7.0), p1 = P(a, 15.05);
+          c.beginPath();
+          c.moveTo(p0[0] + dx * M, p0[1] + dz * M);
+          c.lineTo(p1[0] + dx * M, p1[1] + dz * M);
+          c.strokeStyle = 'rgba(150,118,70,.20)';
+          c.lineWidth = 3;
+          c.stroke();
+        });
+        /* 门前一块半圆踏跺的暗影 */
+        var pf = P(a, 15.0);
+        var g2 = c.createRadialGradient(pf[0], pf[1], 0, pf[0], pf[1], 2.6 * M);
+        g2.addColorStop(0, 'rgba(255,206,150,.09)');
+        g2.addColorStop(1, 'rgba(255,200,140,0)');
+        c.fillStyle = g2;
+        c.beginPath();
+        c.arc(pf[0], pf[1], 2.6 * M, 0, Math.PI * 2);
+        c.fill();
+      });
+
+      /* 磨旧的脚印区：中心到各门之间随机几块更暗的斑 */
+      for (var j = 0; j < 90; j++) {
+        var aa = R() * Math.PI * 2, rd = 7 + R() * 15;
+        var pp = P(aa, rd);
+        var sz = (0.3 + R() * 1.5) * M;
+        var g3 = c.createRadialGradient(pp[0], pp[1], 0, pp[0], pp[1], sz);
+        g3.addColorStop(0, 'rgba(0,0,0,.22)');
+        g3.addColorStop(1, 'rgba(0,0,0,0)');
+        c.fillStyle = g3;
+        c.fillRect(pp[0] - sz, pp[1] - sz, sz * 2, sz * 2);
+      }
+      return cv;
+    }
+    var oldFloorMap = floorMtl.map;
+    floorMtl.map = canvasTex(floorArtTex(), { srgb: true, aniso: 8 });
+    floorMtl.roughness = 0.24;
+    floorMtl.metalness = 0.30;
+    floorMtl.color = new T.Color(0xd8ccb8);
+    /* 暗场里抛光石面如果只吃灯，除了中央光斑以外全黑 ——
+       给一层极弱的自发光当"石头的底"，纹样才铺得开 */
+    floorMtl.emissive = new T.Color(0x2a1d10);
+    floorMtl.emissiveMap = floorMtl.map;
+    floorMtl.emissiveIntensity = 0.55;
+    floorMtl.needsUpdate = true;
+    if (oldFloorMap && oldFloorMap.dispose) { oldFloorMap.dispose(); }
+
+    /* ---------- 柱列 ----------
+       五根，落在门与门之间的中点上，半径 20.4（贴着墙、在门的外侧）。
+       柱身八棱 —— 圆厅里用圆柱会跟墙糊成一片，八棱才有"面"和"棱"。 */
+    var palace = new T.Group();
+    hall.add(palace);
+
+    /* 火苗贴图：灯台与案头小灯共用，先画好 */
+    function fireTex() {
+      var cv = App.museumTex.canvas(128, 128);
+      var c = cv.getContext('2d');
+      var g = c.createRadialGradient(64, 64, 0, 64, 64, 62);
+      g.addColorStop(0, 'rgba(255,246,222,1)');
+      g.addColorStop(0.18, 'rgba(255,214,150,.92)');
+      g.addColorStop(0.42, 'rgba(255,168,86,.42)');
+      g.addColorStop(1, 'rgba(255,150,60,0)');
+      c.fillStyle = g;
+      c.fillRect(0, 0, 128, 128);
+      return cv;
+    }
+    var fireMap = canvasTex(fireTex(), { srgb: true });
+    var lampHalos = [];
+
+
+    var stoneMtl = std({ color: 0x4d3927, roughness: 0.86, metalness: 0.06, envMapIntensity: 0.55,
+      emissive: new T.Color(0x2a1d11), emissiveIntensity: 1.05 });
+    var stoneDark = std({ color: 0x2e2116, roughness: 0.92, metalness: 0.05,
+      emissive: new T.Color(0x0d0805), emissiveIntensity: 0.6 });
+    var bronzeMtl = std({ color: 0x6f5a33, roughness: 0.46, metalness: 0.86, envMapIntensity: 1.15 });
+    var bronzeDark = std({ color: 0x3d3220, roughness: 0.58, metalness: 0.80, envMapIntensity: 0.85 });
+
+    var COL_R = 20.4, COL_H = 10.2, COL_T = 1.06;
+    var colTops = [];
+    MID_A.forEach(function (a, i) {
+      var p = polar(a, COL_R);
+      var g = new T.Group();
+      g.position.set(p.x, 0, p.z);
+      g.rotation.y = a;
+
+      /* 柱础：两层方座，下大上小 */
+      var base1 = new T.Mesh(new T.BoxGeometry(2.15, 0.42, 2.15), stoneDark);
+      base1.position.y = 0.21; base1.receiveShadow = true;
+      g.add(base1);
+      var base2 = new T.Mesh(new T.BoxGeometry(1.72, 0.36, 1.72), stoneMtl);
+      base2.position.y = 0.60; base2.receiveShadow = true;
+      g.add(base2);
+
+      /* 柱身：八棱，下粗上细（收分 6%） */
+      var shaft = new T.Mesh(
+        new T.CylinderGeometry(COL_T * 0.47, COL_T * 0.5, COL_H - 1.5, 8, 1),
+        stoneMtl
+      );
+      shaft.position.y = 0.78 + (COL_H - 1.5) / 2;
+      shaft.receiveShadow = true;
+      g.add(shaft);
+
+      /* 柱身中段铜箍两道 —— 商代木柱下垫础石、柱身有铜箍的记录 */
+      [0.34, 0.66].forEach(function (t) {
+        var band = new T.Mesh(new T.TorusGeometry(COL_T * 0.49, 0.052, 6, 8), bronzeMtl);
+        band.rotation.x = Math.PI / 2;
+        band.position.y = 0.78 + (COL_H - 1.5) * t;
+        g.add(band);
+      });
+
+      /* 柱头：斗形，承梁 */
+      var cap = new T.Mesh(new T.BoxGeometry(1.46, 0.44, 1.46), bronzeDark);
+      cap.position.y = COL_H - 0.30;
+      g.add(cap);
+      var cap2 = new T.Mesh(new T.BoxGeometry(1.08, 0.26, 1.08), bronzeMtl);
+      cap2.position.y = COL_H + 0.02;
+      g.add(cap2);
+
+      /* 柱脚地灯：光晕片打在柱身上，柱子才从墙里"站出来" */
+      var lampGlow = new T.Mesh(
+        new T.PlaneGeometry(2.6, 3.4),
+        new T.MeshBasicMaterial({
+          map: fireMap, transparent: true, blending: T.AdditiveBlending,
+          depthWrite: false, opacity: 0.30, toneMapped: false, fog: false
+        })
+      );
+      lampGlow.position.set(0, 1.5, 0.9);
+      g.add(lampGlow);
+      lampHalos.push({ halo: lampGlow, ph: i * 1.3 });
+
+      /* 柱脚一圈暖光，别让柱子从地面"长"出来 */
+      var halo = new T.Mesh(
+        new T.PlaneGeometry(3.1, 3.1),
+        new T.MeshBasicMaterial({
+          map: canvasTex(App.museumTex.textCanvas('', { size: 8, w: 128, h: 128 }).canvas || App.museumTex.canvas(128, 128), { srgb: true }),
+          transparent: true, opacity: 0
+        })
+      );
+      halo.visible = false;
+      g.add(halo);
+
+      palace.add(g);
+      colTops.push({ a: a, x: p.x, z: p.z });
+    });
+
+    /* ---------- 梁架 ----------
+       相邻柱顶一道横梁（五段，围成正五边形），再从中腰向圆心收五根
+       斜梁接到中央藻井环上 —— 抬眼看就是一座有屋顶的房子，
+       但全在 11 米以上，视平线（3~5 米）完全不受遮挡。 */
+    var BEAM_Y = COL_H + 0.42;
+    colTops.forEach(function (t, i) {
+      var n = colTops[(i + 1) % colTops.length];
+      var dx = n.x - t.x, dz = n.z - t.z;
+      var len = Math.sqrt(dx * dx + dz * dz);
+      var beam = new T.Mesh(new T.BoxGeometry(len, 0.46, 0.40), bronzeMtl);
+      beam.position.set((t.x + n.x) / 2, BEAM_Y, (t.z + n.z) / 2);
+      beam.rotation.y = Math.atan2(dx, dz) - Math.PI / 2;
+      palace.add(beam);
+
+      /* 梁下挂一圈短枋：只做结构感，不垂到视线里 */
+      var drop = new T.Mesh(new T.BoxGeometry(len * 0.86, 0.16, 0.22), stoneDark);
+      drop.position.set((t.x + n.x) / 2, BEAM_Y - 0.30, (t.z + n.z) / 2);
+      drop.rotation.y = beam.rotation.y;
+      palace.add(drop);
+    });
+
+    /* 中央藻井：一圈铜环 + 五根斜梁收进来 */
+    var coffer = new T.Mesh(new T.TorusGeometry(5.6, 0.20, 6, 48), bronzeMtl);
+    coffer.rotation.x = Math.PI / 2;
+    coffer.position.y = BEAM_Y + 0.9;
+    palace.add(coffer);
+
+    var coffer2 = new T.Mesh(new T.TorusGeometry(3.35, 0.12, 5, 40), bronzeDark);
+    coffer2.rotation.x = Math.PI / 2;
+    coffer2.position.y = BEAM_Y + 1.25;
+    palace.add(coffer2);
+
+    /* 中央藻井：两重方框 + 四根垂柱。
+       只在画面最高处露一条，但有了它，抬头才是"屋顶"而不是"黑"。 */
+    function squareFrame(r, y, t, mtl) {
+      for (var fi = 0; fi < 4; fi++) {
+        var fb = new T.Mesh(new T.BoxGeometry(r * 2, t, t), mtl);
+        fb.position.set(0, y, 0);
+        fb.rotation.y = fi * Math.PI / 2;
+        fb.translateZ(-r);
+        palace.add(fb);
+      }
+    }
+    squareFrame(5.15, BEAM_Y + 0.62, 0.30, bronzeMtl);
+    squareFrame(3.30, BEAM_Y + 0.96, 0.22, bronzeDark);
+    if (!low) {
+      [0, 1, 2, 3].forEach(function (qi) {
+        var qa = qi * Math.PI / 2 + Math.PI / 4;
+        var drop = new T.Mesh(new T.BoxGeometry(0.16, 0.62, 0.16), bronzeDark);
+        drop.position.set(Math.cos(qa) * 4.2, BEAM_Y + 0.36, Math.sin(qa) * 4.2);
+        palace.add(drop);
+        var knob = new T.Mesh(new T.SphereGeometry(0.11, 8, 6), bronzeMtl);
+        knob.position.set(Math.cos(qa) * 4.2, BEAM_Y + 0.02, Math.sin(qa) * 4.2);
+        palace.add(knob);
+      });
+    }
+
+    colTops.forEach(function (t) {
+      var from = new T.Vector3(t.x, BEAM_Y, t.z);
+      var to = new T.Vector3(0, BEAM_Y + 0.9, 0);
+      var mid = from.clone().add(to).multiplyScalar(0.5);
+      var len = from.distanceTo(to);
+      var rafter = new T.Mesh(new T.BoxGeometry(0.30, 0.26, len), bronzeDark);
+      rafter.position.copy(mid);
+      rafter.lookAt(to);
+      palace.add(rafter);
+    });
+
+    /* ---------- 墙面分层 ----------
+       墙裙已有（1.1 米）。再补：一道腰线、一圈壁柱、五块墙板。
+       壁柱立在门前两侧（±13.5°），高度 9.6 米，是"这扇门属于哪个开间"的边框；
+       墙板架在壁柱之间，上面挂拓片。 */
+    var dado = new T.Mesh(
+      new T.TorusGeometry(WALL_R - 0.14, 0.075, 6, 96),
+      bronzeDark
+    );
+    dado.rotation.x = Math.PI / 2;
+    dado.position.y = 4.35;
+    hall.add(dado);
+
+    /* 壁柱：每扇门两根 */
+    if (!low) {
+      GATE_A.forEach(function (a) {
+        [-0.235, 0.235].forEach(function (off) {
+          var p = polar(a + off, WALL_R - 0.55);
+          var pil = new T.Mesh(
+            new T.BoxGeometry(0.34, 9.4, 0.52),
+            std({ color: 0x2e2217, roughness: 0.86, metalness: 0.08 })
+          );
+          pil.position.set(p.x, 5.85, p.z);
+          pil.rotation.y = a;
+          palace.add(pil);
+          var cap2 = new T.Mesh(new T.BoxGeometry(0.52, 0.20, 0.66), bronzeDark);
+          cap2.position.set(p.x, 10.6, p.z);
+          cap2.rotation.y = a;
+          palace.add(cap2);
+        });
+      });
+    }
+
+    /* ---------- 甲骨档案墙：拓片 ----------
+       墙板 + 墨拓。拓片的字一律取自已收录的 73 个构件 / 34 张合体字卡，
+       题头用字卡里那条卜辞（src 字段）—— 不做随机伪文字。 */
+    function glyphStamp(ch, size, color) {
+      var cv = App.museumTex.canvas(size, size);
+      App.museumTex.paintGlyph(cv, ch, { color: color || '#e8dbc0', weight: 2.0 });
+      return cv;
+    }
+
+    /* 墙上那块"射灯打下来"的柔光片：中间椭圆亮、边缘化开 */
+    function washTex() {
+      var cv = App.museumTex.canvas(256, 160);
+      var c = cv.getContext('2d');
+      var g = c.createRadialGradient(128, 60, 4, 128, 78, 128);
+      g.addColorStop(0, 'rgba(255,226,182,.95)');
+      g.addColorStop(0.42, 'rgba(255,206,150,.34)');
+      g.addColorStop(1, 'rgba(255,190,130,0)');
+      c.fillStyle = g;
+      c.fillRect(0, 0, 256, 160);
+      return cv;
+    }
+
+    /* 墨拓：黑底、骨白字、四周留白边，边缘做斑驳 */
+    function rubbingTex(title, chars, sub) {
+      var W = 620, H = 380;
+      var cv = App.museumTex.canvas(W, H);
+      var c = cv.getContext('2d');
+      var R = App.museumTex.rng(title.length * 977 + chars.length * 131);
+
+      c.fillStyle = '#0d0906';
+      c.fillRect(0, 0, W, H);
+
+      /* 纸/墨的斑：拓包拍上去不可能均匀 */
+      for (var i = 0; i < 120; i++) {
+        var x = R() * W, y = R() * H, r = 6 + R() * 46;
+        var g = c.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, R() > 0.55 ? 'rgba(70,58,42,.16)' : 'rgba(0,0,0,.30)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        c.fillStyle = g;
+        c.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+
+      /* 双线边框 —— 拓片裁下来的那张纸的边 */
+      c.strokeStyle = 'rgba(190,168,132,.34)';
+      c.lineWidth = 1.6;
+      c.strokeRect(14, 14, W - 28, H - 28);
+      c.strokeStyle = 'rgba(190,168,132,.16)';
+      c.strokeRect(22, 22, W - 44, H - 44);
+
+      /* 竖排字：从右往左，一格一个字 */
+      var n = chars.length;
+      var cell = Math.min((H - 132) / 1.1, (W - 120) / n);
+      var gs = Math.round(cell * 0.86);
+      var x0 = W - 74;
+      for (var k = 0; k < n; k++) {
+        var st = glyphStamp(chars[k], gs, '#e9dcc2');
+        c.globalAlpha = 0.92;
+        c.drawImage(st, x0 - gs, 44 + 18, gs, gs);
+        c.globalAlpha = 1;
+        x0 -= cell;
+      }
+
+      /* 题头（今字）与小字说明：宋体，压在左下角 */
+      c.fillStyle = 'rgba(214,192,158,.92)';
+      c.font = '600 24px "Songti SC","Noto Serif SC",serif';
+      c.fillText(title, 40, H - 62);
+      c.fillStyle = 'rgba(178,156,124,.62)';
+      c.font = '400 15px "Songti SC","Noto Serif SC",serif';
+      c.fillText(sub || '摹自拓本', 40, H - 36);
+
+      return cv;
+    }
+
+    var LORE = [
+      { t: '日月', ch: ['日', '月'], s: '贞：翌日其明？' },
+      { t: '受年', ch: ['禾', '田', '年'], s: '贞：今岁受年？' },
+      { t: '田猎', ch: ['犬', '豕', '隹'], s: '贞：王其田，无灾？' },
+      { t: '征伐', ch: ['戈', '矢'], s: '贞：伐某方，受有祐？' },
+      { t: '卜兆', ch: ['卜', '兆'], s: '灼骨所现之兆' }
+    ];
+    var LORE_OK = LORE.filter(function (l) {
+      return l.ch.every(function (ch) {
+        return App.glyphs && App.glyphs.parts && App.glyphs.parts[ch];
+      });
+    });
+    if (!LORE_OK.length) { LORE_OK = [{ t: '卜兆', ch: ['卜'], s: '灼骨所现之兆' }]; }
+
+    LORE_OK.forEach(function (lore, i) {
+      var a = MID_A[i % MID_A.length];
+      var p = polar(a, WALL_R - 0.62);
+      var tex = canvasTex(rubbingTex(lore.t, lore.ch, lore.s), { srgb: true, aniso: 8 });
+
+      /* 背板：比拓片大一圈，把拓片"钉"在墙上 */
+      var back = new T.Mesh(
+        new T.PlaneGeometry(10.6, 6.0),
+        std({ color: 0x1a120c, roughness: 0.92, metalness: 0.04 })
+      );
+      back.position.set(p.x, 7.0, p.z);
+      back.lookAt(0, 7.0, 0);
+      palace.add(back);
+
+      var rub = new T.Mesh(
+        new T.PlaneGeometry(9.4, 5.3),
+        new T.MeshStandardMaterial({
+          map: tex, roughness: 0.94, metalness: 0.02,
+          emissive: new T.Color(0x2a2014), emissiveMap: tex, emissiveIntensity: 1.15
+        })
+      );
+      rub.position.set(p.x, 7.0, p.z);
+      rub.lookAt(0, 7.0, 0);
+      rub.position.x *= 0.995; rub.position.z *= 0.995;
+      palace.add(rub);
+
+      /* 拓片上下一对铜包角 */
+      [1, -1].forEach(function (s) {
+        var cnr = new T.Mesh(new T.BoxGeometry(0.16, 0.16, 0.06), bronzeMtl);
+        cnr.position.set(p.x, 7.0 + s * 2.42, p.z);
+        cnr.lookAt(0, 7.0 + s * 2.42, 0);
+        palace.add(cnr);
+      });
+
+      /* 一块射灯片：让拓片比墙亮一档（不加真 SpotLight，省开销） */
+      var wash = new T.Mesh(
+        new T.PlaneGeometry(9.6, 6.4),
+        new T.MeshBasicMaterial({
+          map: canvasTex(washTex(), { srgb: true }), transparent: true,
+          blending: T.AdditiveBlending, opacity: 0.16, depthWrite: false, fog: false
+        })
+      );
+      wash.position.set(p.x, 7.0, p.z);
+      wash.lookAt(0, 7.0, 0);
+      wash.position.x *= 0.985; wash.position.z *= 0.985;
+      palace.add(wash);
+    });
+
+    /* ---------- 青铜礼器 ----------
+       三件一套：鼎（炊器，三足两耳）、爵（酒器，三足带流）、尊（盛酒，喇叭口）。
+       程序化几何，单件不到 400 面，五处陈设共三套轮换。 */
+    function makePedestal(w) {
+      var g = new T.Group();
+      var body = new T.Mesh(new T.BoxGeometry(w, 0.62, w), stoneDark);
+      body.position.y = 0.31;
+      body.receiveShadow = true;
+      g.add(body);
+      var lip = new T.Mesh(new T.BoxGeometry(w * 1.12, 0.08, w * 1.12), stoneMtl);
+      lip.position.y = 0.64;
+      g.add(lip);
+      return g;
+    }
+
+    function makeDing(sc) {
+      var g = new T.Group();
+      var belly = new T.Mesh(new T.CylinderGeometry(0.58, 0.46, 0.58, 16, 1), bronzeMtl);
+      belly.position.y = 0.86;
+      g.add(belly);
+      var rim = new T.Mesh(new T.TorusGeometry(0.58, 0.035, 5, 24), bronzeMtl);
+      rim.rotation.x = Math.PI / 2; rim.position.y = 1.15;
+      g.add(rim);
+      /* 三足：外撇 */
+      for (var i = 0; i < 3; i++) {
+        var a = i / 3 * Math.PI * 2;
+        var leg = new T.Mesh(new T.CylinderGeometry(0.075, 0.05, 0.62, 7), bronzeDark);
+        leg.position.set(Math.sin(a) * 0.30, 0.31, Math.cos(a) * 0.30);
+        leg.rotation.z = -Math.sin(a) * 0.16;
+        leg.rotation.x = Math.cos(a) * 0.16;
+        g.add(leg);
+      }
+      /* 双耳：立耳 */
+      [-1, 1].forEach(function (s) {
+        var ear = new T.Mesh(new T.TorusGeometry(0.13, 0.028, 5, 14, Math.PI), bronzeMtl);
+        ear.position.set(s * 0.34, 1.22, 0);
+        ear.rotation.y = Math.PI / 2;
+        g.add(ear);
+      });
+      g.scale.setScalar(sc || 1);
+      return g;
+    }
+
+    function makeJue(sc) {
+      var g = new T.Group();
+      var cup = new T.Mesh(new T.CylinderGeometry(0.20, 0.14, 0.42, 12, 1), bronzeMtl);
+      cup.position.y = 0.72;
+      g.add(cup);
+      var mouth = new T.Mesh(new T.TorusGeometry(0.20, 0.022, 4, 16), bronzeMtl);
+      mouth.rotation.x = Math.PI / 2; mouth.position.y = 0.93;
+      g.add(mouth);
+      /* 流：向前伸出的一道沟 */
+      var spout = new T.Mesh(new T.CylinderGeometry(0.055, 0.10, 0.42, 8), bronzeMtl);
+      spout.position.set(0, 0.90, 0.28);
+      spout.rotation.x = Math.PI * 0.34;
+      g.add(spout);
+      /* 尾：向后上翘 */
+      var tail = new T.Mesh(new T.ConeGeometry(0.09, 0.34, 7), bronzeDark);
+      tail.position.set(0, 0.96, -0.26);
+      tail.rotation.x = -Math.PI * 0.30;
+      g.add(tail);
+      for (var i = 0; i < 3; i++) {
+        var a = -0.6 + i * 0.6;
+        var leg = new T.Mesh(new T.CylinderGeometry(0.035, 0.026, 0.60, 6), bronzeDark);
+        leg.position.set(Math.sin(a) * 0.15, 0.30, Math.cos(a) * 0.15 * 0.8);
+        g.add(leg);
+      }
+      var handle = new T.Mesh(new T.TorusGeometry(0.10, 0.020, 4, 12, Math.PI * 1.2), bronzeMtl);
+      handle.position.set(0.20, 0.76, -0.02);
+      handle.rotation.y = Math.PI / 2;
+      g.add(handle);
+      g.scale.setScalar(sc || 1);
+      return g;
+    }
+
+    function makeZun(sc) {
+      var g = new T.Group();
+      var foot = new T.Mesh(new T.CylinderGeometry(0.30, 0.34, 0.22, 14), bronzeDark);
+      foot.position.y = 0.11; g.add(foot);
+      var belly = new T.Mesh(new T.CylinderGeometry(0.34, 0.29, 0.42, 16), bronzeMtl);
+      belly.position.y = 0.42; g.add(belly);
+      var neck = new T.Mesh(new T.CylinderGeometry(0.50, 0.32, 0.34, 16, 1, true), bronzeMtl);
+      neck.position.y = 0.79; neck.material.side = T.DoubleSide; g.add(neck);
+      var lip = new T.Mesh(new T.TorusGeometry(0.50, 0.022, 4, 20), bronzeMtl);
+      lip.rotation.x = Math.PI / 2; lip.position.y = 0.96; g.add(lip);
+      /* 腹上两道云雷箍 */
+      [0.32, 0.56].forEach(function (y) {
+        var band = new T.Mesh(new T.TorusGeometry(0.345, 0.016, 4, 20), bronzeDark);
+        band.rotation.x = Math.PI / 2; band.position.y = y; g.add(band);
+      });
+      g.scale.setScalar(sc || 1);
+      return g;
+    }
+
+    var BRONZES = [makeDing, makeJue, makeZun];
+    MID_A.forEach(function (a, i) {
+      var p = polar(a - 0.165, 13.3);
+      var ped = makePedestal(i % 2 ? 1.15 : 1.35);
+      ped.position.set(p.x, 0, p.z);
+      ped.rotation.y = a;
+      palace.add(ped);
+      if (low && i % 2) { return; }
+      var piece = BRONZES[i % 3](0.86 + (i % 2) * 0.12);
+      piece.position.set(p.x, 0.70, p.z);
+      piece.rotation.y = a + 0.5;
+      palace.add(piece);
+    });
+
+    /* ---------- 檐口与纹饰带 ----------
+       墙在 15 米高，梁在 10.6 米，中间那段是纯黑的 —— 空间没有"收口"。
+       加一道挑出的檐口压在梁线之上，再在檐下贴一条云雷纹横带：
+       墙就有了上沿，抬头也知道这屋子有顶。 */
+    var eave = new T.Mesh(
+      new T.CylinderGeometry(WALL_R - 0.45, WALL_R - 1.55, 0.78, 72, 1, true),
+      std({ color: 0x3b2b1d, roughness: 0.9, metalness: 0.05, side: T.BackSide })
+    );
+    eave.position.y = COL_H + 1.15;
+    palace.add(eave);
+    var eaveLip = new T.Mesh(new T.TorusGeometry(WALL_R - 1.58, 0.085, 6, 96), bronzeDark);
+    eaveLip.rotation.x = Math.PI / 2;
+    eaveLip.position.y = COL_H + 0.74;
+    palace.add(eaveLip);
+
+    /* 檐口下沿一条暖光带：只做加法混合，不加真灯。
+       没有它，十几米高的檐口在暗场里就是一条黑线，等于没有顶。 */
+    var eaveGlow = new T.Mesh(
+      new T.CylinderGeometry(WALL_R - 1.72, WALL_R - 1.72, 0.16, 72, 1, true),
+      new T.MeshBasicMaterial({
+        color: 0xffc98d, transparent: true, opacity: 0.13, side: T.BackSide,
+        blending: T.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false
+      })
+    );
+    eaveGlow.position.y = COL_H + 0.60;
+    palace.add(eaveGlow);
+
+    /* 云雷纹横带：一个 1.6 米一单元的循环，绕一圈 60 次 */
+    function meanderTex() {
+      var W = 256, H = 72;
+      var cv = App.museumTex.canvas(W, H);
+      var c = cv.getContext('2d');
+      c.fillStyle = '#161009';
+      c.fillRect(0, 0, W, H);
+      c.strokeStyle = 'rgba(154,124,78,.55)';
+      c.lineWidth = 3;
+      var u = W / 4;
+      for (var i = 0; i < 4; i++) {
+        var x = i * u;
+        c.beginPath();
+        c.moveTo(x + 6, H - 10);
+        c.lineTo(x + 6, 14);
+        c.lineTo(x + u - 10, 14);
+        c.lineTo(x + u - 10, H - 24);
+        c.lineTo(x + 22, H - 24);
+        c.stroke();
+      }
+      c.strokeStyle = 'rgba(120,96,58,.30)';
+      c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, 6); c.lineTo(W, 6); c.stroke();
+      c.beginPath(); c.moveTo(0, H - 4); c.lineTo(W, H - 4); c.stroke();
+      return cv;
+    }
+    var bandTex = canvasTex(meanderTex(), { srgb: true, repeat: [62, 1] });
+    bandTex.wrapS = T.RepeatWrapping;
+    var band = new T.Mesh(
+      new T.CylinderGeometry(WALL_R - 0.30, WALL_R - 0.30, 0.92, 72, 1, true),
+      new T.MeshStandardMaterial({
+        map: bandTex, side: T.BackSide, roughness: 0.92, metalness: 0.04,
+        emissive: new T.Color(0x1b1209), emissiveMap: bandTex, emissiveIntensity: 0.9
+      })
+    );
+    band.position.y = COL_H + 0.22;
+    palace.add(band);
+
+    /* 更低一条束带，压住拓片上方，免得整面墙只剩一块孤零零的黑板 */
+    var bandLo = new T.Mesh(
+      new T.CylinderGeometry(WALL_R - 0.26, WALL_R - 0.26, 0.62, 72, 1, true),
+      new T.MeshStandardMaterial({
+        map: bandTex, side: T.BackSide, roughness: 0.92, metalness: 0.04,
+        emissive: new T.Color(0x181008), emissiveMap: bandTex, emissiveIntensity: 0.7
+      })
+    );
+    bandLo.position.y = 9.66;
+    palace.add(bandLo);
+
+    /* ---------- 甲骨展陈：墙边的长方案 ----------
+       拓片下面一条石案，案上立三片小骨 —— 展厅里"东西放在哪"的交代。
+       骨片是同一套 makeSlab，字从已收录构件里取。 */
+    var CASES = [['日', '月', '卜'], ['禾', '田', '雨'], ['戈', '矢', '犬'], ['山', '川', '木'], ['贝', '舟', '牛']];
+    CASES.forEach(function (set, ci) {
+      if (low && ci % 2) { return; }
+      var a = MID_A[ci % MID_A.length];
+      var p = polar(a, WALL_R - 2.55);
+      var g = new T.Group();
+      g.position.set(p.x, 0, p.z);
+      g.rotation.y = a;
+
+      /* 案：石面 + 铜足 */
+      var top = new T.Mesh(new T.BoxGeometry(3.1, 0.16, 0.86), stoneMtl);
+      top.position.y = 1.02;
+      top.receiveShadow = true;
+      g.add(top);
+      var skirtB = new T.Mesh(new T.BoxGeometry(2.9, 0.14, 0.70), stoneDark);
+      skirtB.position.y = 0.90;
+      g.add(skirtB);
+      [-1, 1].forEach(function (s) {
+        var leg = new T.Mesh(new T.BoxGeometry(0.14, 0.86, 0.62), bronzeDark);
+        leg.position.set(s * 1.30, 0.44, 0);
+        g.add(leg);
+      });
+
+      /* 三片骨：立着，稍微斜靠 */
+      set.forEach(function (ch, si) {
+        if (!(App.glyphs && App.glyphs.parts && App.glyphs.parts[ch])) { return; }
+        var slab = makeSlab(ch, { size: 0.52, texSize: 256, ratio: 1.45, cracks: true });
+        slab.mesh.position.set((si - 1) * 0.86, 1.10 + 0.52 * 1.45 * 0.5, 0.02);
+        slab.mesh.rotation.x = -0.16;
+        slab.mesh.rotation.y = (si - 1) * 0.10;
+        g.add(slab.mesh);
+        /* 小支架 */
+        var prop = new T.Mesh(new T.BoxGeometry(0.10, 0.22, 0.10), bronzeDark);
+        prop.position.set((si - 1) * 0.86, 1.18, -0.10);
+        g.add(prop);
+      });
+
+      /* 案上一盏小灯，让这一格有光 */
+      var halo = new T.Mesh(
+        new T.PlaneGeometry(1.9, 1.9),
+        new T.MeshBasicMaterial({
+          map: fireMap, transparent: true, blending: T.AdditiveBlending,
+          depthWrite: false, opacity: 0.34, toneMapped: false, fog: false
+        })
+      );
+      halo.position.set(0, 1.62, 0.1);
+      g.add(halo);
+      lampHalos.push({ halo: halo, ph: ci * 2.1 });
+
+      palace.add(g);
+    });
+
+
+    /* ---------- 门两侧的青铜灯台 ----------
+       每扇门左右各一座。火头只做自发光 + 加法光晕，
+       真光只在两扇关卡门上各给一盏（成本可控，其余用光晕"骗"）。 */
+
+    function makeLamp(sc) {
+      var g = new T.Group();
+      var foot = new T.Mesh(new T.CylinderGeometry(0.20, 0.26, 0.10, 12), bronzeDark);
+      foot.position.y = 0.05; g.add(foot);
+      var stem = new T.Mesh(new T.CylinderGeometry(0.045, 0.062, 1.02, 8), bronzeMtl);
+      stem.position.y = 0.56; g.add(stem);
+      var knop = new T.Mesh(new T.SphereGeometry(0.075, 8, 6), bronzeMtl);
+      knop.position.y = 0.62; g.add(knop);
+      var tray = new T.Mesh(new T.CylinderGeometry(0.20, 0.13, 0.07, 12), bronzeMtl);
+      tray.position.y = 1.10; g.add(tray);
+      /* 火头 */
+      var flame = new T.Mesh(
+        new T.SphereGeometry(0.052, 8, 6),
+        new T.MeshBasicMaterial({ color: 0xffdcae, toneMapped: false })
+      );
+      flame.position.y = 1.19;
+      g.add(flame);
+      var halo = new T.Mesh(
+        new T.PlaneGeometry(1.5, 1.5),
+        new T.MeshBasicMaterial({
+          map: fireMap, transparent: true, blending: T.AdditiveBlending,
+          depthWrite: false, opacity: 0.62, toneMapped: false, fog: false
+        })
+      );
+      halo.position.y = 1.20;
+      halo.userData.billboard = true;
+      g.add(halo);
+      g.scale.setScalar(sc || 1);
+      return { g: g, halo: halo, flame: flame };
+    }
+
+    var lampLights = 0;
+    GATE_A.forEach(function (a, gi) {
+      [-0.215, 0.215].forEach(function (off, si) {
+        var p = polar(a + off, 14.85);
+        var L = makeLamp(1.0);
+        L.g.position.set(p.x, 0, p.z);
+        L.g.rotation.y = a;
+        palace.add(L.g);
+        lampHalos.push({ halo: L.halo, ph: (gi * 2 + si) * 1.7 });
+        /* 关卡门（有 tag 是关卡的）配一盏真光，最多两盏 */
+        var isLv = ZONE_DEF.some(function (z) {
+          return Math.abs(z.angle * Math.PI / 180 - a) < 1e-6 && z.lv;
+        });
+        if (isLv && lampLights < 2 && !low) {
+          var pl = new T.PointLight(0xffb877, 1.5, 9.5, 1.9);
+          pl.position.set(p.x, 1.35, p.z);
+          palace.add(pl);
+          lampLights += 1;
+        }
+      });
+    });
+
+    /* ---------- 空气里的浮尘 ----------
+       只做"光柱里有东西在飘"，不做烟雾弹 —— 雾已经由 FogExp2 负责。 */
+    var DUST_N = low ? 220 : 640;
+    var dustGeo = new T.BufferGeometry();
+    var dustPos = new Float32Array(DUST_N * 3);
+    var dustRise = new Float32Array(DUST_N);
+    var DR = App.museumTex.rng(0x51a3);
+    for (var di = 0; di < DUST_N; di++) {
+      var da = DR() * Math.PI * 2;
+      var dr = 2.2 + DR() * 19;
+      dustPos[di * 3] = Math.sin(da) * dr;
+      dustPos[di * 3 + 1] = DR() * 9.2;
+      dustPos[di * 3 + 2] = Math.cos(da) * dr;
+      dustRise[di] = 0.045 + DR() * 0.10;
+    }
+    dustGeo.setAttribute('position', new T.BufferAttribute(dustPos, 3));
+    var dust = new T.Points(dustGeo, new T.PointsMaterial({
+      color: 0xffd7a4, size: 0.038, transparent: true, opacity: 0.46,
+      depthWrite: false, blending: T.AdditiveBlending, fog: false, sizeAttenuation: true
+    }));
+    hall.add(dust);
+
+    /* ---------- 悬挂的甲骨片 ----------
+       2026-11-01：**停用**。八片刻字骨牌用一根细线从穹顶垂到 3~9 米高、
+       在头顶一圈慢慢自转 —— 远看就是一排招魂幡，玩家原话「跟灵堂一样」。
+       问题不在骨片，在"一线悬空 + 等距环绕 + 正对镜头自转"这三件事凑在一起，
+       任何墓葬题材的祭祀空间都是这个构图。
+
+       要补的"中间高度"改用贴墙的东西：墙上的拓片与知识壁挂（见 buildWallLore）。
+       墙是实的，字是平的，视线有落点但没有悬空的物件。
+       要恢复把 HANGERS_ON 改 true。 */
+    var HANGERS_ON = false;
     var hangGroup = new T.Group();
     hall.add(hangGroup);
     var hangers = [];
-    (function buildHangers() {
+    if (HANGERS_ON) (function buildHangers() {
       var HC = ['日', '月', '雨', '山', '水', '木', '火', '田', '鼎', '龜', '馬', '龍',
         '牛', '羊', '魚', '鳥'];
       var R2 = App.museumTex.rng(0x7a31);
@@ -873,10 +1873,16 @@
     var HERO_SIZE = 2.2;
     var heroSlab = makeSlab(HERO_CYCLE[0].ch, {
       size: HERO_SIZE, texSize: HERO_TW, ratio: SLAB_RATIO,
-      castShadow: false, cracks: true, base: heroBase
+      castShadow: false, cracks: true, base: heroBase,
+      /* 龟腹甲轮廓：中央这件是"甲骨"，不是一块方骨牌 */
+      shape: 'plastron'
     });
     heroSlab.mesh.position.y = 0.95 + (HERO_SIZE * SLAB_RATIO) / 2;
     heroSlab.mesh.rotation.x = 0.06;
+    /* 中央这件被顶光直射，骨色压深一档才留得住字口的细节 */
+    heroSlab.mats[0].color.setHex(0xb9aa8c);
+    heroSlab.mats[0].roughness = 0.84;
+    heroSlab.mats[0].emissiveIntensity = 0.22;
     hero.add(heroSlab.mesh);
     heroSlab.mesh.userData.kind = 'hero';
     heroSlab.mesh.userData.zone = 'gallery';
@@ -1134,11 +2140,10 @@
          匾下一行小字写去处。所以这里把徽记换成一整块匾：
          左三分之二是甲骨大字（拓片字形，不是现画的线条），
          右三分之一竖排今字——看甲骨的人看字，看字的人看名。 */
-      var boardTex = portalBoardTex(z.glyph,
-        (z.tag || z.name) + (z.lv ? ' · ' + z.lv : ''), z.accent);
+      var boardTex = portalBoardTex(z.glyph, z.lv || '', z.lv ? z.tag : z.tag, z.accent);
       var board = new T.Mesh(
         /* 2.20 : 1.10 = 2:1，与 512×256 贴图同比例（见 portalBoardTex 注释） */
-        new T.PlaneGeometry(2.20, 1.10),
+        new T.PlaneGeometry(2.60, 1.30),
         new T.MeshBasicMaterial({
           map: boardTex, transparent: true, depthWrite: false, toneMapped: false
         })
@@ -1168,7 +2173,7 @@
          悬停抬到 1，字就"从石面里浮出来"——不是换贴图（换贴图会闪，
          而且五道门就是五张多余的 512×256）。 */
       var glow = new T.Mesh(
-        new T.PlaneGeometry(2.20, 1.10),
+        new T.PlaneGeometry(2.60, 1.30),
         new T.MeshBasicMaterial({
           map: plaqueGlyphTex(z.glyph, '#fff4d8'),
           transparent: true, opacity: 0, depthWrite: false,
@@ -1184,12 +2189,20 @@
          "开门"这个动作。默认关着（门体完整显示），悬停开一条缝，
          点了才真正推开（见 tick 里的 portalCur 与 api.openDoor）。 */
       var leafW = (PW - 0.10) / 2, leafH = PH - 0.12;
-      var _leafMap = doorLeafTex(z.accent, zi % 5);
+      var _leafCv = doorLeafTex(z.accent, zi % 5);
+      var _leafMap = canvasTex(_leafCv, { srgb: true });
+      /* 预览图异步到：到了就在原画布上重绘一遍，再把贴图标脏。
+         为什么不做成"等图加载完再建门"——门是场景的一部分，
+         等图会让整厅晚一拍出现；先给木门，图到了自己爬上去。 */
       var leafMtl = new T.MeshStandardMaterial({
         map: _leafMap,
         roughness: 0.84, metalness: 0.12, envMapIntensity: 0.75,
-        /* 一层很弱的自发光：门前没灯，不给这点底光，关着的门就是两块黑板 */
-        emissive: new T.Color(0x2a1a0d), emissiveIntensity: 0.48,
+        /* 门扇自发光直接用贴图本身：门前没有灯，环境光只够勾出框。
+           0x2a1a0d 那种"深棕自发光"等于没发 —— 门面是一块黑，
+           压上去的关卡预览图一个像素都看不见。用近白的自发光色乘贴图，
+           门面就是"里面透出来的光"，靠 intensity 控制强弱（0.75 时
+           木纹和铺首仍压得住，图里的景物也读得出）。 */
+        emissive: new T.Color(0xd8c3a4), emissiveIntensity: 0.62,
         emissiveMap: _leafMap
       });
       var ringMtl = new T.MeshStandardMaterial({
@@ -1199,6 +2212,25 @@
       [-1, 1].forEach(function (s) {
         var hinge = new T.Group();
         hinge.position.set(s * (PW / 2 - 0.05), 0.06, -0.10);
+        /* 门扇正面嵌一块"画面"：这块是 MeshBasicMaterial，不吃灯，
+           贴什么就是什么 —— 门前没有灯也照样看得清里面是什么屋子。
+           为什么不把预览图直接画进门扇那张木纹贴图里：
+           试过，three 会把 canvas 转成位图缓存，重绘之后屏幕不变；
+           换成新 canvas 也一样，门面在厅里依旧是一块黑。
+           独立一层最省事，也最不容易被别处的光照改动带坏。 */
+        var shotMtl = null;
+        if (z.shot) {
+          shotMtl = new T.MeshBasicMaterial({
+            map: null, transparent: true, opacity: 0, toneMapped: false,
+            depthWrite: false
+          });
+          var shot = new T.Mesh(
+            new T.PlaneGeometry(leafW * 0.84, leafH * 0.80), shotMtl);
+          shot.position.set(-s * leafW / 2, leafH / 2, 0.056);
+          shot.renderOrder = 2;
+          hinge.add(shot);
+          loadShot(z.shot, shotMtl, Math.round(leafW * 160), Math.round(leafH * 160));
+        }
         var leaf = new T.Mesh(new T.BoxGeometry(leafW, leafH, 0.10), leafMtl);
         leaf.position.set(-s * leafW / 2, leafH / 2, 0);
         leaf.userData = { kind: 'portal', zone: z.id };
@@ -2173,7 +3205,10 @@
     /* 盖一枚：返回是否刚好盖满（用来触发收尾） */
     function addStamp(ch) {
       if (!ch) { return false; }
-      if (stampChars.length >= STAMP_N) { return false; }
+      /* 同一个字不盖第二枚：牌子是一排"这一局认过的字"，
+         盖成一排「明明明明明」等于没有记录。 */
+      if (stampChars.indexOf(ch) >= 0) { return stampChars.length >= STAMP_N; }
+      if (stampChars.length >= STAMP_N) { return true; }
       stampChars.push(ch);
       paintStampBoard();
       if (App.museumAudio && App.museumAudio.part) { App.museumAudio.part(); }
@@ -4100,6 +5135,28 @@
           hg.g.rotation.y += dt * hg.sp;
           hg.g.position.y = hg.base + Math.sin(clock.elapsedTime * 0.42 + hg.ph) * 0.10;
         }
+
+        /* 灯焰：光晕永远朝镜头，亮度各自错开半拍 —— 十几盏同频闪就成了迪厅 */
+        for (var li2 = 0; li2 < lampHalos.length; li2++) {
+          var lh = lampHalos[li2];
+          var fl = reduceMotion ? 1 : (0.80 + Math.sin(clock.elapsedTime * 2.3 + lh.ph) * 0.12 +
+            Math.sin(clock.elapsedTime * 5.7 + lh.ph * 1.7) * 0.06);
+          lh.halo.material.opacity = 0.58 * fl;
+          if (lh.halo.parent) { lh.halo.lookAt(camera.position); }
+        }
+
+        /* 浮尘：慢慢往上飘，出了顶就回地面 —— 只更新缓冲区，不建新对象 */
+        if (dust) {
+          var dp = dust.geometry.attributes.position.array;
+          if (!reduceMotion) {
+            for (var di2 = 0; di2 < DUST_N; di2++) {
+              dp[di2 * 3 + 1] += dustRise[di2] * dt;
+              dp[di2 * 3] += Math.sin(clock.elapsedTime * 0.4 + di2) * dt * 0.012;
+              if (dp[di2 * 3 + 1] > 9.4) { dp[di2 * 3 + 1] = 0.2; }
+            }
+            dust.geometry.attributes.position.needsUpdate = true;
+          }
+        }
       }
 
       /* 中央那件换字：停一会儿换一个，换的时候旧字化开、新字凝住。
@@ -4291,8 +5348,16 @@
       buildTap: buildTap,
       /* 看完讲解 → 下一题（由馆里的卡片按钮调用） */
       buildNext: function () {
-        bState.idx += 1;
         bState.done = false;
+        /* 跳过这一轮已经盖过章的字：否则"换一个字"换三下还是同一个字。
+           bDeck 只有 5 个字，盖满 5 枚以后就允许重来（此时集章已满）。 */
+        var guard = 0;
+        do {
+          bState.idx += 1;
+          guard += 1;
+        } while (guard <= bDeck.length &&
+                 stampChars.length < bDeck.length &&
+                 stampChars.indexOf(bDeck[bState.idx % bDeck.length].g) >= 0);
         var p = buildLayout();
         return { target: p.word.g, seq: bState.idx % bDeck.length, total: bDeck.length };
       },

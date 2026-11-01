@@ -1349,8 +1349,16 @@
   function resetCurrent() {
     if (!S.api) { return; }
     if (S.area === 'build') {
-      S.api.buildReset();
-      say('换了一个字。台面上的构件也换了，重新看。');
+      /* 这颗按钮写的是「换一个字」，那就必须真的换字。
+         原来调的是 buildReset()，它只把台面重摆一遍、字还是同一个，
+         连点三次就是三个「明」盖在集章牌上 —— 玩家当然以为这一关只有一个字。 */
+      var r = S.api.buildNext ? S.api.buildNext() : null;
+      if (r) {
+        say('换了一个字：「' + r.target + '」，台面上的构件也换了，重新看。');
+      } else {
+        S.api.buildReset();
+        say('台面重摆了一遍，再挑一次。');
+      }
     } else if (S.area === 'excavate') {
       S.api.digReset();
       say('土又填回去了。想再挖一遍就再来。');
