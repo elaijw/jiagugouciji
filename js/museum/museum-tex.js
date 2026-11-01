@@ -94,6 +94,39 @@
     return true;
   }
 
+  /* ---------- 挑一种写法 ----------
+     同一个字在拓片层里常有 1~3 种写法，疏密差得很远：「人」的第 0 种是一条
+     细长竖线，缩到一块小牌上就只剩一道竖杠，看着像数字 1。骨版、字墙这些
+     大面上还能认，构件牌那么小一块就彻底读不出来了。
+     这里按"墨量 + 横向展开度"挑最饱满的一版 —— 大厅骨面上那种有厚度、
+     有刀口的观感，本来就来自最实的那一版拓片。
+     每字只测一次（96² 扫描约 2ms），结果按字缓存。 */
+  var bestCache = {};
+  function bestIndex(ch) {
+    if (bestCache[ch] != null) { return bestCache[ch]; }
+    var n = (App.rubbings && App.rubbings.count) ? App.rubbings.count(ch) : 0;
+    if (!n) { bestCache[ch] = 0; return 0; }
+    var S = 96, best = 0, bestScore = -1;
+    for (var i = 0; i < n; i++) {
+      var cv = canvas(S, S);
+      var c = cv.getContext('2d');
+      App.rubbings.paint(c, ch, {
+        x: S / 2, y: S / 2, size: S * 0.86, color: '#000', index: i
+      });
+      var d = c.getImageData(0, 0, S, S).data, ink = 0;
+      for (var k = 3; k < d.length; k += 4) { if (d[k] > 128) { ink += 1; } }
+      var ratio = ink / (S * S);
+      /* 糊成一坨的写法不算好：墨量超过 34% 开始倒扣 */
+      var score = ratio > 0.34 ? 0.34 - (ratio - 0.34) * 2 : ratio;
+      /* 细长条扣分：宽高比低于 0.55 的那一版，多半就是「人」写成一竖这种 */
+      var b = (App.rubbings.box) ? App.rubbings.box(ch, i) : null;
+      if (b && b.h > 0) { score += 0.09 * Math.min(1, (b.w / b.h) / 0.55); }
+      if (score > bestScore) { bestScore = score; best = i; }
+    }
+    bestCache[ch] = best;
+    return best;
+  }
+
   /* 把字形画进一张 size×size 的画布（居中，铺满）
      ------------------------------------------------------------
      这里原来走 strokeGlyph：拿 JGW 骨架的折线，统一线宽描一遍。
@@ -114,7 +147,7 @@
         x: cv.width / 2, y: cv.height / 2,
         size: long * (opt.scale || 0.84),
         color: opt.color || '#241d14',
-        index: opt.index || 0,
+        index: opt.index == null ? bestIndex(ch) : opt.index,
         alpha: opt.alpha,
         /* 传了 weight 就是"要更厚重"：拓片轮廓加一圈描边，
            比整字放大更能保住刀口。weight 原来是线宽倍数，这里折算成像素。 */
@@ -256,7 +289,8 @@
        只是笔画的形状换成原拓的轮廓 —— 有粗细、有崩口、有刀锋。
        骨架描边留作兜底（拓片层没收录的字）。 */
     if (App.rubbings && App.rubbings.has(ch)) {
-      var base = { x: cx, y: cy, size: size, index: opt.index || 0 };
+      var base = { x: cx, y: cy, size: size,
+        index: opt.index == null ? bestIndex(ch) : opt.index };
       function layer(color, w) {
         var p = { x: base.x, y: base.y, size: base.size, index: base.index, color: color, weight: w };
         App.rubbings.paint(ctx, ch, p);
@@ -266,12 +300,12 @@
         return true;
       }
       /* ① 槽底：比字本身更宽的一圈暗 —— 刻进去的那道沟的侧壁 */
-      layer('rgba(46,34,20,.70)', size * 0.020);
+      layer('rgba(46,34,20,.70)', size * 0.020 + (opt.ink || 0));
       /* ② 刻痕本体 */
-      layer('rgba(28,21,13,.98)', size * 0.006);
+      layer('rgba(28,21,13,.98)', size * 0.006 + (opt.ink || 0));
       /* ③ 槽口受光：光从左上来，口沿偏左上，用加色只提一道极细的边 */
       ctx.globalCompositeOperation = 'lighter';
-      layer('rgba(255,249,236,.26)', size * 0.005);
+      layer('rgba(255,249,236,.26)', size * 0.005 + (opt.ink || 0));
       ctx.globalCompositeOperation = 'source-over';
       return true;
     }
@@ -533,9 +567,9 @@
     var mainSize = Math.min(W, H) * 0.72;
 
     marks.forEach(function (m) {
-      carveAt(ctx, m.ch, m.x, m.y, m.size, 'map', { rot: m.rot });
+      carveAt(ctx, m.ch, m.x, m.y, m.size, 'map', { rot: m.rot, ink: o.ink });
     });
-    if (has) { carveAt(ctx, ch, W / 2, H / 2, mainSize, 'map'); }
+    if (has) { carveAt(ctx, ch, W / 2, H / 2, mainSize, 'map', { ink: o.ink }); }
 
     /* bump：底图的灰度接着用，只把字刻上去 */
     var bv = cloneCv(base.bump);
@@ -638,6 +672,7 @@
     canvas: canvas,
     glyphRec: glyphRec,
     paintGlyph: paintGlyph,
+    bestIndex: bestIndex,
     paintDrills: paintDrills,
     paintBone: paintBone,
     carveAt: carveAt,

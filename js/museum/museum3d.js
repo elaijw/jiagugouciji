@@ -2033,6 +2033,18 @@
     var portals = [];
     var pickables = [];
 
+    /* 把一批"已经不要了"的 mesh 从拾取表里摘掉。
+       ⚠ 只从场景里 remove 是不够的：raycaster 不看父级，一个已经被 remove 的
+       mesh 只要还留在 pickables 里，射线照样能撞上它，而它的 userData 仍留着
+       上一轮的字（构件块、BOSS 构件都会重建）。结果是"点这张牌、判给上一张"，
+       或者干脆没反应 —— 第一关第二题往后点击失灵的根因就是这个。 */
+    function dropPicks(list) {
+      if (!list || !list.length) { return; }
+      for (var i = pickables.length - 1; i >= 0; i--) {
+        if (list.indexOf(pickables[i]) >= 0) { pickables.splice(i, 1); }
+      }
+    }
+
     var portalFrameMtl = std({ color: 0x2a1d12, roughness: 0.55, metalness: 0.28, envMapIntensity: 0.8 });
     /* 门所在的隔墙。没有它，门框就是悬在空中的两片板 ——
        有了这道墙，门才成为"墙上开的一个洞"，人一眼就知道往哪走。 */
@@ -2960,17 +2972,55 @@
     var bSignCv = App.museumTex.canvas(1024, 300);
     var bSignTex = canvasTex(bSignCv, { srgb: true });
 
-    /* 把一对构件按"左右并置"画成甲骨形；单构件就居中放大 */
+    /* 圆角矩形：老浏览器没有 ctx.roundRect，自己走一遍 */
+    function roundRectPath(c, x, y, w, h, r) {
+      var rr = Math.min(r, w / 2, h / 2);
+      c.beginPath();
+      c.moveTo(x + rr, y);
+      c.lineTo(x + w - rr, y);
+      c.quadraticCurveTo(x + w, y, x + w, y + rr);
+      c.lineTo(x + w, y + h - rr);
+      c.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+      c.lineTo(x + rr, y + h);
+      c.quadraticCurveTo(x, y + h, x, y + h - rr);
+      c.lineTo(x, y + rr);
+      c.quadraticCurveTo(x, y, x + rr, y);
+      c.closePath();
+    }
+
+    /* 把一对构件按"左右并置"画成甲骨形；单构件就居中放大。
+       2026-11-01：不再往深色牌上平涂浅色线条，改成两块小骨片 ——
+       骨面 + 三层刻痕，和展厅骨版、下面的构件牌是同一套纹理。
+       「甲骨字形」这四个字才好意思写在旁边：它是真的从骨上来的。 */
     function paintPairGlyph(c, pair, cx, cy, size, color) {
       if (!pair || !pair.length) { return; }
-      var one = size * (pair.length > 1 ? 0.86 : 1.25);
+      var one = size * (pair.length > 1 ? 0.92 : 1.22);
       pair.forEach(function (ch, i) {
+        var t = null;
+        try { t = App.museumTex.slabTextures(ch, { w: 144, h: 144 }); } catch (e) { t = null; }
+        var dx = pair.length > 1 ? (i === 0 ? -one * 0.33 : one * 0.33) : 0;
+        var bx = cx + dx - one / 2, by = cy - one / 2;
+        if (t && t.map) {
+          c.save();
+          roundRectPath(c, bx, by, one, one, one * 0.10);
+          c.clip();
+          c.drawImage(t.map, bx, by, one, one);
+          c.restore();
+          /* 骨片边沿：一道暖色细线，压住它在深底上的轮廓 */
+          c.save();
+          roundRectPath(c, bx, by, one, one, one * 0.10);
+          c.strokeStyle = 'rgba(226,198,150,.50)';
+          c.lineWidth = Math.max(1.4, one * 0.022);
+          c.stroke();
+          c.restore();
+          return;
+        }
+        /* 拓片层没有这个字：退回平涂 */
         var tmp = App.museumTex.canvas(128, 128);
         var ok = false;
         try { ok = App.museumTex.paintGlyph(tmp, ch, { color: color || '#f4e6c8', weight: 2.4 }); } catch (e) { ok = false; }
         if (!ok) { return; }
-        var dx = pair.length > 1 ? (i === 0 ? -one * 0.30 : one * 0.30) : 0;
-        c.drawImage(tmp, cx + dx - one / 2, cy - one / 2, one, one);
+        c.drawImage(tmp, bx, by, one, one);
       });
     }
 
@@ -3100,26 +3150,35 @@
       if (faceMtlCache[ch]) { return faceMtlCache[ch]; }
       var S = 256;
       var SH = Math.round(S * BLK_H / BLK_W);
-      var cv = App.museumTex.canvas(S, SH);
-      var c = cv.getContext('2d');
-      c.fillStyle = '#3b3128';
-      c.fillRect(0, 0, S, SH);
-      c.strokeStyle = 'rgba(165,129,71,.55)';
-      c.lineWidth = 6;
-      c.strokeRect(10, 10, S - 20, SH - 20);
-      /* 字画在正方形小画布上再贴过来：
-         paintGlyph 是按画布宽度的百分比定位的，直接画在竖长画布上会偏到上半截。 */
-      var g = App.museumTex.canvas(128, 128);
-      App.museumTex.paintGlyph(g, ch, { color: '#efe3c8', weight: 2.6 });
-      var gs = Math.min(S, SH) * 0.80;
-      c.drawImage(g, (S - gs) / 2, (SH - gs) / 2, gs, gs);
+      /* 构件牌 = 一片立在座上的小骨版，和大厅、展厅那些骨版同一套做法：
+         paintBone 的骨面 + carveAt 的三层刻痕（槽底暗 / 刻痕本体 / 槽口受光），
+         字是"刻"进去的，不是印上去的。
+         原来是深色石板 + 平涂浅字，四块挤在一起就是四张黑卡片；
+         换骨色之后，字形本身成了这块东西的主角，也和大厅一个材质。 */
+      var tex = App.museumTex.slabTextures(ch, { w: S, h: SH, cracks: false, ink: 3.4 });
+      /* 骨面提一次亮：paintBone 画的是"放在展柜里、被顶灯直打"的骨，
+         而这几块是站在台沿的阴影里，原样贴上去就比身后的地面还暗。
+         提亮的是骨，不是刻痕 —— 刻痕是深色实心，叠一层加法也还是深的。 */
+      var ctx2 = tex.map.getContext('2d');
+      ctx2.globalCompositeOperation = 'lighter';
+      ctx2.fillStyle = 'rgba(96,78,50,.26)';
+      ctx2.fillRect(0, 0, tex.map.width, tex.map.height);
+      ctx2.globalCompositeOperation = 'source-over';
       var m = std({
-        map: canvasTex(cv, { srgb: true }), roughness: 0.62, metalness: 0.10
+        map: canvasTex(tex.map, { srgb: true }),
+        bumpMap: canvasTex(tex.bump, { clamp: true }),
+        bumpScale: 0.05,
+        emissive: new T.Color(0xffffff),
+        emissiveIntensity: 0.30,
+        roughness: 0.88, metalness: 0.03
       });
+      /* 底光用同一张骨面（同一张纹理，不另存一份）：亮的是骨，刻痕仍暗 */
+      m.emissiveMap = m.map;
       faceMtlCache[ch] = m;
       return m;
     }
-    var blockSideMtl = std({ color: 0x6b5c49, roughness: 0.76, metalness: 0.10 });
+    /* 侧面是骨头的断面：比骨面暗一点、更粗糙，不做字 */
+    var blockSideMtl = std({ color: 0x8e7c5e, roughness: 0.92, metalness: 0.02 });
     /* BoxGeometry 的材质顺序：+x -x +y -y +z -z —— 字在 +z，也就是正面那块 */
     var BLK_FACE = 4;
     var blockGeo = new T.BoxGeometry(BLK_W, BLK_H, BLK_D);
@@ -3316,7 +3375,9 @@
 
     function buildLayout() {
       var p = buildPair();
-      /* 清掉上一轮的方块 */
+      /* 清掉上一轮的方块 —— 场景和拾取表都要清，缺一个点击就会错 */
+      var old = bState.blocks.map(function (b) { return b.mesh; });
+      dropPicks(old);
       bState.blocks.forEach(function (b) {
         buildG.remove(b.mesh);
         if (b.mesh.userData && b.mesh.userData.ped) { buildG.remove(b.mesh.userData.ped); }
@@ -3647,6 +3708,7 @@
     var tileGeo = new T.BoxGeometry(0.92, 0.36, 0.92);
 
     function bossClearTiles() {
+      dropPicks(bossState.tiles.map(function (t) { return t.mesh; }));
       bossState.tiles.forEach(function (t) {
         bossG.remove(t.mesh);
         if (t.mesh.material) { t.mesh.material.dispose(); }
@@ -5266,10 +5328,14 @@
           /* 选中就抬起来一点：立牌比原来的方块轻，抬 0.2 就看得出来 */
           var ty = b.up ? BLK_Y + 0.20 : BLK_Y;
           b.mesh.position.y += (ty - b.mesh.position.y) * kb;
-          /* 正面（+z）是本品字形贴图，选中时自发光 */
+          /* 正面（+z）是本品字形贴图，选中时自发光。
+             ⚠ 不能再把 emissive 设成 0x000000 表示"未选中"：
+             骨片本来靠 emissiveMap 垫着一层底光，抹黑就等于选中时反而更暗。
+             改成"底光加亮 + 转暖"，选中的那块是暖的，没选的是骨白。 */
           var mt = b.mesh.material[BLK_FACE];
           if (mt && mt.emissive) {
-            mt.emissive.setHex(b.up ? 0x4a3410 : 0x000000);
+            mt.emissive.setHex(b.up ? 0xffd9a0 : 0xffffff);
+            mt.emissiveIntensity = b.up ? 0.62 : 0.26;
           }
         });
         stepSparks(dt);

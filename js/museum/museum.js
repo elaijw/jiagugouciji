@@ -41,7 +41,11 @@
       href: '#/play/bone-build',
       no: '第 01 关', title: '甲骨构字', kind: '知识入门',
       brief: '跟龟宝认甲骨的材料与占卜记录，再用真字形构件拼出几个字。无倒计时。',
-      shot: 'assets/preview/level-01.jpg', play: 'bone-build' },
+      shot: 'assets/preview/level-01.jpg', play: 'bone-build',
+      /* room：这扇门后面就是那间 3D 屋子，屋里的工作台本身就是关卡。
+         2026-11-01 起不再跳 #/play/bone-build 那套旧关卡页 —— 点门进来直接开拼，
+         中间少一次"进入关卡"的换页。旧页面还在，深链仍然能到。 */
+      room: true },
 
     { id: 'excavate',   name: '浮空骨片区', glyph: '山', note: '七十三片骨，点开浮出东西',
       href: '#/play/bone-float',
@@ -669,10 +673,13 @@
       L.shot.setAttribute('hidden', '');
     }
     L.box.setAttribute('data-play', z.play ? '1' : '0');
-    L.go.textContent = z.play ? ('进入关卡 · ' + z.title) : ('走进' + z.name);
+    /* room 的那扇门：按钮直接写"进入房间"——进去就是工作台，不是另一个关卡页 */
+    L.go.textContent = z.room ? ('进入房间 · ' + z.title)
+      : (z.play ? ('进入关卡 · ' + z.title) : ('走进' + z.name));
     /* 有 3D 屋子又有正式关卡的那一扇（目前只有造字区），多给一个"先进屋"
-       的次按钮 —— 否则点了门就只剩"去打关卡"，那间屋子等于被门挡住了。 */
-    var hasRoom = (z.id === 'build' || z.id === 'gallery' || z.id === 'collection');
+       的次按钮 —— 否则点了门就只剩"去打关卡"，那间屋子等于被门挡住了。
+       room 的门主按钮已经是进屋了，再挂一个次按钮就是同一件事写两遍。 */
+    var hasRoom = (z.id === 'gallery' || z.id === 'collection');
     if (hasRoom && z.play) { L.alt.removeAttribute('hidden'); }
     else { L.alt.setAttribute('hidden', ''); }
   }
@@ -757,7 +764,11 @@
     if (S.api && S.api.openDoor) { S.api.openDoor(zone); }
     var go = function () {
       S.lvBusy = false;
-      if (z.play) {
+      /* room 的门（造字区）不出博物馆：门后那间屋子就是关卡，
+         旧 #/play/bone-build 页面不再作为"进入关卡"的落点。 */
+      if (z.room) {
+        enterZone(z.id);
+      } else if (z.play) {
         openPlay(z.play, z.title + ' · ' + z.kind);
       } else {
         enterZone(z.id);
@@ -1319,8 +1330,12 @@
       S.taskAgain.hidden = false;
       S.taskAgain.textContent = '换一个字';
       S.taskGo.removeAttribute('href');
-      S.taskGo.textContent = '去造字关';
-      S.taskGo.onclick = function (ev) { ev.preventDefault(); openPlay('bone-build', '造字探索区'); };
+      /* 这一关不再跳 #/play/bone-build：屋里就是关卡，底部只留"换一个字"。
+         ⚠ 用 style.display 而不是 hidden 属性：.mu-task-go 自己写着 display，
+         属性选择器管不住它，藏了还剩一个空药丸挂在条子右边（实测过）。 */
+      S.taskGo.style.display = 'none';
+      S.taskGo.textContent = '';
+      S.taskGo.onclick = null;
     } else if (id === 'excavate') {
       var ds = (S.api && S.api.digState) ? S.api.digState() : null;
       S.taskK.textContent = '考古任务区';
@@ -1328,6 +1343,7 @@
       S.taskN.textContent = ds ? ('已出土 ' + ds.found + ' / ' + ds.total) : '';
       S.taskAgain.hidden = false;
       S.taskAgain.textContent = '重新填土';
+      S.taskGo.style.display = '';
       S.taskGo.removeAttribute('href');
       S.taskGo.textContent = '去骨片空间';
       S.taskGo.onclick = function (ev) { ev.preventDefault(); openPlay('bone-float', '浮空骨片区 · 骨片浮空'); };
@@ -1338,6 +1354,7 @@
       S.taskN.textContent = bst && bst.idx >= 0
         ? ('已拆 ' + bst.broken + ' / ' + bst.total) : '先选一尊';
       S.taskAgain.hidden = true;
+      S.taskGo.style.display = '';
       S.taskGo.removeAttribute('href');
       S.taskGo.textContent = '去讨伐';
       S.taskGo.onclick = function (ev) { ev.preventDefault(); openPlay('boss-3d', '守字之骨区 · 三阶段'); };
@@ -1990,12 +2007,15 @@
       }
 
       var acts = App.el('div', 'mu-p-acts');
-      var a1 = App.el('a', 'mu-btn mu-btn-primary', '去造字关正式拼一次');
-      a1.href = '#/play/bone-build';
+      /* 不再是"去造字关正式拼一次"：屋里这张工作台就是正式玩法，
+         点门进来就能一直拼；这里给的是"接着拼"和"去看别的"。 */
+      var a1 = App.el('button', 'mu-btn mu-btn-primary', '再拼一个字');
+      a1.type = 'button';
+      a1.onclick = function () { closePanel(); resetCurrent(); };
       acts.appendChild(a1);
-      var a2 = App.el('button', 'mu-btn', '再换一个字');
+      var a2 = App.el('button', 'mu-btn', '回大厅');
       a2.type = 'button';
-      a2.onclick = function () { closePanel(); resetCurrent(); };
+      a2.onclick = function () { closePanel(); goHall(); };
       acts.appendChild(a2);
       body.appendChild(acts);
       p.appendChild(body);

@@ -88,10 +88,24 @@
     '.bd3-kai{display:inline-block;margin-left:12px;padding:1px 8px;border-radius:9px;',
     'font-size:11px;letter-spacing:.06em;color:#8f8064;background:rgba(255,255,255,.05)}',
 
-    /* 古句出处（答对后浮出） */
-    '.bd3-src{position:absolute;left:50%;top:190px;transform:translateX(-50%);z-index:6;',
-    'font-size:12px;letter-spacing:.12em;color:#9d8a68;opacity:0;transition:opacity .4s;pointer-events:none}',
-    '.bd3-src.on{opacity:1}',
+    /* 古句出处（答对后浮出）
+       2026-11-01：原来只是任务条下面一行 12px 的小字（top:190px），
+       答对以后玩家还没看清就换下一句了。现在改成屏幕正中的一块"原文卡"：
+       整句放大成主角、缺的那个字用暖金标出来，出处与释义退到下面两行。
+       这一块只在答对之后出现约 2.6 秒，读得完，也不挡选项（此时已经锁定）。 */
+    '.bd3-src{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.96);z-index:7;',
+    'text-align:center;opacity:0;transition:opacity .42s,transform .42s cubic-bezier(.2,.8,.3,1);',
+    'pointer-events:none;padding:34px 62px;max-width:min(880px,92vw);',
+    'background:radial-gradient(ellipse at center,rgba(9,7,5,.92) 0%,rgba(9,7,5,.66) 62%,rgba(9,7,5,0) 100%)}',
+    '.bd3-src.on{opacity:1;transform:translate(-50%,-50%) scale(1)}',
+    '.bd3-src .bs-full{font-size:clamp(22px,3.4vw,38px);letter-spacing:.18em;color:#ffe7bb;',
+    'line-height:1.55;text-shadow:0 4px 30px #000,0 0 42px rgba(255,190,110,.18);',
+    'font-family:var(--font-title,"Kaiti SC",serif)}',
+    '.bd3-src .bs-full em{font-style:normal;color:#ffcb74;padding:0 .04em;',
+    'border-bottom:2px solid rgba(255,186,96,.55);',
+    'text-shadow:0 0 26px rgba(255,186,96,.62)}',
+    '.bd3-src .bs-from{font-size:14px;letter-spacing:.2em;color:#c6ac80;margin-top:16px}',
+    '.bd3-src .bs-gloss{font-size:14.5px;letter-spacing:.05em;color:#b3a184;margin-top:10px;line-height:1.7}',
 
     /* 提示气泡 */
     '.bd3-say{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);z-index:6;',
@@ -1843,6 +1857,22 @@
     S.busy = false;
   }
 
+  /* 把一句原文排成一张卡：整句在中间，填对的那个字用暖金挑出来，
+     出处与释义在下面两行。缺字位置的定位和题目里那一处用的是同一套
+     missIdx 规则 —— 否则句首也有同一个字时（「知之为知之…」），
+     卡上会标错地方。 */
+  function sourceHTML(q) {
+    var parts = String(q.text || '').split('');
+    var at = (q.missIdx != null && parts[q.missIdx] === q.miss) ? q.missIdx : parts.indexOf(q.miss);
+    var s = '';
+    for (var i = 0; i < parts.length; i++) {
+      s += (i === at) ? ('<em>' + parts[i] + '</em>') : parts[i];
+    }
+    return '<div class="bs-full">' + s + '</div>' +
+      '<div class="bs-from">' + (q.from || '') + '</div>' +
+      (q.gloss ? ('<div class="bs-gloss">' + q.gloss + '</div>') : '');
+  }
+
   function onPickOption(obj) {
     if (S.busy || S.phase !== 3) { return; }
     var q = SENTENCES[S.qIndex];
@@ -1856,7 +1886,7 @@
         shakeBoss(0.7);
         sfx('crack', 1.1);
         setHp(S.hp - 11);
-        S.ui.src.innerHTML = '「' + q.miss + '」　' + q.from + '　·　' + q.gloss;
+        S.ui.src.innerHTML = sourceHTML(q);
         S.ui.src.classList.add('on');
         say('<b>提示</b>：对了。' + q.gloss, 3200);
         S.qIndex++;
@@ -1864,7 +1894,7 @@
         later(function () {
           if (S.qIndex >= SENTENCES.length) { win(); }
           else { showQuestion(); }
-        }, 2400);
+        }, 2800);
       }, 520);
     } else {
       S.wrong++;
