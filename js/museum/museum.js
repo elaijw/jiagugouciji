@@ -18,22 +18,58 @@
   var STORE_KEY = 'museum';
 
   /* 展区：3D 里的七个区与这里一一对应（id 必须和 museum3d.js 的 GROUPS 一致）。
-     href 只作"去正式关卡"的出口，不再作为点门的默认行为 —— 门后面现在都有自己的 3D 屋子。 */
+     href 只作"去正式关卡"的出口，不再作为点门的默认行为 —— 门后面现在都有自己的 3D 屋子。
+
+     2026-11-01 补的关卡元数据（no / title / kind / brief / shot / play）：
+     首页的门要挂"展览说明牌"，牌子上的字必须和真玩法对得上，所以这些字段
+     全部有出处，没有一条是编的：
+       title  关卡名 —— bone-build「甲骨构字」（js/modes/bone-build.js 的 register）
+                ；bone-float / boss-3d 用用户这轮指定的「骨片浮生」「文字讨伐」
+       kind   玩法类型
+       brief  40 字以内，回答"进去干什么"
+       shot   场景预览，从真跑起来的关卡里截的（assets/preview/），不是画的
+     没有 play 的两扇门是展厅（陈列 / 典藏），不进关卡。 */
   var ZONES = [
     /* 文明序厅与甲骨文展厅合并：一个「甲骨文知识厅」。
        序厅的内容（甲骨是什么 / 灼骨 / 兆纹）改成厅里一块说明碑，点开就是原来那个面板。 */
-    { id: 'gallery',    name: '甲骨文知识厅', glyph: '日', note: '四段陈列：卜材 · 卜辞 · 文字 · 发现' },
-    { id: 'build',      name: '造字探索区', glyph: '木', note: '把两个构件搬上台面', href: '#/play/bone-build' },
-    { id: 'excavate',   name: '浮空骨片区', glyph: '山', note: '七十三片骨，点开浮出东西', href: '#/play/bone-float' },
-    { id: 'boss',       name: '守字之骨区', glyph: '戈', note: '拆构件 · 断笔画 · 补古句', href: '#/play/boss-3d' },
-    { id: 'collection', name: '我的典藏区', glyph: '贝', note: '一面字墙：七十三格，认过的亮' }
+    { id: 'gallery',    name: '甲骨文知识厅', glyph: '日', note: '四段陈列：卜材 · 卜辞 · 文字 · 发现',
+      no: '', title: '甲骨文知识厅', kind: '陈列', 
+      brief: '十二件骨版绕着中庭：卜材、卜辞、文字、发现，四段陈列讲完甲骨的一生。',
+      shot: '', play: '' },
+
+    { id: 'build',      name: '造字探索区', glyph: '木', note: '把两个构件搬上台面',
+      href: '#/play/bone-build',
+      no: '第 01 关', title: '甲骨构字', kind: '知识入门',
+      brief: '跟龟宝认甲骨的材料与占卜记录，再用真字形构件拼出几个字。无倒计时。',
+      shot: 'assets/preview/level-01.jpg', play: 'bone-build' },
+
+    { id: 'excavate',   name: '浮空骨片区', glyph: '山', note: '七十三片骨，点开浮出东西',
+      href: '#/play/bone-float',
+      no: '第 02 关', title: '骨片浮生', kind: '视觉探索',
+      brief: '点开空中漂浮的甲骨碎片，让古老文字逐渐显现为真实的景物与形态。',
+      shot: 'assets/preview/level-02.jpg', play: 'bone-float' },
+
+    { id: 'boss',       name: '守字之骨区', glyph: '戈', note: '拆构件 · 断笔画 · 补古句',
+      href: '#/play/boss-3d',
+      no: '第 03 关', title: '文字讨伐', kind: 'BOSS 挑战',
+      brief: '拆解文字构件、探笔画结构、补全古句，三阶段击碎镇守终局的骨版。',
+      shot: 'assets/preview/level-03.jpg', play: 'boss-3d' },
+
+    { id: 'collection', name: '我的典藏区', glyph: '贝', note: '一面字墙：七十三格，认过的亮',
+      no: '', title: '我的典藏区', kind: '陈列',
+      brief: '认过的字在这里留一格。七十三格字墙，空格还多。',
+      shot: '', play: '' }
   ];
 
   /* 会话状态。同一时刻只会有一个展馆实例。 */
   var S = {
     wrap: null, stage: null, panel: null, api: null,
     ready: false, alive: false, area: 'hall',
-    seen: {}, selected: null, off: null, quest: 0, low: false
+    seen: {}, selected: null, off: null, quest: 0, low: false,
+    /* 关卡说明牌 / 黑场 / 进入保护 */
+    lv: null, veil: null, lvBusy: false,
+    /* 系统设了"减少动态效果"就跳过黑场与开门等待，直接进 */
+    reduceMotion: !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   };
 
   function zoneById(id) {
@@ -289,8 +325,32 @@
       b.setAttribute('data-zone', z.id);
       var ic = glyphNode(z.glyph, 'mu-chip-glyph');
       if (ic) { b.appendChild(ic); } else { b.appendChild(App.el('span', 'mu-chip-glyph', z.glyph)); }
-      b.appendChild(App.el('span', 'mu-chip-name', z.name));
-      b.onclick = function () { enterZone(z.id); };
+      /* 三道关卡的门开在半径 15.6 的环上，镜头站在 18.8 米处横着转，
+         一屏只装得下两扇 —— 第三扇得自己转过去。所以导览条不只是"导航"，
+         它是那条随时读得到的入口：关号 + 关卡名，都是人眼在屏幕上读得清的字，
+         替的是门额上那行字（三十米外只有几个像素）。展厅两扇没有关号，写厅名。 */
+      if (z.play) {
+        b.classList.add('is-lv');
+        b.appendChild(App.el('span', 'mu-chip-no', (z.no || '').replace(/[^0-9]/g, '')));
+        b.appendChild(App.el('span', 'mu-chip-name', z.title));
+        b.title = z.no + ' · ' + z.title + '（' + z.kind + '）';
+      } else {
+        b.appendChild(App.el('span', 'mu-chip-name', z.name));
+        b.title = z.name;
+      }
+      b.onclick = function () {
+        if (z.play) {
+          /* 关卡走"先看说明牌、确认再进"，跟点门是同一条路 ——
+             从导览条直接跳进去，等于绕过了那段说明 */
+          var r = b.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+          openLvCard(z.id, {
+            x: r.left - wr.left + r.width / 2, y: r.top - wr.top,
+            w: wr.width, h: wr.height, above: true
+          });
+          return;
+        }
+        enterZone(z.id);
+      };
       dock.appendChild(b);
     });
     wrap.appendChild(dock);
@@ -362,6 +422,71 @@
     wrap.appendChild(guide);
     S.guideText = gtext;
 
+    /* ---------- 关卡说明牌 ----------
+       悬停门 → 贴着这扇门浮出来；点门 → 钉住并长出「进入关卡」。
+       不做成普通弹窗：半透明深底、古铜细边框、骨白标题、朱砂印章，
+       读起来像展柜边上的说明牌，不像游戏菜单。
+       层级按说明牌该有的顺序排：编号 → 名称 → 场景图 → 简介 → 状态 → 进入。 */
+    var lv = App.el('aside', 'mu-lv');
+    lv.id = 'muLv';
+    lv.setAttribute('aria-hidden', 'true');
+    lv.setAttribute('role', 'dialog');
+    var lvHead = App.el('div', 'mu-lv-head');
+    var lvNo = App.el('span', 'mu-lv-no', '');
+    var lvKind = App.el('span', 'mu-lv-kind', '');
+    lvHead.appendChild(lvNo);
+    lvHead.appendChild(lvKind);
+    var lvName = App.el('h2', 'mu-lv-name', '');
+    var lvShot = App.el('div', 'mu-lv-shot');
+    var lvImg = App.el('img', 'mu-lv-img');
+    lvImg.alt = '';
+    lvShot.appendChild(lvImg);
+    var lvBrief = App.el('p', 'mu-lv-brief', '');
+    var lvFoot = App.el('div', 'mu-lv-foot');
+    var lvStat = App.el('span', 'mu-lv-stat', '');
+    var lvZone = App.el('span', 'mu-lv-zone', '');
+    lvFoot.appendChild(lvStat);
+    lvFoot.appendChild(lvZone);
+    var lvGo = App.el('button', 'mu-lv-go', '进入关卡');
+    lvGo.type = 'button';
+    var lvAlt = App.el('button', 'mu-lv-alt', '先进屋看看');
+    lvAlt.type = 'button';
+    var lvX = App.el('button', 'mu-lv-x', '×');
+    lvX.type = 'button';
+    lvX.setAttribute('aria-label', '收起说明牌');
+    lv.appendChild(lvX);
+    lv.appendChild(lvHead);
+    lv.appendChild(lvName);
+    lv.appendChild(lvShot);
+    lv.appendChild(lvBrief);
+    lv.appendChild(lvFoot);
+    lv.appendChild(lvGo);
+    lv.appendChild(lvAlt);
+    wrap.appendChild(lv);
+    S.lv = {
+      box: lv, no: lvNo, kind: lvKind, name: lvName, shot: lvShot, img: lvImg,
+      brief: lvBrief, stat: lvStat, zone: lvZone, go: lvGo, alt: lvAlt, x: lvX,
+      zoneId: '', pinned: false, over: false, timer: 0, at: { x: 0, y: 0, w: 1200, h: 800 }
+    };
+    lvX.onclick = function () { hideLv(true); };
+    lvGo.onclick = function () { lvEnter(lvZoneId()); };
+    lvAlt.onclick = function () { var z = zoneById(lvZoneId()); if (z) { hideLv(true); enterZone(z.id); } };
+    lv.addEventListener('pointerenter', function () {
+      S.lv.over = true;
+      if (S.lv.timer) { clearTimeout(S.lv.timer); S.lv.timer = 0; }
+    });
+    lv.addEventListener('pointerleave', function () {
+      S.lv.over = false;
+      if (!S.lv.pinned) { hideLv(false); }
+    });
+
+    /* ---------- 黑场：进厅淡入 / 进关卡前那一下转场 ---------- */
+    var veil = App.el('div', 'mu-veil');
+    /* 建场时就压上：等 3D 就绪再化开（降级成 2D 时要记得撤掉，见 toFallback） */
+    veil.classList.add('is-on');
+    wrap.appendChild(veil);
+    S.veil = veil;
+
     /* ---------- 展签面板 ---------- */
     var panel = App.el('aside', 'mu-panel');
     panel.id = 'muPanel';
@@ -384,6 +509,7 @@
     /* Esc 关展签：键盘用户不用去够右上角那个叉 */
     S.onKey = function (e) {
       if (e.key === 'Escape' || e.keyCode === 27) {
+        if (S.lv && S.lv.pinned) { hideLv(true); return; }
         if (S.panel && S.panel.getAttribute('aria-hidden') === 'false') { closePanel(); }
       }
     };
@@ -464,6 +590,15 @@
         if (S.loading && S.loading.parentNode) { S.loading.parentNode.removeChild(S.loading); }
       }, 520);
     }
+    /* 大厅"逐渐显现"：加载层退掉之后，黑场再化开一次。
+       两个黑叠着退，看到的才是"从暗处慢慢看清一座厅"，而不是"啪一下亮"。 */
+    if (S.veil && !S.reduceMotion) {
+      setTimeout(function () {
+        if (S.veil) { S.veil.classList.remove('is-on'); }
+      }, 360);
+    } else if (S.veil) {
+      S.veil.classList.remove('is-on');
+    }
     var hint = S.wrap.querySelector('.mu-hint');
     if (hint) { setTimeout(function () { hint.classList.add('is-fade'); }, 6000); }
     if (S.pending) { var pz = S.pending; S.pending = ''; enterZone(pz); }
@@ -472,13 +607,178 @@
   }
 
   /* ---------- 交互回调 ---------- */
-  function onHover(kind) {
+  function onHover(hit) {
     if (!S.wrap) { return; }
-    S.wrap.classList.toggle('is-hot', !!kind);
+    /* 3D 那头现在回的是一个对象：{kind:'portal', zone, x, y, w, h}。
+       以前只回一个字符串（用来切光标），拿不到"是哪扇门"，
+       也就没法给每扇门挂一块说明牌。 */
+    var zone = (hit && typeof hit === 'object') ? hit.zone : null;
+    S.wrap.classList.toggle('is-hot', !!hit);
+    if (!zone) { if (!S.lv.pinned) { hideLv(false); } return; }
+    if (S.lv.pinned) { return; }
+    S.lv.at = { x: hit.x, y: hit.y, w: hit.w || 1200, h: hit.h || 800, dw: hit.dw || 0 };
+    showLv(zone);
+  }
+
+  /* 关卡状态：全部读真实进度，不写死"未开始" */
+  function lvStatus(z) {
+    var p = (App.progress && App.progress.read) ? App.progress.read() : {};
+    if (z.play === 'bone-build') {
+      var n = (p.build || []).length;
+      return n ? ('已认 ' + n + ' 字') : '未开始';
+    }
+    if (z.play === 'bone-float') {
+      var m = (p.float || []).length;
+      return m ? ('已点开 ' + m + ' / 73 片') : '未开始';
+    }
+    if (z.play === 'boss-3d') {
+      return (p.boss && p.boss.cleared) ? '已讨伐' : '未通关';
+    }
+    if (z.id === 'collection') { return '已藏 ' + seenCount() + ' 字'; }
+    return '常设陈列';
+  }
+
+  function lvZoneId() { return S.lv ? S.lv.zoneId : ''; }
+
+  /* 把说明牌填满一扇门的信息。板子永远是同一个，只换字和图 ——
+     五块牌子各建一份 DOM 的做法在低端机上会多五次布局。 */
+  function paintLv(z) {
+    var L = S.lv;
+    if (!L || !z) { return; }
+    if (L.zoneId === z.id) { L.stat.textContent = lvStatus(z); return; }
+    L.zoneId = z.id;
+    /* 有编号的写"第 0X 关"，展厅写"展区" —— 不能拿区名顶到编号位上，
+       否则上面一行区名、下面一行还是区名，同一块牌子上写两遍。 */
+    L.no.textContent = z.no || '展区';
+    L.kind.textContent = z.kind || '';
+    L.name.textContent = (z.play ? z.title : z.name);
+    L.brief.textContent = z.brief || z.note || '';
+    L.stat.textContent = lvStatus(z);
+    /* 脚注右格：展厅写它那句一句话（如「七十三格，认过的亮」）。
+       关卡不写 ——「造字探索区 / 浮空骨片区 / 守字之骨区」是这几间屋子
+       的老名字，现在门额、导览条、说明牌标题一律叫关卡名，
+       再把这行老名字挂在状态印旁边，就成了同一块牌子上三个名字。 */
+    L.zone.textContent = z.play ? '' : (z.note || '');
+    L.box.setAttribute('data-zone', z.id);
+    if (z.shot) {
+      L.img.src = z.shot;
+      L.img.alt = z.title + ' 的场景预览';
+      L.shot.removeAttribute('hidden');
+    } else {
+      L.img.removeAttribute('src');
+      L.shot.setAttribute('hidden', '');
+    }
+    L.box.setAttribute('data-play', z.play ? '1' : '0');
+    L.go.textContent = z.play ? ('进入关卡 · ' + z.title) : ('走进' + z.name);
+    /* 有 3D 屋子又有正式关卡的那一扇（目前只有造字区），多给一个"先进屋"
+       的次按钮 —— 否则点了门就只剩"去打关卡"，那间屋子等于被门挡住了。 */
+    var hasRoom = (z.id === 'build' || z.id === 'gallery' || z.id === 'collection');
+    if (hasRoom && z.play) { L.alt.removeAttribute('hidden'); }
+    else { L.alt.setAttribute('hidden', ''); }
+  }
+
+  function showLv(zone) {
+    var z = zoneById(zone);
+    if (!z || !S.lv) { return; }
+    paintLv(z);
+    var L = S.lv, a = L.at;
+    var W = 306, GAP = 26;
+    /* 从门沿往外让开半个门宽再放牌子 —— 让的是门的实际像素宽（a.dw），
+       不是视口宽：门在三十米外只有一百多像素，还按老算法直接压上去。 */
+    var half = (a.dw || 0) / 2;
+    var x = a.x + half + GAP;
+    /* 门在右半边时牌子翻到左边，别顶出画外 */
+    if (x + W > a.w - 14) { x = a.x - half - GAP - W; }
+    if (x < 14) { x = Math.max(14, Math.min(a.w - W - 14, a.x - W / 2)); }
+    /* 高度要量，不能猜：牌子在悬停态和钉住态差着「进入关卡」那一个按钮，
+       猜 340 的结果就是钉住之后按钮掉到屏幕外（1440×900 上实测过）。
+       从导览条点进来的（a.above）整块抬到按钮上方，不压住那五格。 */
+    var hv = L.box.offsetHeight || 372;
+    var y = a.above ? (a.y - hv - 14) : (a.y - 118);
+    y = Math.max(96, Math.min(a.h - hv - 16, y));
+    L.box.style.left = Math.round(x) + 'px';
+    L.box.style.top = Math.round(Math.max(96, y)) + 'px';
+    L.box.classList.add('is-on');
+    L.box.setAttribute('aria-hidden', 'false');
+    if (L.timer) { clearTimeout(L.timer); L.timer = 0; }
+  }
+
+  function hideLv(force) {
+    var L = S.lv;
+    if (!L) { return; }
+    if (L.pinned && !force) { return; }
+    if (L.over && !force) { return; }
+    /* 悬停退出给 200ms 缓一下：鼠标从门挪到牌子上时不该闪一下 */
+    if (!force) {
+      if (L.timer) { return; }
+      L.timer = setTimeout(function () {
+        L.timer = 0;
+        if (S.lv.pinned || S.lv.over) { return; }
+        S.lv.box.classList.remove('is-on');
+        S.lv.box.setAttribute('aria-hidden', 'true');
+        S.lv.zoneId = '';
+      }, 200);
+      return;
+    }
+    L.pinned = false;
+    if (L.timer) { clearTimeout(L.timer); L.timer = 0; }
+    L.box.classList.remove('is-on', 'is-pin');
+    L.box.setAttribute('aria-hidden', 'true');
+    L.zoneId = '';
+    if (S.api && S.api.closeDoors) { S.api.closeDoors(); }
+  }
+
+  /* 点门：把牌子钉住 + 推开门。不直接进关卡 ——
+     以前点了门就跳走，玩家连"这道门后面是什么"都没看清。 */
+  function openLvCard(zone, anchor) {
+    var z = zoneById(zone);
+    if (!z || !S.lv) { return; }
+    /* 从导览条点进来的没有"门在屏幕上的位置"，用按钮自己的位置当锚点，
+       牌子仍然贴着来源长出来，而不是飞到屏幕正中 */
+    if (anchor) { S.lv.at = anchor; }
+    S.lv.pinned = true;
+    paintLv(z);
+    /* 先挂 is-pin 再定位：钉住态比悬停态多一个「进入关卡」，
+       反过来的话量到的是悬停态的高度，按钮会被裁在屏幕外 */
+    S.lv.box.classList.add('is-pin');
+    showLv(zone);
+    if (S.api && S.api.openDoor) { S.api.openDoor(zone); }
+    if (App.museumAudio && App.museumAudio.click) { App.museumAudio.click(); }
+    say(z.play ? ('『' + z.title + '』——' + (z.brief || '')) : ('这就是' + z.name + '。'));
+  }
+
+  /* 确认进入：先让门开着、画面落黑，再把关卡铺上来。
+     三步走完约 1.2 秒；没有这一步，点"进入"就是一次生硬的换屏。 */
+  function lvEnter(zone) {
+    var z = zoneById(zone);
+    if (!z || S.lvBusy) { return; }
+    S.lvBusy = true;
+    hideLv(true);
+    if (S.api && S.api.openDoor) { S.api.openDoor(zone); }
+    var go = function () {
+      S.lvBusy = false;
+      if (z.play) {
+        openPlay(z.play, z.title + ' · ' + z.kind);
+      } else {
+        enterZone(z.id);
+      }
+    };
+    if (S.veil && !S.reduceMotion) {
+      S.veil.classList.add('is-on');
+      setTimeout(go, 420);
+      /* 关卡铺满之后把黑场撤掉：撤早了会闪，撤晚了"回馆"时还是一片黑 */
+      setTimeout(function () { if (S.veil) { S.veil.classList.remove('is-on'); } }, 1250);
+    } else {
+      go();
+      if (S.veil) { S.veil.classList.remove('is-on'); }
+    }
   }
 
   function onPick(hit) {
     if (!hit) { return; }
+    /* 点门以外的东西时，门上那块钉住的说明牌该收了 ——
+       否则开了展签、说明牌还压在画面上，两层信息叠着读 */
+    if (hit.type !== 'portal' && S.lv && S.lv.pinned) { hideLv(true); }
     if (App.museumAudio && (hit.type === 'exhibit' || hit.type === 'hero')) {
       App.museumAudio.click();
     }
@@ -487,7 +787,7 @@
       goHall();
       return;
     }
-    if (hit.type === 'portal') { enterZone(hit.zone); return; }
+    if (hit.type === 'portal') { openLvCard(hit.zone); return; }
     if (hit.type === 'hero') { openExhibit(hit.char || '卜', true); return; }
     if (hit.type === 'exhibit') { openExhibit(hit.char, false); return; }
     if (hit.type === 'tablet') { openTablet(); return; }
@@ -884,6 +1184,8 @@
   function enterZone(id) {
     var z = zoneById(id);
     if (!z) { return; }
+    /* 从导航条/深链进来时，门上那块说明牌该收起来了 */
+    if (S.lv && S.lv.pinned) { hideLv(true); }
 
     /* 浮空骨片区不再走"考古任务"那一层：点门就直接进骨片空间。
        （挖掘 mini-game 的代码还在，想恢复把这行删掉即可） */
@@ -1895,6 +2197,10 @@
     S.fallback = true;
     var stage = S.stage;
     if (!stage) { return; }
+    /* 降级时一定要撤黑场：3D 那条路不会再来叫 onReady，
+       黑场留在就成了一块永不消失的黑屏。 */
+    if (S.veil) { S.veil.classList.remove('is-on'); }
+    if (S.lv && S.lv.box) { S.lv.box.classList.remove('is-on'); }
     if (S.wrap) { S.wrap.setAttribute('data-fallback', '1'); }
     App.clearNode(stage);
     stage.className = 'mu-stage mu-stage-2d';

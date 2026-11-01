@@ -20,17 +20,35 @@
   /* 只在 create() 里赋值。展馆同时只会有一个实例，所以模块级持有是安全的。 */
   var T = null;
 
-  /* ---------- 展区定义（与 museum.js 共用文案键） ---------- */
+  /* ---------- 展区定义（与 museum.js 共用文案键） ----------
+     tag 是门额横匾上那一行款字：有编号的写"第 0X 关"，展厅写陈列/典藏。
+     分区名（name）不写在匾上 —— 匾上写"这是第几关"，门边的竖牌写"这是哪儿"，
+     两块牌子各管一件事，不然门面上就是两个名字打架。 */
   var ZONE_DEF = [
-    { id: 'gallery',    name: '甲骨文知识厅', glyph: '日', accent: 0xcc523b, angle: -108 },
-    { id: 'build',      name: '造字探索区', glyph: '木', accent: 0x337663, angle: -48 },
-    { id: 'excavate',   name: '考古任务区', glyph: '山', accent: 0xa58147, angle: 48 },
-    { id: 'boss',       name: 'BOSS 挑战区', glyph: '戈', accent: 0x8c3a2a, angle: 108 },
-    { id: 'collection', name: '我的典藏区', glyph: '贝', accent: 0x527d91, angle: 168 }
+    /* lv 是关卡名（与 museum.js ZONES.title 一一对应）：
+       门额上要同时写"第几关"和"叫什么"，只写编号，玩家还是不知道进去干什么。 */
+    /* angle 是门在环上的位置（0 = 正后方的 +Z，度数增加是逆时针）。
+       这一组角度是算出来的，不是摆的：镜头只在半径 18.8 的位置横着转，
+       视野横开 63°，而门开在半径 15.6 的环上 —— 一屏最多装得下两扇门。
+       所以把三关按 01→02→03 排成一段 128° 的连续弧，让其中两扇（01、02）
+       正好对称地落进默认视野，第三扇（03）紧贴右边缘、再往右拖一点就进来；
+       两个展厅挪到镜头身后的另一段弧上，不跟关卡抢中间那块地。
+       详见 docs/交接 与 HANDOFF：默认机位是 theta = 0.10。 */
+    { id: 'gallery',    name: '甲骨文知识厅', tag: '陈列', lv: '', glyph: '日', accent: 0xcc523b, angle: 292 },
+    { id: 'build',      name: '造字探索区', tag: '第 01 关', lv: '甲骨构字', glyph: '木', accent: 0x337663, angle: 228 },
+    { id: 'excavate',   name: '考古任务区', tag: '第 02 关', lv: '骨片浮生', glyph: '山', accent: 0xa58147, angle: 156 },
+    { id: 'boss',       name: 'BOSS 挑战区', tag: '第 03 关', lv: '文字讨伐', glyph: '戈', accent: 0x8c3a2a, angle: 100 },
+    { id: 'collection', name: '我的典藏区', tag: '典藏', lv: '', glyph: '贝', accent: 0x527d91, angle: 338 }
   ];
 
   var SLAB_RATIO = 1.58;  /* 骨版高宽比：甲骨多为竖长 */
+  /* 门额横匾上那个大字的方块尺寸与中心（512×256 贴图坐标）。
+     提成常量是因为还有一层"显影"要按同一组数画，差一个像素字就会跳。 */
+  var BOARD_G = 150, BOARD_GY = 101;
   var HALL_R = 15.6;      /* 展区环半径 */
+  /* 门洞尺寸。原本只写在大厅那段循环里，但 portalScreen 要拿门宽去算
+     "这扇门在屏幕上有多少像素"，所以提到模块级，两处共用一套数。 */
+  var PORTAL_W = 4.5, PORTAL_H = 5.4;
   var WALL_R = 24;        /* 外墙半径 */
   var HALL_H = 15;        /* 层高 */
   var GAL_Z = -170;       /* 甲骨文展厅放在大厅很远处，独立成组，切区不动渲染器 */
@@ -148,6 +166,18 @@
   /* 门洞里的"气"：门内没有东西可看，但地面反光会溢出来一点。
      所以贴图是**底部暖、越往上越透** —— 门因此是"通到别处去"的开口，
      而不是一块发光的板。 */
+  /* 门里的光一律往暖金上拉一把 ----------------------------------------
+     五个区各有一个主题色（朱砂 / 铜绿 / 古铜 / 暗朱 / 青灰），
+     但那是"纹样与材质"的色，不是"灯"的色。第一版直接把主题色喂给
+     门缝光、门内气和地面光斑，第一关那扇门底下就浮出一摊青绿，
+     在一屋子暖灯里像坏了。这里只留 38% 的主题色，其余全并到暖金上：
+     远看五扇门是同一种光，近看雷纹与铺首各是各的色。 */
+  function warmLight(accent) {
+    var c = new T.Color(accent);
+    c.lerp(new T.Color(0xd9a765), 0.62);
+    return c.getHex();
+  }
+
   function veilTex(accent) {
     var cv = App.museumTex.canvas(128, 128);
     var ctx = cv.getContext('2d');
@@ -269,14 +299,13 @@
 
        ⚠ 这里的位置是算出来的，不是拍的：匾内可用区是 [起线内沿, 款行上沿]。
        起线内沿 25，款行 186~216，中间 161px 全给大字；
-       取 150 居中在 y=105（上下各留 5px 呼吸）。
+       取 BOARD_G=150 居中在 BOARD_GY=101（上下各留呼吸）。
        早先写成 `size = min(W*0.50, H*0.92)` 再对到 `H*0.40`，
        算出来 235px、中心 102 → **顶端 -15，直接顶出画布**，
        匾上只剩半个字，而且款行又压在字的下半截上。 */
-    var G = 150, gy = 101;
-    var gcv = App.museumTex.canvas(G, G);
+    var gcv = App.museumTex.canvas(BOARD_G, BOARD_G);
     App.museumTex.paintGlyph(gcv, ch, { color: '#f2e3c4' });
-    c.drawImage(gcv, (W - G) / 2, gy - G / 2);
+    c.drawImage(gcv, (W - BOARD_G) / 2, BOARD_GY - BOARD_G / 2);
 
     /* 今字：匾下一行，字距拉开，像额上的款。
        这一行落在匾最暗的那一段，所以颜色要比大字更暖、更亮一点才读得出来。 */
@@ -286,6 +315,165 @@
     c.drawImage(tcv, 30, 183);
 
     return canvasTex(cv, { srgb: true });
+  }
+
+  /* ---------- 门扇 ----------
+     一扇板门：竖木板拼成，两端一道横枨，枨上压一条雷纹带（商周青铜器的
+     基本纹样，也是这里唯一能让五道门"同一套语言、各是各的屋子"的东西），
+     中间一枚铺首衔环。
+
+     为什么门钉、木纹、雷纹全画进贴图：一颗钉一个 mesh 的话，五道门 × 两扇
+     × 十几颗就是一百多个 draw call，低端机直接跪。真正留成几何的只有那枚
+     铜环（TorusGeometry 每个 96 面），因为它要靠转向去接光。
+
+     `motif` 决定雷纹的画法：0 回字 1 云雷 2 直线 3 三角 4 圆点。
+     不引入额外素材，四种画法都在 canvas 上算。 */
+  function doorLeafTex(accent, motif) {
+    var W = 256, H = 640;
+    var cv = App.museumTex.canvas(W, H);
+    var c = cv.getContext('2d');
+    var ac = '#' + ('000000' + (accent >>> 0).toString(16)).slice(-6);
+    var R = App.museumTex.rng(97 + motif * 31);
+
+    /* 板面：上略浅下略深（顶光），纵向分板。
+       ⚠ 底色不能压太低：门扇是 MeshStandardMaterial，门前又没有专门的灯，
+       全靠环境光和顶灯的余晖。第一版 #301f13→#150d06 在厅里几乎是两块黑板，
+       雷纹、铺首全看不见 —— 现在提到 #4a3220 起，并给一层很弱的自发光。 */
+    var g = c.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#4c3420');
+    g.addColorStop(0.5, '#3a2716');
+    g.addColorStop(1, '#241608');
+    c.fillStyle = g;
+    c.fillRect(0, 0, W, H);
+
+    /* 四块竖板：缝一道暗线、一侧留一道受光的亮边 */
+    var planks = 4;
+    for (var i = 1; i < planks; i++) {
+      var px = (i / planks) * W;
+      c.strokeStyle = 'rgba(0,0,0,.55)';
+      c.lineWidth = 3;
+      c.beginPath(); c.moveTo(px, 0); c.lineTo(px, H); c.stroke();
+      c.strokeStyle = 'rgba(196,160,110,.10)';
+      c.lineWidth = 1.5;
+      c.beginPath(); c.moveTo(px + 2.5, 0); c.lineTo(px + 2.5, H); c.stroke();
+    }
+    /* 木纹：十八道极淡的竖弯，别画直了，直了就成条纹布 */
+    for (var t = 0; t < 18; t++) {
+      var x0 = R() * W;
+      c.strokeStyle = 'rgba(' + (t % 2 ? '0,0,0,' : '214,178,130,') + (0.04 + R() * 0.05).toFixed(3) + ')';
+      c.lineWidth = 0.8 + R() * 1.6;
+      c.beginPath();
+      c.moveTo(x0, 0);
+      for (var y = 0; y < H; y += 64) {
+        c.lineTo(x0 + Math.sin(y * 0.011 + t) * (1.5 + R() * 2.5), y + 64);
+      }
+      c.stroke();
+    }
+
+    /* 上下横枨 */
+    [0.085, 0.905].forEach(function (fy, k) {
+      var bh = H * 0.052, by = fy * H - bh / 2;
+      c.fillStyle = k ? 'rgba(58,38,22,.95)' : 'rgba(64,42,24,.95)';
+      c.fillRect(0, by, W, bh);
+      c.strokeStyle = 'rgba(0,0,0,.6)';
+      c.lineWidth = 2;
+      c.strokeRect(0.5, by + 0.5, W - 1, bh - 1);
+      /* 枨面高光 */
+      c.fillStyle = 'rgba(226,196,148,.10)';
+      c.fillRect(0, by, W, 2);
+    });
+
+    /* 雷纹带：横枨之间、板面上下各一条 */
+    function band(cy, n, size) {
+      var step = W / n;
+      c.save();
+      c.translate(0, cy);
+      c.strokeStyle = ac;
+      /* 0.62 太跳：五个门的雷纹一起亮，像装了红灯带。0.46 是"漆上去的纹" */
+      c.globalAlpha = 0.46;
+      c.lineWidth = 2;
+      for (var i = 0; i < n; i++) {
+        var x = i * step + step / 2, s = size;
+        c.beginPath();
+        if (motif === 1) {
+          /* 云雷：回字外再套一圈弧 */
+          c.rect(x - s, -s, s * 2, s * 2);
+          c.moveTo(x + s * 0.55, 0);
+          c.arc(x, 0, s * 0.55, 0, Math.PI * 1.5);
+        } else if (motif === 2) {
+          /* 直线雷：三横一竖，最简 */
+          c.moveTo(x - s, -s * 0.5); c.lineTo(x + s, -s * 0.5);
+          c.moveTo(x - s, 0); c.lineTo(x + s, 0);
+          c.moveTo(x - s, s * 0.5); c.lineTo(x + s, s * 0.5);
+          c.moveTo(x, -s * 0.5); c.lineTo(x, s * 0.5);
+        } else if (motif === 3) {
+          /* 三角：连成锯齿 */
+          c.moveTo(x - s, s * 0.6); c.lineTo(x, -s * 0.6); c.lineTo(x + s, s * 0.6);
+        } else if (motif === 4) {
+          /* 圆点：乳钉的抽象 */
+          c.arc(x, 0, s * 0.42, 0, Math.PI * 2);
+        } else {
+          /* 回字雷纹：青铜器上最常见的那一种 */
+          c.moveTo(x - s, -s); c.lineTo(x + s, -s); c.lineTo(x + s, s);
+          c.lineTo(x - s * 0.35, s); c.lineTo(x - s * 0.35, -s * 0.35);
+          c.lineTo(x + s * 0.35, -s * 0.35);
+        }
+        c.stroke();
+      }
+      c.restore();
+    }
+    band(H * 0.155, 7, 9);
+    band(H * 0.845, 7, 9);
+
+    /* 铺首：铜盘 + 环座。环本身是几何，这里只画底座和投影 */
+    var cy0 = H * 0.50, cr = W * 0.23;
+    var rg = c.createRadialGradient(W / 2 - cr * 0.3, cy0 - cr * 0.35, cr * 0.1, W / 2, cy0, cr);
+    rg.addColorStop(0, 'rgba(118,93,55,.92)');
+    rg.addColorStop(0.55, 'rgba(72,55,30,.95)');
+    rg.addColorStop(1, 'rgba(28,20,10,.96)');
+    c.beginPath();
+    c.arc(W / 2, cy0, cr, 0, Math.PI * 2);
+    c.fillStyle = rg;
+    c.fill();
+    c.strokeStyle = 'rgba(0,0,0,.6)';
+    c.lineWidth = 2.5;
+    c.stroke();
+    c.strokeStyle = ac;
+    c.globalAlpha = 0.34;
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(W / 2, cy0, cr * 0.76, 0, Math.PI * 2);
+    c.stroke();
+    c.globalAlpha = 1;
+    /* 环挂在盘心，下面压一道影 */
+    c.fillStyle = 'rgba(0,0,0,.45)';
+    c.beginPath();
+    c.ellipse(W / 2, cy0 + cr * 0.62, cr * 0.46, cr * 0.16, 0, 0, Math.PI * 2);
+    c.fill();
+
+    /* 内缘压暗：门扇是嵌在洞里的，四边总比中间暗。
+       别压太狠（0.55 会把人看成"门是个黑洞"），0.32 够交代进深了。 */
+    var vg = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.34,
+      W / 2, H / 2, Math.max(W, H) * 0.66);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,.32)');
+    c.fillStyle = vg;
+    c.fillRect(0, 0, W, H);
+
+    return canvasTex(cv, { srgb: true, aniso: 8 });
+  }
+
+  /* 门额上那一个字的"显影层"：同一位置、同一字号，画在透明底上。
+     悬停时把它叠在匾上、透明度从 0 抬到 1 —— 字是"亮起来"的，
+     不是换一张贴图（换贴图会闪，而且五道门就是五张 512×256 的额外显存）。 */
+  function plaqueGlyphTex(ch, color) {
+    var W = 512, H = 256;
+    var cv = App.museumTex.canvas(W, H);
+    var c = cv.getContext('2d');
+    var gcv = App.museumTex.canvas(BOARD_G, BOARD_G);
+    App.museumTex.paintGlyph(gcv, ch, { color: color });
+    c.drawImage(gcv, (W - BOARD_G) / 2, BOARD_GY - BOARD_G / 2);
+    return canvasTex(cv, { srgb: true, aniso: 8 });
   }
 
   /* ---------- 骨版形状 ----------
@@ -830,14 +1018,14 @@
        有了这道墙，门才成为"墙上开的一个洞"，人一眼就知道往哪走。 */
     var partMtl = std({ color: 0x291c11, roughness: 0.86, metalness: 0.06, envMapIntensity: 0.30 });
 
-    ZONE_DEF.forEach(function (z) {
+    ZONE_DEF.forEach(function (z, zi) {
       var g = new T.Group();
       var a = z.angle * Math.PI / 180;
       g.position.set(Math.sin(a) * HALL_R, 0, Math.cos(a) * HALL_R);
       g.rotation.y = a + Math.PI;
       hall.add(g);
 
-      var PW = 4.5, PH = 5.4, PD = 0.62;
+      var PW = PORTAL_W, PH = PORTAL_H, PD = 0.62;
 
       /* 隔墙：宽 7.4、高 7.4 —— 只做"门所在的这面墙"，
          不做通顶的隔断。留着上方，柱廊与穹顶才看得见，空间才有进深。 */
@@ -885,7 +1073,7 @@
       var veil = new T.Mesh(
         new T.PlaneGeometry(PW - 0.5, PH + 0.1),
         new T.MeshBasicMaterial({
-          map: veilTex(z.accent), transparent: true,
+          map: veilTex(warmLight(z.accent)), transparent: true,
           depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending
         })
       );
@@ -907,7 +1095,7 @@
       var spill = new T.Mesh(
         new T.PlaneGeometry(5.4, 3.2),
         new T.MeshBasicMaterial({
-          map: spillTex(z.accent), transparent: true, depthWrite: false,
+          map: spillTex(warmLight(z.accent)), transparent: true, depthWrite: false,
           blending: T.AdditiveBlending
         })
       );
@@ -946,7 +1134,8 @@
          匾下一行小字写去处。所以这里把徽记换成一整块匾：
          左三分之二是甲骨大字（拓片字形，不是现画的线条），
          右三分之一竖排今字——看甲骨的人看字，看字的人看名。 */
-      var boardTex = portalBoardTex(z.glyph, z.name, z.accent);
+      var boardTex = portalBoardTex(z.glyph,
+        (z.tag || z.name) + (z.lv ? ' · ' + z.lv : ''), z.accent);
       var board = new T.Mesh(
         /* 2.20 : 1.10 = 2:1，与 512×256 贴图同比例（见 portalBoardTex 注释） */
         new T.PlaneGeometry(2.20, 1.10),
@@ -975,7 +1164,77 @@
         g.add(leg);
       });
 
-      portals.push({ def: z, group: g, veil: veil, plaque: plaque, frame: frame });
+      /* 匾上那个字的显影层：同一位置、同一字号，平时透明。
+         悬停抬到 1，字就"从石面里浮出来"——不是换贴图（换贴图会闪，
+         而且五道门就是五张多余的 512×256）。 */
+      var glow = new T.Mesh(
+        new T.PlaneGeometry(2.20, 1.10),
+        new T.MeshBasicMaterial({
+          map: plaqueGlyphTex(z.glyph, '#fff4d8'),
+          transparent: true, opacity: 0, depthWrite: false,
+          blending: T.AdditiveBlending, toneMapped: false
+        })
+      );
+      glow.position.set(0, PH + 1.36, -0.425);
+      glow.renderOrder = 5;
+      g.add(glow);
+
+      /* ---------- 门扇：两扇板门，各绕自己的门枢转 ----------
+         在此之前大厅里的"门"只是一个发光的洞 —— 没有门体，也就没有
+         "开门"这个动作。默认关着（门体完整显示），悬停开一条缝，
+         点了才真正推开（见 tick 里的 portalCur 与 api.openDoor）。 */
+      var leafW = (PW - 0.10) / 2, leafH = PH - 0.12;
+      var _leafMap = doorLeafTex(z.accent, zi % 5);
+      var leafMtl = new T.MeshStandardMaterial({
+        map: _leafMap,
+        roughness: 0.84, metalness: 0.12, envMapIntensity: 0.75,
+        /* 一层很弱的自发光：门前没灯，不给这点底光，关着的门就是两块黑板 */
+        emissive: new T.Color(0x2a1a0d), emissiveIntensity: 0.48,
+        emissiveMap: _leafMap
+      });
+      var ringMtl = new T.MeshStandardMaterial({
+        color: 0x7a5f33, roughness: 0.52, metalness: 0.80, envMapIntensity: 0.8
+      });
+      var leaves = [];
+      [-1, 1].forEach(function (s) {
+        var hinge = new T.Group();
+        hinge.position.set(s * (PW / 2 - 0.05), 0.06, -0.10);
+        var leaf = new T.Mesh(new T.BoxGeometry(leafW, leafH, 0.10), leafMtl);
+        leaf.position.set(-s * leafW / 2, leafH / 2, 0);
+        leaf.userData = { kind: 'portal', zone: z.id };
+        leaf.castShadow = !low;
+        leaf.receiveShadow = true;
+        hinge.add(leaf);
+        if (!low) {
+          /* 铜环做成几何：贴图画不出"转过去还接得住光"这件事 */
+          var ring = new T.Mesh(new T.TorusGeometry(0.21, 0.032, 8, 26), ringMtl);
+          ring.position.set(-s * leafW / 2, leafH * 0.50, 0.075);
+          hinge.add(ring);
+        }
+        g.add(hinge);
+        pickables.push(leaf);
+        leaves.push({ hinge: hinge, s: s });
+      });
+
+      /* 门缝里透出的道光：关着时藏在两扇之间，悬停/开门才亮 */
+      var seam = new T.Mesh(
+        new T.PlaneGeometry(0.16, leafH),
+        new T.MeshBasicMaterial({
+          color: 0xffd6a0, transparent: true, opacity: 0,
+          depthWrite: false, blending: T.AdditiveBlending, toneMapped: false
+        })
+      );
+      /* z 必须比门扇前脸更靠外：门扇厚 0.10、中心在 -0.10 → 前脸 -0.05。
+         第一版给 -0.055，整道缝光藏在门板后面，一点都看不见。 */
+      seam.position.set(0, 0.06 + leafH / 2, -0.02);
+      seam.renderOrder = 6;
+      g.add(seam);
+
+      portals.push({
+        def: z, group: g, veil: veil, plaque: plaque, frame: frame,
+        leaves: leaves, seam: seam, glow: glow, leafH: leafH,
+        hover: 0, open: 0, hovered: false, opening: false
+      });
     });
 
     /* ============================================================
@@ -3433,6 +3692,7 @@
     function onLeave() {
       ctrl.dragging = false;
       pointers = {};
+      for (var i = 0; i < portals.length; i++) { portals[i].hovered = false; }
       if (opt.onHover) { opt.onHover(null); }
     }
 
@@ -3477,11 +3737,62 @@
       return null;
     }
 
+    /* 门（或门额/门扇/门框）在屏幕上的位置 —— 信息面板要贴着这扇门出现，
+       而不是飘在屏幕角落。命中点给的是门的轴心，这里抬到门洞上沿附近。 */
+    var hoverPt = null, hoverPt2 = null;
+    function portalScreen(zone) {
+      var r = el.getBoundingClientRect();
+      for (var i = 0; i < portals.length; i++) {
+        var p = portals[i];
+        if (p.def.id !== zone) { continue; }
+        if (!hoverPt) { hoverPt = new T.Vector3(); }
+        if (!hoverPt2) { hoverPt2 = new T.Vector3(); }
+        p.group.getWorldPosition(hoverPt);
+        hoverPt.y += 3.6;
+        hoverPt.project(camera);
+        var cx = (hoverPt.x * 0.5 + 0.5) * r.width;
+        var cy = (-hoverPt.y * 0.5 + 0.5) * r.height;
+        /* 门洞左右两沿各投一次，量出这扇门在屏幕上有多少像素宽。
+           信息面板要"贴在门边上"，而门宽随距离变（近处满屏、远处一百来像素），
+           只按视口宽度判断翻不翻边，牌子就会压在被指的那扇门上。 */
+        var xs = [];
+        [-1, 1].forEach(function (s) {
+          p.group.localToWorld(hoverPt2.set(s * (PORTAL_W / 2), PORTAL_H * 0.62, 0));
+          hoverPt2.project(camera);
+          xs.push((hoverPt2.x * 0.5 + 0.5) * r.width);
+        });
+        return {
+          x: cx, y: cy, w: r.width, h: r.height,
+          dw: Math.abs(xs[1] - xs[0]),      /* 门在屏幕上的宽度 */
+          depth: hoverPt.z                  /* >1 表示在镜头后面 */
+        };
+      }
+      return { x: r.width / 2, y: r.height / 2, w: r.width, h: r.height, dw: 0, depth: 0 };
+    }
+
     function hover(e) {
-      if (!opt.onHover) { return; }
       var o = hitTest(e);
       el.style.cursor = o ? 'pointer' : 'grab';
-      opt.onHover(o ? (o.userData.kind === 'exhibit' ? 'exhibit' : (o.userData.zone || 'obj')) : null);
+      var zone = (o && o.userData.kind === 'portal') ? o.userData.zone : null;
+      /* 每扇门自己记一下"正被指着"，tick 里按这个值开缝、点灯 */
+      for (var i = 0; i < portals.length; i++) {
+        portals[i].hovered = (portals[i].def.id === zone);
+      }
+      if (!opt.onHover) { return; }
+      if (!zone) { opt.onHover(null); return; }
+      var pt = portalScreen(zone);
+      opt.onHover({ kind: 'portal', zone: zone, x: pt.x, y: pt.y, w: pt.w, h: pt.h, dw: pt.dw });
+    }
+
+    /* 主动把某扇门推开 / 关上（信息面板确认后由界面层调） */
+    function openDoor(zone) {
+      for (var i = 0; i < portals.length; i++) {
+        portals[i].opening = (zone == null) ? true : (portals[i].def.id === zone);
+      }
+      return zone || 'all';
+    }
+    function closeDoors() {
+      for (var i = 0; i < portals.length; i++) { portals[i].opening = false; }
     }
 
     function pickAt(e) {
@@ -3573,7 +3884,7 @@
     var area = 'hall';
 
     var AREAS = {
-      hall:       { z: 0,                  y: 3.05, dz: 0,    r: 19.0, phi: 1.43, minPhi: 0.62, maxPhi: 1.47, minR: 7.5, maxR: 27, fog: 0.020 },
+      hall:       { z: 0,                  y: 3.05, dz: 0,    r: 19.0, phi: 1.43, theta: 0.10, minPhi: 0.62, maxPhi: 1.47, minR: 7.5, maxR: 27, fog: 0.020 },
       /* 知识厅：镜头在厅中央，绕着环看；可以拉远看全厅 */
       gallery:    { z: GAL_Z - 5.6,        y: 2.9, dz: 0,     r: 9.4, phi: 1.30, minPhi: 0.66, maxPhi: 1.50, minR: 2.6, maxR: 10.2, fog: 0.022 },
       /* maxR 从 18 收到 10.2：环厅补了一圈半径 11.2 的内壁，
@@ -3599,7 +3910,7 @@
       var a = AREAS[areaId] || AREAS.hall;
       var narrow = camera.aspect < 0.95;
       var out = {
-        r: a.r, phi: a.phi, y: a.y, z: a.z, dz: a.dz,
+        r: a.r, phi: a.phi, y: a.y, z: a.z, dz: a.dz, theta: a.theta,
         minR: a.minR, maxR: a.maxR, minPhi: a.minPhi, maxPhi: a.maxPhi,
         fog: a.fog
       };
@@ -3635,7 +3946,7 @@
 
       setView({
         target: new T.Vector3(0, v.y, v.z + v.dz),
-        theta: v.theta != null ? v.theta : (id === 'hall' ? 0.16 : 0),
+        theta: v.theta != null ? v.theta : 0,
         phi: v.phi, radius: v.r,
         minPhi: v.minPhi, maxPhi: v.maxPhi, minR: v.minR, maxR: v.maxR
       });
@@ -3701,7 +4012,7 @@
       setArea(keep);
       /* 大厅多一层：把水平角也拧回正对中央展台 */
       if (keep === 'hall') {
-        ctrl.theta = ctrl.tTheta = 0.16;
+        ctrl.theta = ctrl.tTheta = AREAS.hall.theta;
         applyCamera();
       }
       return keep;
@@ -3808,12 +4119,41 @@
           }
         }
       }
-      /* 门的呼吸光：幅度很小，只是让空间"活着" */
-      if (!reduceMotion) {
-        portals.forEach(function (p, i) {
-          p.veil.material.opacity = 0.74 + Math.sin(clock.elapsedTime * 0.55 + i * 0.9) * 0.12;
-        });
-      }
+      /* ---------- 门：悬停开缝 · 点击推开 · 门额显影 ----------
+         三个量都走指数趋近（不引缓动库）：
+           hover 权重（跟手，约 0.15 秒）
+           open  权重（慢，约 1.4 秒 —— "门缓慢开启"）
+         门扇角 = open*1.42 + hover*0.06：推开 81°，悬停只开 3.4°。
+         读者看到的是"门缝亮了一下"，不是"门自己开了"——
+         动效要克制，五扇门同时动就更要克制。 */
+      portals.forEach(function (p, i) {
+        var hk = 1 - Math.pow(0.02, dt);
+        var ok = 1 - Math.pow(0.05, dt);
+        p.hover += ((p.hovered ? 1 : 0) - p.hover) * hk;
+        p.open += ((p.opening ? 1 : 0) - p.open) * ok;
+        var ang = p.open * 1.42 + p.hover * 0.06;
+        for (var li = 0; li < p.leaves.length; li++) {
+          var L = p.leaves[li];
+          L.hinge.rotation.y = -L.s * ang;
+        }
+        /* 门缝：常亮一线 + 极慢的呼吸（"门体轻微动态"就是这一下）。
+           五道门各有一条暖线，大厅才有节奏；全靠悬停才亮，站在厅里就是五块木板。 */
+        var breathe = reduceMotion ? 0 : Math.sin(clock.elapsedTime * 0.82 + i * 1.3);
+        if (p.seam) {
+          var flick = reduceMotion ? 1 : (0.84 + Math.sin(clock.elapsedTime * 1.7 + i) * 0.16);
+          p.seam.material.opacity = Math.min(1,
+            0.16 + breathe * 0.05 + p.open * 0.90 + p.hover * 0.60) * flick;
+        }
+        /* 门额上的字：平时只有一点余温，悬停才真正亮起来 */
+        if (p.glow) {
+          p.glow.material.opacity = Math.min(1,
+            0.07 + breathe * 0.03 + p.hover * 0.90 + p.open * 0.22);
+        }
+        /* 门内那层"气"：门关着时被门挡住，就别再算它的呼吸了 */
+        var vis = Math.max(p.open, p.hover * 0.30);
+        p.veil.visible = vis > 0.02;
+        p.veil.material.opacity = vis * (0.74 + Math.sin(clock.elapsedTime * 0.55 + i * 0.9) * 0.12);
+      });
 
       /* ---------- 附区里的小动作 ---------- */
       if (!reduceMotion && area === 'boss') {
@@ -4091,6 +4431,21 @@
 
       /* 自查用：拿到场景根（探针要把某个 mesh 的世界包围盒量出来） */
       scene: function () { return scene; },
+
+      /* 门：界面层确认要进这间屋子时推开它（不开就是悬停那条细缝） */
+      openDoor: openDoor,
+      closeDoors: closeDoors,
+      doorState: function () {
+        return portals.map(function (p) {
+          return {
+            zone: p.def.id,
+            hover: +p.hover.toFixed(3), open: +p.open.toFixed(3),
+            ang: +(p.leaves[0].hinge.rotation.y).toFixed(3),
+            seam: p.seam ? +p.seam.material.opacity.toFixed(3) : -1,
+            glow: p.glow ? +p.glow.material.opacity.toFixed(3) : -1
+          };
+        });
+      },
 
       /* 自查用：中央那件现在刻的是哪个字、换到第几个、过渡进行到哪儿 */
       hero: function () {

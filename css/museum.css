@@ -159,6 +159,25 @@ body.mu-lock { overflow: hidden; }
 }
 .mu-chip.is-on .mu-chip-glyph { color: var(--cinnabar-hi); }
 
+/* 关卡号：一个指甲盖大的朱砂小印，压在关名前面。
+   导览条上这三格是"关"不是"厅"，得让人一眼看出来 ——
+   数字比写"第几关"省一半宽度，五格才排得进一条。 */
+.mu-chip-no {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 17px; height: 17px; flex: 0 0 17px;
+  border-radius: 3px;
+  border: 1px solid rgba(204,82,59,.55);
+  background: rgba(204,82,59,.14);
+  color: var(--cinnabar-hi, #e0705a);
+  font-family: var(--font-sans); font-size: 10px; font-weight: 700;
+  line-height: 1; letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.mu-chip.is-lv .mu-chip-name { color: rgba(238,228,204,.86); }
+.mu-chip.is-lv:hover .mu-chip-name,
+.mu-chip.is-lv.is-on .mu-chip-name { color: var(--on-dark); }
+.mu-chip.is-lv:hover .mu-chip-no { border-color: rgba(204,82,59,.85); background: rgba(204,82,59,.24); }
+
 /* ============================================================================
    操作提示
    ========================================================================= */
@@ -974,3 +993,200 @@ body.mu-play-lock .mu-vignette { visibility: hidden; }
 .mu-index-mid span { font-size: 11.5px; color: var(--ink-soft); }
 .mu-index-st { font-size: 11px; letter-spacing: .12em; color: var(--ink-soft); flex: 0 0 auto; }
 .mu-index-st.is-on { color: var(--cinnabar-text); }
+
+/* ============================================================
+   关卡说明牌（悬停门时浮出 / 点门后钉住）
+   ------------------------------------------------------------
+   不做成网页弹窗：不给圆角阴影卡片的"浮层感"，给的是一块立在展柜
+   边上的说明牌 —— 直角、古铜细边、深墨底、标题用衬线字。
+   层级顺序按说明牌该有的读法排：编号 → 名称 → 场景图 → 简介 → 状态 → 进入。
+   ============================================================ */
+.mu-lv {
+  position: absolute;
+  z-index: 62;
+  width: 306px;
+  padding: 13px 15px 14px;
+  box-sizing: border-box;
+  border: 1px solid rgba(165, 129, 71, .52);
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, rgba(30, 21, 13, .95) 0%, rgba(15, 10, 6, .97) 100%);
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, .62),
+    0 0 0 1px rgba(0, 0, 0, .5),
+    inset 0 1px 0 rgba(255, 232, 196, .10);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  color: var(--on-dark);
+  opacity: 0;
+  transform: translateY(7px) scale(.985);
+  transition: opacity .22s cubic-bezier(.2, .7, .3, 1),
+              transform .26s cubic-bezier(.2, .7, .3, 1);
+  pointer-events: none;
+  text-align: left;
+}
+.mu-lv.is-on { opacity: 1; transform: none; pointer-events: auto; }
+/* 四角的小铜角码：说明牌压在柜面上的那种"装具"感 */
+.mu-lv::before,
+.mu-lv::after {
+  content: "";
+  position: absolute;
+  width: 11px; height: 11px;
+  border: 1px solid rgba(195, 156, 95, .75);
+  pointer-events: none;
+}
+.mu-lv::before { left: -1px; top: -1px; border-right: 0; border-bottom: 0; }
+.mu-lv::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
+
+.mu-lv-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 7px;
+}
+/* 钉住时右上角多一颗叉，标题行要让出 16px，否则叉压在类型徽标上 */
+.mu-lv.is-pin .mu-lv-head { padding-right: 16px; }
+.mu-lv-no {
+  font-size: 10.5px; letter-spacing: .20em;
+  color: var(--bronze-hi, #c39c5f);
+  text-transform: uppercase;
+}
+.mu-lv-kind {
+  margin-left: auto;
+  font-size: 10px; letter-spacing: .14em;
+  color: #e9b7a6;
+  padding: 1px 7px;
+  border: 1px solid rgba(204, 82, 59, .48);
+  background: rgba(204, 82, 59, .13);
+  white-space: nowrap;
+}
+.mu-lv-name {
+  margin: 0 0 10px;
+  font-family: "Songti SC", "Noto Serif SC", "Source Han Serif SC", serif;
+  font-size: 21px; font-weight: 600; letter-spacing: .10em;
+  color: var(--on-dark);
+  line-height: 1.25;
+}
+.mu-lv-shot {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid rgba(165, 129, 71, .34);
+  background: #0d0906;
+}
+.mu-lv-shot[hidden] { display: none; }
+.mu-lv-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 图压一层暖调暗角：截图是 3D 现场，明度比牌子高，不压会"跳出来" */
+.mu-lv-shot::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(120% 90% at 50% 40%, rgba(0,0,0,0) 45%, rgba(8,5,3,.62) 100%);
+  pointer-events: none;
+}
+.mu-lv-brief {
+  margin: 10px 0 9px;
+  font-size: 12.5px; line-height: 1.78;
+  color: var(--on-dark-2, rgba(255,250,240,.78));
+}
+.mu-lv-foot {
+  display: flex; align-items: center; gap: 8px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(165, 129, 71, .26);
+}
+/* 状态用朱砂印：一块小方块，像盖在展签上的"已看"戳 */
+.mu-lv-stat {
+  font-size: 10.5px; letter-spacing: .10em;
+  color: #f0c3b2;
+  padding: 2px 8px;
+  border: 1px solid rgba(204, 82, 59, .62);
+  background: rgba(204, 82, 59, .16);
+  white-space: nowrap;
+}
+.mu-lv-zone {
+  margin-left: auto;
+  font-size: 10.5px; letter-spacing: .10em;
+  color: var(--on-dark-3, rgba(255,250,240,.56));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* 关卡牌上没有这一格（见 museum.js paintLv），空着就不要占位 */
+.mu-lv-zone:empty { display: none; }
+
+/* 进入按钮：只在"钉住"之后出现 —— 悬停只是看，点了才算决定 */
+.mu-lv-go, .mu-lv-alt, .mu-lv-x { display: none; }
+.mu-lv-go {
+  width: 100%; margin-top: 11px;
+  align-items: center; justify-content: center;
+  height: 38px;
+  font: inherit; font-size: 13px; letter-spacing: .16em;
+  color: #f7ecd8;
+  background: linear-gradient(180deg, rgba(168, 120, 62, .30), rgba(96, 62, 30, .34));
+  border: 1px solid rgba(195, 156, 95, .68);
+  border-radius: 1px;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+.mu-lv.is-pin .mu-lv-go { display: flex; }
+.mu-lv-go:hover {
+  background: linear-gradient(180deg, rgba(204, 82, 59, .42), rgba(120, 44, 32, .46));
+  border-color: rgba(227, 104, 75, .82);
+  color: #fff6e8;
+}
+.mu-lv-alt {
+  width: 100%; margin-top: 6px;
+  height: 26px;
+  font: inherit; font-size: 11.5px; letter-spacing: .14em;
+  color: var(--on-dark-3, rgba(255,250,240,.56));
+  background: none; border: 0; cursor: pointer;
+}
+.mu-lv.is-pin .mu-lv-alt:not([hidden]) { display: block; }
+.mu-lv-alt:hover { color: var(--on-dark); }
+.mu-lv.is-pin .mu-lv-x { display: block; }
+.mu-lv-x {
+  position: absolute; right: 6px; top: 5px;
+  width: 22px; height: 22px; line-height: 20px;
+  font-size: 15px;
+  color: var(--on-dark-3, rgba(255,250,240,.56));
+  background: none; border: 0; cursor: pointer;
+  padding: 0;
+}
+.mu-lv-x:hover { color: var(--on-dark); }
+/* 钉住时把牌子抬高一档：它现在是"正在做决定"的那块 */
+.mu-lv.is-pin {
+  box-shadow:
+    0 26px 60px rgba(0, 0, 0, .70),
+    0 0 0 1px rgba(165, 129, 71, .30),
+    0 0 34px rgba(168, 120, 62, .16),
+    inset 0 1px 0 rgba(255, 232, 196, .14);
+}
+
+/* 黑场：进厅淡入 / 进关卡前的转场 */
+.mu-veil {
+  position: absolute; inset: 0;
+  z-index: 70;
+  background: #07050a;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .52s ease;
+}
+.mu-veil.is-on { opacity: 1; pointer-events: auto; }
+
+/* 竖屏：牌子落到底部，别去挤那几扇门的画面 */
+@media (max-width: 720px) {
+  .mu-lv {
+    left: 10px !important;
+    right: 10px;
+    top: auto !important;
+    /* 底栏在手机上会折成两行（约 91px），写死 76px 会压住它 15px。
+       用量出来的 --stack-h，导览条折成几行都不挡。 */
+    bottom: calc(var(--stack-h, 92px) + 8px);
+    width: auto;
+    max-height: 62vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .mu-lv-name { font-size: 18px; }
+  .mu-lv-shot { aspect-ratio: 2 / 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mu-lv, .mu-veil { transition: none; }
+}
