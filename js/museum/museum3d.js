@@ -1896,7 +1896,7 @@
     heroSlab.mats[0].roughness = 0.84;
     /* 骨版改成跟着镜头转之后，顶光不再总是正面照着它 —— 转到背光面
        会暗成一块黑。抬一点自发光，任何角度都还看得出是骨、读得出字。 */
-    heroSlab.mats[0].emissiveIntensity = 0.36;
+    heroSlab.mats[0].emissiveIntensity = 0.40;
     hero.add(heroSlab.mesh);
     heroSlab.mesh.userData.kind = 'hero';
     heroSlab.mesh.userData.zone = 'gallery';
