@@ -1892,3 +1892,274 @@ python tools/finalize_ghost.py --sheet                             :: 定稿 + �
   待定（字墙格子太小，塞不下；大展签可以）。
 - 第二关那六片的 3D 实物（`propShan` 等六个函数）仍然留着但没启用
   （`SHOW_3D_PROP = false`），要不要挑几片恢复成"真 3D"另说。
+
+## 7.22 本轮（**当前状态**）：全站甲骨字换成拓片真形 · 拆柱子 · 门套与门额 · 悬挂骨片
+
+### 7.22.1 问题：全站的"甲骨文"其实是霓虹灯管
+
+用户连着提了两轮：「把网站里的甲骨文都替换成真实甲骨字形 不用艺术字可以吗」→
+「不是，是收集网上的甲骨文字形资源」。前一句我最初理解成"调渲染参数"（改色、去发光），
+用户第二句才把方向拨正：**要换数据源**，不是换画法。
+
+病根在数据层。站内七十三字一直是 `js/core/glyph-parts.json` 里的 JGW 参数骨架：
+每个字是若干条带宽度的**折线**，渲染时按 `lineWidth` 描边。JGW 的设计目标是
+**字形计算**（拆字、笔画聚类、部首部件），所以笔画是中心线、等宽、端点圆头 ——
+画出来必然像霓虹灯管、像钢笔字帖，唯独不像刀刻。
+
+用户在第三句补了一刀：「大厅中央的那个展台甲骨字用甲骨片展示」，
+第四句给了参照：「https://mp.weixin.qq.com/s/aU90ccdk7bkEAR7oyeU3TA 参考这篇文章」——
+方正甲骨文字体，1430 字，**直接源自甲骨原拓片**，字面是宾组风格。
+这是"拓片 → 字库"的路子，跟我们要做的事一模一样。
+
+### 7.22.2 数据源：`hanzi-glyphs-svg`
+
+`zhouyongh/hanzi-glyphs-svg`，甲骨层 `glyphs/oracle` 共 **13,956 件**。
+两套来源并存，每件都带 `src`：
+
+| 来源 | 许可 | 是什么 |
+|---|---|---|
+| 汉典 zdic.net 甲骨拓片摹本 | CC0 1.0 | 真拓片描摹出的**闭合轮廓**（`fill` 用，不是 `stroke`） |
+| JGW 数据集（Joint Glyph Workshop） | CC BY 4.0 | 参数化骨架 |
+
+汉典那批带 `variant` 字段，比如 `日乙3400 合1285 賓組` —— 是**《合集》著录号 + 组类**，
+等于每件字形都能追到具体一片甲骨。这一点比"某字体"值钱得多。
+
+只拉需要的目录，仓库 390MB 不用全下：
+
+```bash
+git clone --filter=blob:none --no-checkout https://github.com/zhouyongh/hanzi-glyphs-svg
+cd hanzi-glyphs-svg && git sparse-checkout set glyphs/oracle && git checkout
+```
+
+`tools/import_rubbings.py` 做三件事：
+
+- 站内七十三字逐字找形，**优先取有 `variant` 的汉典摹本**，找不到再退 JGW 骨架；
+- 每字留 1~3 种写法（`d` 数组，索引即 `index`），最终七十三字共 **593 件**；
+- `d` 的坐标压到 2 位小数（原串动辄十几位），产出 `js/core/_rubbings.js`（686KB）。
+
+繁体要单独对账，否则"门""贝"两字会静默丢形：
+
+```python
+TRAD = {'门': '門', '贝': '貝'}
+```
+
+对完 **73 字缺 0**。`meta` 里写清 CC0 1.0 / CC BY 4.0 与上游地址，
+`App.glyphRubbings = {meta, chars}`，每字 `[{d, src, batch}]`。
+
+### 7.22.3 坑 36：拓片 path 是**相对指令**，包围盒不能从 `d` 里抠数字
+
+第一版 `rawBox(d)` 拿正则把 `d` 里的数字全捞出来算 min/max，想着"坐标都在 0~400 之间"。
+结果一片狼藉：「日」顶满画布、「人」被压成一条竖线、「虎」小到看不见。
+
+原因是拓片 SVG 用的是 `m/c/l` **小写（相对）指令**，后面的数字是**增量**不是绝对坐标。
+把它们当坐标配对，算出来的包围盒跟字毫无关系。
+
+修法：不要解析，**画一遍实测**。`js/core/rubbings.js` 的 `measure(ch, i)`：
+
+```js
+var S = 256, k = S / VB;                     // VB = 400，viewBox 边长
+// 画到 256² 离屏 canvas，取 alpha≥40 的像素包络
+// 宽高各留 1.5px 余量，结果按 k 反算回 400 制
+```
+
+73 字全部测完 **47ms**，一次性算完常驻 `App.rubbings.box`。
+`paint()` 再用 `max(b.w, b.h)` 归一化，把包围盒**中心**对到 `(x, y)` ——
+这样「一」和「龘」在同一个 `size` 下视觉大小才一致。
+
+`weight` 参数走 `lineWidth = weight / k` 描边加厚，因为有些拓片轮廓细得像发丝，
+200px 的匾额上会直接消失。
+
+### 7.22.4 5 处 2D 渲染点：全部改走 `paintGlyph` / `carveAt`
+
+站内画甲骨字的地方共 5 处（骨面刻辞、字墙、门楣徽记、展签、匾额），
+本来各写各的 `strokeGlyph`。全部收敛到 `museum-tex.js` 这一个入口：
+
+- `paintGlyph(cv, ch, o)`：先试 `App.rubbings.paint`（`size = cv.width * (o.scale||0.84)`），
+  失败（该字无拓片）才回落 `strokeGlyph`。**口径必须是 `cv.width`**，
+  与 `strokeGlyph` 的 `cv.width/100` 一致，否则竖版画布上的字会被放大。
+- `carveAt(ctx, ch, ...)`：中央骨版、构件立牌走的是这条（它要画三层刻痕）。
+  开头加拓片分支，三层结构保留：
+
+  ```js
+  if (App.rubbings && App.rubbings.has(ch)) {
+    var base = { x: cx, y: cy, size: size, index: opt.index || 0 };
+    function layer(color, w) { App.rubbings.paint(ctx, ch, {...base, color, weight: w}); }
+    if (mode === 'bump') { layer('rgba(0,0,0,.88)', size*0.026); return true; }
+    layer('rgba(46,34,20,.70)',  size*0.020);            // 槽底
+    layer('rgba(28,21,13,.98)',  size*0.006);            // 本体
+    ctx.globalCompositeOperation = 'lighter';
+    layer('rgba(255,249,236,.26)', size*0.005);          // 槽口受光
+    ctx.globalCompositeOperation = 'source-over';
+    return true;
+  }
+  ```
+
+  **槽底比本体宽 3 倍多**是关键：单层实心字看着像贴纸，先铺一层宽而淡的"崩口"、
+  再压一层窄而实的"刻痕"，才有刀切进骨头的厚度。
+- 坑 37：`carveAt` 一开始**绕过了** `paintGlyph`，所以全站都换了、中央展台还是骨架描边。
+  以后再加渲染点，认 `paintGlyph` / `carveAt` 这两个口子。
+- `mainSize` 从 `Math.min(W,H) * 1.18` 改成 `* 0.72`。1.18 是配骨架调的
+  （骨架自身留白多，放大才填满）；拓片的包围盒是**实测紧贴笔画**的，
+  1.18 会让字四边全都撑出画布，只剩中间半个。
+
+### 7.22.5 中央展台：真骨片 + 钻凿
+
+用户第三句要"甲骨片展示"。两处改：
+
+1. **`HERO_USE_GLB_BONE = false`。** `assets/models/oracle-bone.glb`（256KB）
+   是规整的长方骨牌，边缘平直、四角方正 —— 那是"博物馆标签"不是甲骨。
+   改用程序化 `boneGeometry`：p-范数 7 的方角（避免圆角显得塑料）、
+   三段平滑崩口、上宽下窄收腰。
+2. **加钻凿。** 甲骨的身份特征不是"骨头上刻字"，是**钻 + 灼 + 裂**那一列小坑。
+   有意思的是「卜」字本身就是裂纹的象形 —— 坑和字是同一件事。
+   `paintDrills(ctx, w, h, seed, opt)` 沿竖版右缘 `x ≈ 0.815w`、`y 0.13~0.77h` 排五处，
+   每处四层：灼烧晕（径向渐变）→ 凹坑（暗心）→ 坑沿（上侧高光、下侧暗边）→ 放射灼裂。
+   `slabBase(opt)` 里 `if (o.drills) paintDrills(...)`，`heroBase` 传 `drills: {n: 5}`。
+
+### 7.22.6 拆柱子 + 悬挂骨片：把体积感交给空气
+
+用户：「大厅的柱子可以去掉」。原先是 12 根 `CylinderGeometry` 列柱加柱头柱础，
+作用只是"撑住屋顶"，但 3D 里屋顶本来就靠光照和雾交代，柱子纯属堵视线。
+
+`colMtl / colGeo / capGeo / baseGeo` 与 `COL_N` 循环整体删除（留一段注释说明），
+**壁柱保留** —— 壁柱贴着墙，不挡中庭。删完大厅一眼望到底，七个门变成主角。
+
+空出来的体积，用**悬挂骨片**填：
+
+- 8 片（`low` 画质 5 片），半径 `6.2 + R2()*4.6`，高度 `3.6 + R2()*5.4`，
+  尺寸 `0.62 + R2()*0.42`；
+- `makeSlab(ch, {size:1, texSize:256, ratio:SLAB_RATIO, cracks: i%3===0})`，
+  每三片带裂纹；
+- 吊绳 `CylinderGeometry(0.0055, 0.0055, wireLen, 4)`、`opacity 0.30`；
+- tick 里各自慢转 + 上下浮动：`hg.g.rotation.y += dt * hg.sp`、
+  `hg.g.position.y = hg.base + Math.sin(t*0.42 + hg.ph) * 0.10`。
+
+坑 38：**朝向要算反过来的**。第一版 `holder.rotation.y = -ang` 让所有骨片背面朝人
+（骨面贴图在 +z，转到背面就只剩一片灰）。正确写法是转到**背对圆心**：
+
+```js
+holder.rotation.y = Math.atan2(-Math.cos(ang), -Math.sin(ang));
+```
+
+同一轮还有两个数调过：半径原本 `7.2 + R2()*9.4`（最远 16.6，飘到门外去了），
+压到 `6.2 + R2()*4.6`；数量 12 → 8，尺寸 `0.42+0.40` → `0.62+0.42`
+（数量少、单片大，才像挂着的骨，不像撒了一把纸屑）。
+
+### 7.22.7 门：Blender 生成门套 + 门额横匾
+
+用户：「每个门通向的关卡名称做成艺术效果在门上或者门前展示 门也做的艺术性一点 调用 blender」。
+
+`tools/build_portal.py`，Blender 4.5.10 LTS 无头跑：
+
+```bash
+blender -b --factory-startup --python tools/build_portal.py
+```
+
+产出 `assets/models/portal.glb`，**89,548 B**。构成：
+
+- 门洞 `PW, PH, PD = 4.5, 5.4, 0.62`；
+- **三层退台门套**，逐层往外扩（`PW+1.55 / PH+1.05` → `+1.02 / +0.70` → `+0.60 / +0.42`），
+  每层用**四块 box 围洞**，不用布尔运算（布尔在无头环境下容易出非流形，导出后 three 里
+  会看到黑面）；
+- 收分门柱（`taper = 0.055`，上细下粗）+ 斗 + 柱础 + 三道浅凹槽；
+- 月梁门楣、两层挑檐；
+- **两道铜箍**（门楣下沿、柱头）—— 木构里"箍"是结构件，加两道立刻不像纸模；
+- 门枕石、门槛。
+
+导出前 `bpy.ops.object.join()` 合批成单个 mesh：门有七套，不合批就是七份 draw call。
+
+坑 39：`wipe()` 不能清 `bpy.data.materials`。清了会把模块级共享材质一起删掉，
+后面任何一次 `mat.foo` 都抛 `ReferenceError: StructRNA of type Material has been removed`。
+`wipe()` 只清 meshes / objects。
+
+**接入**：遍历 `portals`，`g.clone(true)` → `p.group.add(inst)`，
+旧的 pier/lintel/sill 收进 `frame = []` 后 `visible = false`
+（不删，留着当兜底，GLB 加载失败时还能看见门）。
+`o.userData = {kind:'portal', zone: p.def.id}` 保证点击命中。
+
+**门额横匾** `portalBoardTex(ch, name, accent)`，512×256：
+
+- 深褐石渐变 + 26 道竖纹 + 两端压暗 + 双圈起线（铜色 `ac`）；
+- 匾心拓片大字：**单独开 256² 画布**跑 `paintGlyph` 再 `drawImage` 贴到
+  `((W-size)/2, H*0.40 - size/2)`，`size = min(W*0.50, H*0.92)`。
+  不能直接在 512×256 上画 —— `paintGlyph` 按 `cv.width` 定字号，
+  横匾上会被拉成满宽；
+- 今字款 `textCanvas(name, {w:W-60, h:46, size:26, color:'#c9b48c', tracking:1.55})`。
+
+挂载：`PlaneGeometry(2.46, 1.10)`、`position(0, PH + 1.27, -0.54)`，
+两根匾脚 `BoxGeometry(0.10, 0.30, 0.26)`、`rotation.x = -0.24`。
+
+坑 40：横匾尺寸试了三轮。`2.68×1.34 @ PH+1.34` 会被挑檐**切断上半截**；
+再往墙里推又**压到墙上**看不到边。最后 `2.46×1.10 @ PH+1.27, z=-0.54` 才卡在挑檐下沿。
+
+### 7.22.8 第二关的字：白色贴图 × 材质色
+
+第二关骨片浮出的字原本是金色加色混合（`0xffc27a` + `AdditiveBlending` +
+`opacity 0.36` + `emissive 0.55`），在照片虚影上糊成一团光斑。
+
+改 `glyphPlateMesh(ch, size, z)`：256² canvas 画**白色**拓片 →
+`MeshBasicMaterial({map, color: 0x2a1c10, transparent, depthWrite: false,
+opacity: 0.03, toneMapped: false, fog: false})`，`renderOrder 3`，
+`userData.isGlyph = true`，`_glyphTexCache[ch]` 常驻。
+
+**为什么画白色**：three 的 `MeshBasicMaterial` 里 `map` 与 `color` 是**相乘**的。
+贴图画深褐、`color` 再怎么调亮也提不上去（深色 × 亮 = 还是深）。
+贴图纯白，颜色就完全交给材质 —— 一张图两用：平时 `0x2a1c10`（浅骨色刻痕），
+`setGlyphGhostMode` 时换 `0xf0e2c6` 且提到虚影**前面**（`m.position.z = gz + 0.014`）
++ `opacity 0.86` + `NormalBlending` + `renderOrder 8`，离场还原 `layerZ`。
+
+顺手把 `setGlyphGlow` 的调用值全部归零（`0.45→0.05`、`0.10→0`）：
+字本身已经是拓片，再加自发光就又回到霓虹灯管了。
+
+### 7.22.9 顺带修掉的"霓虹感"
+
+- `world-glyph.js`（王邑里立着的字）：`simplify` 阈值 `max(0.5, hwRaw*0.45)` →
+  `max(0.16, hwRaw*0.18)`，圆弧不再被折成多边形；笔宽 `max(hwRaw*k+0.006, 0.032)` →
+  `max(hwRaw*k+0.004, 0.019)`（全宽 6.4% → 3.8%）；端帽从半圆改成**凿口钝尖**
+  （两侧 0.56 宽、前伸 0.34、中点 0.72，带 `flip` 保证点序）；挤出
+  `depth 0.085→0.030`、`bevelThickness 0.020→0.006`、`roughness 0.62→0.88`、`metalness 0.08→0.02`。
+- `boss3d.js`：两处 `glyphMesh` 的 `emissive 0xffb264 → 0xffce93`、`glow 0.22→0.06` / `0.16→0.10`。
+
+### 7.22.10 实测
+
+- `_check/rub1.png` 32 字原样出图；`_check/rub3.png` 整改包围盒后 73 字
+  大小均匀、47ms 测完。
+- 大厅：`_check/hall1.png` → `hall5.png`（无柱子 → 中央真骨片 → 8 片悬骨）。
+- 门：`_check/gate1.png` → `gate3.png`（Blender 门套 → 横匾坐在挑檐上）。
+- 第二关：`_check/bf_rub1.png` → `bf_rub4.png`（白色贴图 → 浅骨色刻痕压在照片上可读）。
+- `dev/_syntax_probe.js` 全绿；换行符检查 `CRCRLF` 全为 0
+  （`world-glyph.js` 仍是 CRLF 但无重复回车）。
+
+### 7.22.11 门额复查：三个毛病叠在一起（本轮补做）
+
+`_check/gate3.png` 里左右两门的门额看着"只露上半截"。补了这一轮才查清，不是一个原因，
+是三个毛病叠在一起 —— 现场看像"被画面上缘切掉"，其实一个都不是切：
+
+1. **贴图本身就把字画出了画布。** `size = Math.min(W*0.50, H*0.92)` = 235，
+   再对到 `y = H*0.40 = 102.4`，字的上沿是 `102.4 - 117.5 = -15` —— **顶出画布 15px**，
+   匾上只剩半个字。同时款行放在 `H*0.615 = 157`，正好压在字的下半截上。
+   改成算出来的数：大字 `G=150`、中心 `y=101`（26~176），款行 `y=183`、高 32（183~215）。
+2. **匾和挑檐、隔墙都咬在一起。** 匾高 1.10、中心 `PH+1.27=6.67` → 下沿 6.12，
+   而挑檐顶板封顶在 **6.14** —— 下沿钻进檐里 2 厘米；`z=-0.54` 又正好等于隔墙前脸
+   （隔墙 `z=-0.72`、厚 0.36），两个面共面，近处是一层花斑。
+   改成中心 `PH+1.36=6.76`（6.21~7.31，上下各留 7~9 厘米）、`z=-0.44`（离墙 10 厘米）。
+3. **匾自己太黑，观众以为被切了。** 贴图下端收到 `#140d07`，跟大厅墙面几乎同色；
+   这块匾是 `MeshBasicMaterial`（**不吃灯，贴图就是最终亮度**），于是"匾的下半截没了"，
+   款字像浮在空气里。渐变改成 `#4a3620 → #2e2114 → #1d140c`，款字 `#e6cfa4`。
+
+顺带：平面从 `2.46×1.10`（2.24:1）改成 `2.20×1.10`（**正好 2:1**），
+与 512×256 贴图同比例 —— 之前那 12% 的横向拉伸会让甲骨字变形，"拉宽的字就不是那个字了"。
+匾脚也跟着落到檐顶板上（`PH+0.82`、`z=-0.52`）。
+
+**自查的两个口子**（这轮新开，都只给探针用）：`api().cam({theta, phi, radius, target})`
+直接落位机位（门额挂在 6.7 米高，靠拖拽贴不到门口）、`api().scene()` 拿场景根量包围盒。
+实测结论：匾的世界包围盒 `y 6.21~7.31`，同高度带里**没有任何遮挡物** ——
+所以"被切掉"从头到尾都是贴图和明度的问题，不是几何。
+把匾的 canvas 摊到页面上单看（`_check/plaque_tex.png`）确认：框、石面、大字、款字都在位。
+
+### 7.22.12 待办
+
+- 拓片只覆盖站内 73 字。新增字要先跑 `tools/import_rubbings.py`，
+  没有拓片的字会静默回落骨架（`paintGlyph` 的 fallback），
+  界面上看不出差别，容易一直用着骨架而不知道。
+- 悬挂骨片目前是固定的 8 片字表，没跟"已集齐/未集齐"联动；要不要只挂未收集的字，另说。

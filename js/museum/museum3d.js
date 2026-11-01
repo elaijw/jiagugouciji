@@ -194,7 +194,8 @@
   }
 
   /* ---------- 门额横匾 ----------
-     一块 2.68×1.34 米的匾，贴图 512×256（同比例，不拉扁）。
+     一块 2.20×1.10 米的匾，贴图 512×256（**正好 2:1，与平面同比例**，
+     否则匾上的甲骨大字会被横向拉宽 —— 拉宽的字就不是那个字了）。
      匾上除了字什么都没有的话，它就是一块贴着字的板；
      所以四件事一起做：起线（外深内浅两圈）、石面（竖向纹理 + 两端压暗）、
      铜边（用该分区的强调色）、匾脚（在外面用几何做，见 portal 循环）。
@@ -215,11 +216,14 @@
       c.closePath();
     }
 
-    /* 匾体：深褐石，上浅下深（顶光打下来的样子） */
+    /* 匾体：深褐石，上浅下深（顶光打下来的样子）。
+       ⚠ 下端不能太黑：这块匾是 MeshBasicMaterial（不吃灯），贴图就是最终亮度。
+       原来收到 #140d07，跟大厅墙面几乎同色 —— 观众看到的是"匾的下半截没了"，
+       款字像浮在空气里。下端定在 #1d140c，留一条能看见的边。 */
     var g = c.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#3a2a1a');
-    g.addColorStop(0.42, '#241a10');
-    g.addColorStop(1, '#140d07');
+    g.addColorStop(0, '#4a3620');
+    g.addColorStop(0.45, '#2e2114');
+    g.addColorStop(1, '#1d140c');
     c.fillStyle = g;
     rr(4, 4, W - 8, H - 8, 12);
     c.fill();
@@ -261,17 +265,25 @@
 
     /* 甲骨大字：匾心的主角。
        单独开一张方形画布画好再贴进来 —— paintGlyph 是按画布铺满画的，
-       直接画在这张横长的匾上会被拉宽。 */
-    var size = Math.min(W * 0.50, H * 0.92);
-    var gcv = App.museumTex.canvas(size, size);
-    App.museumTex.paintGlyph(gcv, ch, { color: '#f2e3c4' });
-    c.drawImage(gcv, (W - size) / 2, H * 0.40 - size / 2);
+       直接画在这张横长的匾上会被拉宽。
 
-    /* 今字：匾下一行，字距拉开，像额上的款 */
+       ⚠ 这里的位置是算出来的，不是拍的：匾内可用区是 [起线内沿, 款行上沿]。
+       起线内沿 25，款行 186~216，中间 161px 全给大字；
+       取 150 居中在 y=105（上下各留 5px 呼吸）。
+       早先写成 `size = min(W*0.50, H*0.92)` 再对到 `H*0.40`，
+       算出来 235px、中心 102 → **顶端 -15，直接顶出画布**，
+       匾上只剩半个字，而且款行又压在字的下半截上。 */
+    var G = 150, gy = 101;
+    var gcv = App.museumTex.canvas(G, G);
+    App.museumTex.paintGlyph(gcv, ch, { color: '#f2e3c4' });
+    c.drawImage(gcv, (W - G) / 2, gy - G / 2);
+
+    /* 今字：匾下一行，字距拉开，像额上的款。
+       这一行落在匾最暗的那一段，所以颜色要比大字更暖、更亮一点才读得出来。 */
     var tcv = App.museumTex.textCanvas(name, {
-      w: W - 60, h: 46, size: 26, color: '#c9b48c', tracking: 1.55
+      w: W - 60, h: 32, size: 24, color: '#e6cfa4', tracking: 1.55
     });
-    c.drawImage(tcv, 30, H * 0.615);
+    c.drawImage(tcv, 30, 183);
 
     return canvasTex(cv, { srgb: true });
   }
@@ -936,23 +948,29 @@
          右三分之一竖排今字——看甲骨的人看字，看字的人看名。 */
       var boardTex = portalBoardTex(z.glyph, z.name, z.accent);
       var board = new T.Mesh(
-        new T.PlaneGeometry(2.46, 1.10),
+        /* 2.20 : 1.10 = 2:1，与 512×256 贴图同比例（见 portalBoardTex 注释） */
+        new T.PlaneGeometry(2.20, 1.10),
         new T.MeshBasicMaterial({
           map: boardTex, transparent: true, depthWrite: false, toneMapped: false
         })
       );
-      /* 匾坐在挑檐之上（檐顶 y≈PH+0.74，匾底 PH+0.72）：
-         再往下就压到檐口，再往上就顶到隔墙的顶（7.4 米）。 */
-      board.position.set(0, PH + 1.27, -0.54);
+      /* 匾挂在挑檐之上、隔墙之下，上下各留 7~9 厘米：
+         檐顶 y = PH+0.74（挑檐 + 檐顶板两层封顶），隔墙顶 7.4。
+         匾高 1.10 → 中心必须落在 PH+1.30 ~ PH+1.44 之间，
+         取 1.36（匾底 6.21 / 檐顶 6.14 ；匾顶 7.31 / 墙顶 7.40）。
+         早先给 PH+1.27 时匾底 6.12 **低于檐顶 6.14**，下沿被挑檐切掉一条；
+         z 又正好压在隔墙前脸（隔墙 z=-0.72、厚 0.36 → 前脸 -0.54）上，
+         两个面共面，近处看是一层花斑。所以 z 提到 -0.44，让匾离开墙面 10 厘米。 */
+      board.position.set(0, PH + 1.36, -0.44);
       board.userData = { kind: 'portal', zone: z.id };
       g.add(board);
       pickables.push(board);
 
       /* 匾脚：两根短牛腿，把横匾从墙上"托"出来 —— 平贴的匾是贴纸，
-         有了脚才是挂在门上的构件。 */
+         有了脚才是挂在门上的构件。落在匾底两角、檐顶板上（6.14）。 */
       [-1, 1].forEach(function (s) {
         var leg = new T.Mesh(new T.BoxGeometry(0.10, 0.30, 0.26), portalFrameMtl);
-        leg.position.set(s * 1.12, PH + 0.80, -0.62);
+        leg.position.set(s * 1.02, PH + 0.82, -0.52);
         leg.rotation.x = -0.24;
         g.add(leg);
       });
@@ -4046,6 +4064,33 @@
           signY: bSign ? +bSign.position.y.toFixed(2) : -1
         };
       },
+
+      /* 自查 / 截图用：把机位直接落到位（不带阻尼）。
+         为什么需要它：门额挂在 PH+1.27 米，大厅最小半径 7.5，
+         靠拖拽怎么都贴不到门口，验"门额上的字读不读得出来"只能靠这个。 */
+      cam: function (o) {
+        if (o) {
+          if (o.target) {
+            ctrl.target.set(o.target[0], o.target[1], o.target[2]);
+            ctrl.tTarget.copy(ctrl.target);
+          }
+          if (o.theta != null) { ctrl.theta = ctrl.tTheta = o.theta; }
+          if (o.phi != null) { ctrl.phi = ctrl.tPhi = o.phi; }
+          if (o.radius != null) { ctrl.radius = ctrl.tRadius = o.radius; }
+          applyCamera();
+        }
+        return {
+          theta: +ctrl.theta.toFixed(3), phi: +ctrl.phi.toFixed(3),
+          radius: +ctrl.radius.toFixed(2),
+          target: [+ctrl.target.x.toFixed(2), +ctrl.target.y.toFixed(2), +ctrl.target.z.toFixed(2)],
+          pos: [+camera.position.x.toFixed(2), +camera.position.y.toFixed(2),
+            +camera.position.z.toFixed(2)],
+          fov: +camera.fov.toFixed(1)
+        };
+      },
+
+      /* 自查用：拿到场景根（探针要把某个 mesh 的世界包围盒量出来） */
+      scene: function () { return scene; },
 
       /* 自查用：中央那件现在刻的是哪个字、换到第几个、过渡进行到哪儿 */
       hero: function () {
